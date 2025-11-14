@@ -1,7 +1,7 @@
 {
-  "name": "backend",
+  "name": "voidsteps-backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "VoidSteps - Backend API for tracking paths and steps",
   "main": "dist/index.js",
   "scripts": {
     "start": "node dist/index.js",

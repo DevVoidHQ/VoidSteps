@@ -4,6 +4,7 @@ import type { Step, Path } from "@/types/index";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Plus,
   Check,
@@ -19,6 +20,7 @@ import {
 type TabType = 'today' | 'steps' | 'paths';
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const [steps, setSteps] = useState<Step[]>([]);
   const [paths, setPaths] = useState<Path[]>([]);
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
@@ -184,6 +186,9 @@ export default function Dashboard() {
     <div className="space-y-6">
       {/* Header */}
       <div className="text-center space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Welcome, Aneesh
+        </p>
         <h1 className="text-4xl font-bold">Today</h1>
         <p className="text-muted-foreground">
           {new Date().toLocaleDateString("en-US", {
@@ -198,30 +203,30 @@ export default function Dashboard() {
         <div className="flex justify-center space-x-1 pt-2">
           <button
             onClick={() => setActiveTab('today')}
-            className={`px-4 py-2 font-medium transition-colors border-b-2 ${
+            className={`px-4 py-2 transition-all duration-150 font-medium ${
               activeTab === 'today'
-                ? 'border-primary text-foreground'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
+                ? 'border-b-2 border-white text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             Today
           </button>
           <button
             onClick={() => setActiveTab('steps')}
-            className={`px-4 py-2 font-medium transition-colors border-b-2 ${
+            className={`px-4 py-2 transition-all duration-150 font-medium ${
               activeTab === 'steps'
-                ? 'border-primary text-foreground'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
+                ? 'border-b-2 border-white text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             Steps
           </button>
           <button
             onClick={() => setActiveTab('paths')}
-            className={`px-4 py-2 font-medium transition-colors border-b-2 ${
+            className={`px-4 py-2 transition-all duration-150 font-medium ${
               activeTab === 'paths'
-                ? 'border-primary text-foreground'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
+                ? 'border-b-2 border-white text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             Paths
@@ -232,39 +237,6 @@ export default function Dashboard() {
       {/* Tab Content */}
       {activeTab === 'today' && (
         <div className="space-y-4">
-          {/* Quick Add */}
-          <div className="space-y-2">
-            <Input
-              placeholder="Step title..."
-              value={quickAddValue}
-              onChange={(e) => setQuickAddValue(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleQuickAdd()}
-            />
-            <Input
-              placeholder="Description (optional)..."
-              value={stepDescValue}
-              onChange={(e) => setStepDescValue(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleQuickAdd()}
-            />
-            <div className="flex space-x-2">
-              <select
-                className="flex-1 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={stepPathValue}
-                onChange={(e) => setStepPathValue(e.target.value)}
-              >
-                <option value="">No Path</option>
-                {paths.map((path) => (
-                  <option key={path._id} value={path._id}>
-                    {path.title}
-                  </option>
-                ))}
-              </select>
-              <Button onClick={handleQuickAdd} disabled={!quickAddValue.trim()}>
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-
           {/* Priority Steps */}
           {prioritySteps.length > 0 ? (
             <div className="space-y-2">

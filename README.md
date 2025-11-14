@@ -1,53 +1,53 @@
-# DevVoid Personal Tracker
+# VoidSteps
 
-A personal task and goal tracking application with a beautiful dark UI inspired by devvoid.org.
+Track your paths and steps through your journey with a beautiful dark UI.
 
 ## Features
 
-- **Task Management**
-  - Create, update, and delete tasks
-  - Add optional subtasks to break down complex tasks
-  - Set priority levels (low, medium, high)
-  - Add due dates
-  - Mark tasks as completed
-  - Recurring tasks (daily, weekly, monthly, yearly)
+- **Step Management**
+  - Create, update, and delete steps
+  - Add optional substeps to break down complex steps
+  - Prioritize steps for today
+  - Mark steps as completed
+  - Recurring steps (daily, weekly, monthly, yearly)
 
-- **Goal Tracking**
-  - Create and manage goals
-  - Link tasks to goals
-  - Visualize progress with completion statistics
-  - Track which tasks contribute to each goal
+- **Path Tracking**
+  - Create and manage paths (your goals/journeys)
+  - Link steps to paths
+  - Track which steps contribute to each path
 
 - **Authentication**
   - Simple JWT-based authentication
   - Single hardcoded user (no registration needed)
 
 - **UI/UX**
-  - Dark theme with blue accents from devvoid.org
+  - Dark theme with beautiful spiral logo
+  - Minimal, clean interface
+  - Tab-based navigation (Today, Steps, Paths)
   - Responsive design
-  - Clean, modern interface with shadcn/ui
-  - Progress bars and visual indicators
 
 ## Project Structure
 
 ```
-personal-tracker/
+voidsteps/
 ├── backend/          # Node.js + Express + MongoDB
 │   ├── src/
 │   │   ├── config/   # Database configuration
-│   │   ├── models/   # Mongoose models
-│   │   ├── routes/   # API routes
+│   │   ├── models/   # Mongoose models (Step, Path)
+│   │   ├── routes/   # API routes (/steps, /paths)
 │   │   ├── middleware/ # Auth middleware
-│   │   └── index.js  # Entry point
+│   │   └── index.ts  # Entry point
 │   └── .env          # Environment variables
 │
 └── frontend/         # React + TypeScript + Vite
+    ├── public/
+    │   └── logo.png  # VoidSteps logo
     ├── src/
     │   ├── components/ # Reusable UI components
     │   ├── contexts/   # React contexts (Auth)
     │   ├── lib/        # Utilities and API client
-    │   ├── pages/      # Page components
-    │   ├── types/      # TypeScript types
+    │   ├── pages/      # Page components (Dashboard, Login)
+    │   ├── types/      # TypeScript types (Step, Path)
     │   └── App.tsx     # Main app component
     └── .env            # Environment variables
 ```
@@ -150,13 +150,13 @@ pnpm build
 - Axios for API calls
 - Lucide React for icons
 
-## Color Palette (from devvoid.org)
+## Color Palette
 
 - Background: `#000000` (Black)
 - Text: `#f8f8f8` (Off-white)
 - Primary: `#76a0f2` (Blue)
 - Primary Dark: `#1d52ba` (Dark Blue)
-- Accent: `#003cd8` (Darker Blue)
+- Accent: Cyan and Purple spiral in logo
 
 ## License
 

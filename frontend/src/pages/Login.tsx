@@ -1,28 +1,34 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setIsLoading(true);
 
     try {
       await login(email, password);
-      navigate('/');
+      navigate("/");
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Invalid credentials');
+      setError(err.response?.data?.error || "Invalid credentials");
     } finally {
       setIsLoading(false);
     }
@@ -31,12 +37,12 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-bg-dark p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-3xl font-bold text-center bg-gradient-to-r from-primary to-primary-dark bg-clip-text text-transparent">
-            DevVoid Tracker
+        <CardHeader className="space-y-3">
+          <CardTitle className="text-3xl font-bold text-center">
+            VoidSteps
           </CardTitle>
           <CardDescription className="text-center">
-            Enter your credentials to access your tasks
+            Track your paths and steps
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -48,7 +54,7 @@ export default function Login() {
               <Input
                 id="email"
                 type="email"
-                placeholder="email@devvoid.org"
+                placeholder="your@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -69,11 +75,9 @@ export default function Login() {
                 disabled={isLoading}
               />
             </div>
-            {error && (
-              <div className="text-sm text-destructive">{error}</div>
-            )}
+            {error && <div className="text-sm text-destructive">{error}</div>}
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Logging in...' : 'Login'}
+              {isLoading ? "Logging in..." : "Login"}
             </Button>
           </form>
         </CardContent>
