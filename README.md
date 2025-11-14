@@ -78,7 +78,9 @@ MONGODB_URL=your_mongodb_connection_string
 JWT_SECRET=your_secret_key
 USER_EMAIL=aneeshbhat@devvoid.org
 USER_PASSWORD=VoidEmpire@2030
+FRONTEND_URL=http://localhost:5173,https://your-production-domain.com
 ```
+Note: `FRONTEND_URL` is optional. Defaults to localhost:5173, localhost:3000, localhost:4173. For production, add your frontend URL (comma-separated for multiple).
 
 4. Start the backend:
 ```bash
