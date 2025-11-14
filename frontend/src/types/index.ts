@@ -1,4 +1,4 @@
-export interface Goal {
+export interface Path {
   _id: string;
   title: string;
   description?: string;
@@ -6,20 +6,20 @@ export interface Goal {
   updatedAt: string;
 }
 
-export interface Subtask {
+export interface Substep {
   _id: string;
   title: string;
   completed: boolean;
   createdAt: string;
 }
 
-export interface Task {
+export interface Step {
   _id: string;
   title: string;
   description?: string;
   completed: boolean;
-  subtasks: Subtask[];
-  goalId?: Goal | null;
+  substeps: Substep[];
+  pathId?: Path | null;
   recurring: {
     enabled: boolean;
     frequency?: 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -27,7 +27,7 @@ export interface Task {
     nextOccurrence?: string;
   };
   dueDate?: string;
-  priority: 'low' | 'medium' | 'high';
+  prioritizedToday: boolean;
   createdAt: string;
   updatedAt: string;
 }

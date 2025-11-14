@@ -1,18 +1,18 @@
 import mongoose, { Document, Schema, Types } from 'mongoose';
 
-export interface ISubtask {
+export interface ISubstep {
   _id?: Types.ObjectId;
   title: string;
   completed: boolean;
   createdAt: Date;
 }
 
-export interface ITask {
+export interface IStep {
   title: string;
   description?: string;
   completed: boolean;
-  subtasks: ISubtask[];
-  goalId?: Types.ObjectId | null;
+  substeps: ISubstep[];
+  pathId?: Types.ObjectId | null;
   recurring: {
     enabled: boolean;
     frequency?: 'daily' | 'weekly' | 'monthly' | 'yearly' | null;
@@ -20,14 +20,14 @@ export interface ITask {
     nextOccurrence?: Date | null;
   };
   dueDate?: Date | null;
-  priority: 'low' | 'medium' | 'high';
+  prioritizedToday: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
 
-export interface ITaskDocument extends ITask, Document {}
+export interface IStepDocument extends IStep, Document {}
 
-const subtaskSchema = new Schema<ISubtask>({
+const substepSchema = new Schema<ISubstep>({
   title: {
     type: String,
     required: true,
@@ -43,7 +43,7 @@ const subtaskSchema = new Schema<ISubtask>({
   }
 });
 
-const taskSchema = new Schema<ITaskDocument>({
+const stepSchema = new Schema<IStepDocument>({
   title: {
     type: String,
     required: true,
@@ -57,10 +57,10 @@ const taskSchema = new Schema<ITaskDocument>({
     type: Boolean,
     default: false
   },
-  subtasks: [subtaskSchema],
-  goalId: {
+  substeps: [substepSchema],
+  pathId: {
     type: Schema.Types.ObjectId,
-    ref: 'Goal',
+    ref: 'Path',
     default: null
   },
   recurring: {
@@ -86,10 +86,9 @@ const taskSchema = new Schema<ITaskDocument>({
     type: Date,
     default: null
   },
-  priority: {
-    type: String,
-    enum: ['low', 'medium', 'high'],
-    default: 'medium'
+  prioritizedToday: {
+    type: Boolean,
+    default: false
   },
   createdAt: {
     type: Date,
@@ -101,9 +100,9 @@ const taskSchema = new Schema<ITaskDocument>({
   }
 });
 
-taskSchema.pre('save', function(next) {
+stepSchema.pre('save', function(next) {
   this.updatedAt = new Date();
   next();
 });
 
-export default mongoose.model<ITaskDocument>('Task', taskSchema);
+export default mongoose.model<IStepDocument>('Step', stepSchema);

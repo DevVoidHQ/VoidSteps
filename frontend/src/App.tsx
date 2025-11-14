@@ -2,8 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/Layout';
 import Login from '@/pages/Login';
-import Tasks from '@/pages/Tasks';
-import Goals from '@/pages/Goals';
+import Dashboard from '@/pages/Dashboard';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -47,17 +46,7 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Layout>
-              <Tasks />
-            </Layout>
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/goals"
-        element={
-          <PrivateRoute>
-            <Layout>
-              <Goals />
+              <Dashboard />
             </Layout>
           </PrivateRoute>
         }

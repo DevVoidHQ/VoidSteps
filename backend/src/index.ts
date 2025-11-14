@@ -5,8 +5,8 @@ import connectDB from './config/database';
 
 // Import routes
 import authRoutes from './routes/auth';
-import taskRoutes from './routes/tasks';
-import goalRoutes from './routes/goals';
+import stepRoutes from './routes/steps';
+import pathRoutes from './routes/paths';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '5050', 10);
@@ -31,8 +31,8 @@ connectDB();
 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/tasks', taskRoutes);
-app.use('/api/goals', goalRoutes);
+app.use('/api/steps', stepRoutes);
+app.use('/api/paths', pathRoutes);
 
 // Health check
 app.get('/api/health', (_req: Request, res: Response): void => {

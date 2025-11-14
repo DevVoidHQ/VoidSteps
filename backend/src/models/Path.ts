@@ -1,15 +1,15 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
-export interface IGoal {
+export interface IPath {
   title: string;
   description?: string;
   createdAt: Date;
   updatedAt: Date;
 }
 
-export interface IGoalDocument extends IGoal, Document {}
+export interface IPathDocument extends IPath, Document {}
 
-const goalSchema = new Schema<IGoalDocument>({
+const pathSchema = new Schema<IPathDocument>({
   title: {
     type: String,
     required: true,
@@ -29,9 +29,9 @@ const goalSchema = new Schema<IGoalDocument>({
   }
 });
 
-goalSchema.pre('save', function(next) {
+pathSchema.pre('save', function(next) {
   this.updatedAt = new Date();
   next();
 });
 
-export default mongoose.model<IGoalDocument>('Goal', goalSchema);
+export default mongoose.model<IPathDocument>('Path', pathSchema);
