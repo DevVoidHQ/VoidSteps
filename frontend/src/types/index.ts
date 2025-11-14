@@ -26,7 +26,6 @@ export interface Step {
     interval?: number;
     nextOccurrence?: string;
   };
-  dueDate?: string;
   prioritizedToday: boolean;
   createdAt: string;
   updatedAt: string;

@@ -10,10 +10,10 @@ import {
   X,
   ChevronDown,
   ChevronRight,
-  Calendar,
   Repeat,
   Star,
   Target,
+  Pencil,
 } from "lucide-react";
 
 type TabType = 'today' | 'steps' | 'paths';
@@ -24,7 +24,18 @@ export default function Dashboard() {
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<TabType>('today');
   const [quickAddValue, setQuickAddValue] = useState("");
+  const [stepDescValue, setStepDescValue] = useState("");
+  const [stepPathValue, setStepPathValue] = useState("");
   const [pathAddValue, setPathAddValue] = useState("");
+  const [pathDescValue, setPathDescValue] = useState("");
+  const [editingPath, setEditingPath] = useState<string | null>(null);
+  const [editPathForm, setEditPathForm] = useState({ title: "", description: "" });
+  const [editingStep, setEditingStep] = useState<string | null>(null);
+  const [editStepForm, setEditStepForm] = useState({
+    title: "",
+    description: "",
+    pathId: "",
+  });
 
   useEffect(() => {
     fetchSteps();
@@ -41,13 +52,33 @@ export default function Dashboard() {
     setPaths(res.data);
   };
 
-  const createPath = async (title: string) => {
+  const createPath = async (title: string, description?: string) => {
     try {
-      await api.post("/paths", { title });
+      await api.post("/paths", { title, description: description || "" });
       fetchPaths();
     } catch (error) {
       console.error("Error creating path:", error);
     }
+  };
+
+  const updatePath = async (id: string, title: string, description: string) => {
+    try {
+      await api.put(`/paths/${id}`, { title, description });
+      fetchPaths();
+      setEditingPath(null);
+    } catch (error) {
+      console.error("Error updating path:", error);
+    }
+  };
+
+  const startEditPath = (path: Path) => {
+    setEditingPath(path._id);
+    setEditPathForm({ title: path.title, description: path.description || "" });
+  };
+
+  const cancelEditPath = () => {
+    setEditingPath(null);
+    setEditPathForm({ title: "", description: "" });
   };
 
   const deletePath = async (id: string) => {
@@ -55,16 +86,42 @@ export default function Dashboard() {
     fetchPaths();
   };
 
-  const createStep = async (title: string) => {
+  const createStep = async (title: string, description?: string, pathId?: string) => {
     try {
       await api.post("/steps", {
         title,
+        description: description || "",
+        pathId: pathId || null,
         prioritizedToday: false,
       });
       fetchSteps();
     } catch (error) {
       console.error("Error creating step:", error);
     }
+  };
+
+  const updateStep = async (id: string, updates: Partial<Step>) => {
+    try {
+      await api.put(`/steps/${id}`, updates);
+      fetchSteps();
+      setEditingStep(null);
+    } catch (error) {
+      console.error("Error updating step:", error);
+    }
+  };
+
+  const startEditStep = (step: Step) => {
+    setEditingStep(step._id);
+    setEditStepForm({
+      title: step.title,
+      description: step.description || "",
+      pathId: typeof step.pathId === 'object' && step.pathId ? step.pathId._id : (step.pathId as string) || "",
+    });
+  };
+
+  const cancelEditStep = () => {
+    setEditingStep(null);
+    setEditStepForm({ title: "", description: "", pathId: "" });
   };
 
   const toggleStep = async (id: string) => {
@@ -104,15 +161,18 @@ export default function Dashboard() {
 
   const handleQuickAdd = () => {
     if (quickAddValue.trim()) {
-      createStep(quickAddValue.trim());
+      createStep(quickAddValue.trim(), stepDescValue.trim(), stepPathValue);
       setQuickAddValue("");
+      setStepDescValue("");
+      setStepPathValue("");
     }
   };
 
   const handlePathAdd = () => {
     if (pathAddValue.trim()) {
-      createPath(pathAddValue.trim());
+      createPath(pathAddValue.trim(), pathDescValue.trim());
       setPathAddValue("");
+      setPathDescValue("");
     }
   };
 
@@ -173,17 +233,36 @@ export default function Dashboard() {
       {activeTab === 'today' && (
         <div className="space-y-4">
           {/* Quick Add */}
-          <div className="flex space-x-2">
+          <div className="space-y-2">
             <Input
-              placeholder="Add a step..."
+              placeholder="Step title..."
               value={quickAddValue}
               onChange={(e) => setQuickAddValue(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && handleQuickAdd()}
-              className="flex-1"
             />
-            <Button onClick={handleQuickAdd} disabled={!quickAddValue.trim()}>
-              <Plus className="w-4 h-4" />
-            </Button>
+            <Input
+              placeholder="Description (optional)..."
+              value={stepDescValue}
+              onChange={(e) => setStepDescValue(e.target.value)}
+              onKeyPress={(e) => e.key === "Enter" && handleQuickAdd()}
+            />
+            <div className="flex space-x-2">
+              <select
+                className="flex-1 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={stepPathValue}
+                onChange={(e) => setStepPathValue(e.target.value)}
+              >
+                <option value="">No Path</option>
+                {paths.map((path) => (
+                  <option key={path._id} value={path._id}>
+                    {path.title}
+                  </option>
+                ))}
+              </select>
+              <Button onClick={handleQuickAdd} disabled={!quickAddValue.trim()}>
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
 
           {/* Priority Steps */}
@@ -193,6 +272,7 @@ export default function Dashboard() {
                 <StepCard
                   key={step._id}
                   step={step}
+                  paths={paths}
                   onToggle={toggleStep}
                   onDelete={deleteStep}
                   onTogglePriority={togglePriority}
@@ -200,6 +280,12 @@ export default function Dashboard() {
                   onToggleSubstep={toggleSubstep}
                   onToggleExpanded={toggleExpanded}
                   isExpanded={expandedSteps.has(step._id)}
+                  isEditing={editingStep === step._id}
+                  editForm={editStepForm}
+                  onStartEdit={startEditStep}
+                  onCancelEdit={cancelEditStep}
+                  onSaveEdit={updateStep}
+                  onEditFormChange={(updates) => setEditStepForm({ ...editStepForm, ...updates })}
                 />
               ))}
             </div>
@@ -222,6 +308,7 @@ export default function Dashboard() {
                   <StepCard
                     key={step._id}
                     step={step}
+                    paths={paths}
                     onToggle={toggleStep}
                     onDelete={deleteStep}
                     onTogglePriority={togglePriority}
@@ -229,6 +316,12 @@ export default function Dashboard() {
                     onToggleSubstep={toggleSubstep}
                     onToggleExpanded={toggleExpanded}
                     isExpanded={expandedSteps.has(step._id)}
+                    isEditing={editingStep === step._id}
+                    editForm={editStepForm}
+                    onStartEdit={startEditStep}
+                    onCancelEdit={cancelEditStep}
+                    onSaveEdit={updateStep}
+                    onEditFormChange={(updates) => setEditStepForm({ ...editStepForm, ...updates })}
                   />
                 ))}
               </div>
@@ -240,17 +333,36 @@ export default function Dashboard() {
       {activeTab === 'steps' && (
         <div className="space-y-4">
           {/* Quick Add */}
-          <div className="flex space-x-2">
+          <div className="space-y-2">
             <Input
-              placeholder="Add a step..."
+              placeholder="Step title..."
               value={quickAddValue}
               onChange={(e) => setQuickAddValue(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && handleQuickAdd()}
-              className="flex-1"
             />
-            <Button onClick={handleQuickAdd} disabled={!quickAddValue.trim()}>
-              <Plus className="w-4 h-4" />
-            </Button>
+            <Input
+              placeholder="Description (optional)..."
+              value={stepDescValue}
+              onChange={(e) => setStepDescValue(e.target.value)}
+              onKeyPress={(e) => e.key === "Enter" && handleQuickAdd()}
+            />
+            <div className="flex space-x-2">
+              <select
+                className="flex-1 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={stepPathValue}
+                onChange={(e) => setStepPathValue(e.target.value)}
+              >
+                <option value="">No Path</option>
+                {paths.map((path) => (
+                  <option key={path._id} value={path._id}>
+                    {path.title}
+                  </option>
+                ))}
+              </select>
+              <Button onClick={handleQuickAdd} disabled={!quickAddValue.trim()}>
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
 
           {/* Priority Steps */}
@@ -265,6 +377,7 @@ export default function Dashboard() {
                   <StepCard
                     key={step._id}
                     step={step}
+                    paths={paths}
                     onToggle={toggleStep}
                     onDelete={deleteStep}
                     onTogglePriority={togglePriority}
@@ -272,6 +385,12 @@ export default function Dashboard() {
                     onToggleSubstep={toggleSubstep}
                     onToggleExpanded={toggleExpanded}
                     isExpanded={expandedSteps.has(step._id)}
+                    isEditing={editingStep === step._id}
+                    editForm={editStepForm}
+                    onStartEdit={startEditStep}
+                    onCancelEdit={cancelEditStep}
+                    onSaveEdit={updateStep}
+                    onEditFormChange={(updates) => setEditStepForm({ ...editStepForm, ...updates })}
                   />
                 ))}
               </div>
@@ -287,6 +406,7 @@ export default function Dashboard() {
                   <StepCard
                     key={step._id}
                     step={step}
+                    paths={paths}
                     onToggle={toggleStep}
                     onDelete={deleteStep}
                     onTogglePriority={togglePriority}
@@ -294,6 +414,12 @@ export default function Dashboard() {
                     onToggleSubstep={toggleSubstep}
                     onToggleExpanded={toggleExpanded}
                     isExpanded={expandedSteps.has(step._id)}
+                    isEditing={editingStep === step._id}
+                    editForm={editStepForm}
+                    onStartEdit={startEditStep}
+                    onCancelEdit={cancelEditStep}
+                    onSaveEdit={updateStep}
+                    onEditFormChange={(updates) => setEditStepForm({ ...editStepForm, ...updates })}
                   />
                 ))}
               </div>
@@ -311,6 +437,7 @@ export default function Dashboard() {
                   <StepCard
                     key={step._id}
                     step={step}
+                    paths={paths}
                     onToggle={toggleStep}
                     onDelete={deleteStep}
                     onTogglePriority={togglePriority}
@@ -318,6 +445,12 @@ export default function Dashboard() {
                     onToggleSubstep={toggleSubstep}
                     onToggleExpanded={toggleExpanded}
                     isExpanded={expandedSteps.has(step._id)}
+                    isEditing={editingStep === step._id}
+                    editForm={editStepForm}
+                    onStartEdit={startEditStep}
+                    onCancelEdit={cancelEditStep}
+                    onSaveEdit={updateStep}
+                    onEditFormChange={(updates) => setEditStepForm({ ...editStepForm, ...updates })}
                   />
                 ))}
               </div>
@@ -329,17 +462,25 @@ export default function Dashboard() {
       {activeTab === 'paths' && (
         <div className="space-y-4">
           {/* Quick Add Path */}
-          <div className="flex space-x-2">
+          <div className="space-y-2">
             <Input
-              placeholder="Add a path..."
+              placeholder="Path title..."
               value={pathAddValue}
               onChange={(e) => setPathAddValue(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handlePathAdd()}
-              className="flex-1"
+              onKeyPress={(e) => e.key === "Enter" && !e.shiftKey && handlePathAdd()}
             />
-            <Button onClick={handlePathAdd} disabled={!pathAddValue.trim()}>
-              <Plus className="w-4 h-4" />
-            </Button>
+            <div className="flex space-x-2">
+              <Input
+                placeholder="Description (optional)..."
+                value={pathDescValue}
+                onChange={(e) => setPathDescValue(e.target.value)}
+                onKeyPress={(e) => e.key === "Enter" && handlePathAdd()}
+                className="flex-1"
+              />
+              <Button onClick={handlePathAdd} disabled={!pathAddValue.trim()}>
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
 
           {/* Paths Grid */}
@@ -348,24 +489,61 @@ export default function Dashboard() {
               {paths.map((path) => (
                 <Card key={path._id} className="hover:border-primary/50 transition-colors">
                   <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h3 className="font-medium">{path.title}</h3>
-                        {path.description && (
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {path.description}
-                          </p>
-                        )}
+                    {editingPath === path._id ? (
+                      <div className="space-y-2">
+                        <Input
+                          placeholder="Path title"
+                          value={editPathForm.title}
+                          onChange={(e) => setEditPathForm({ ...editPathForm, title: e.target.value })}
+                        />
+                        <Input
+                          placeholder="Description (optional)"
+                          value={editPathForm.description}
+                          onChange={(e) => setEditPathForm({ ...editPathForm, description: e.target.value })}
+                        />
+                        <div className="flex space-x-2">
+                          <Button
+                            size="sm"
+                            onClick={() => updatePath(path._id, editPathForm.title, editPathForm.description)}
+                            disabled={!editPathForm.title.trim()}
+                          >
+                            Save
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={cancelEditPath}>
+                            Cancel
+                          </Button>
+                        </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => deletePath(path._id)}
-                        className="h-7 w-7 p-0 flex-shrink-0"
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
+                    ) : (
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h3 className="font-medium">{path.title}</h3>
+                          {path.description && (
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {path.description}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex space-x-1 flex-shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => startEditPath(path)}
+                            className="h-7 w-7 p-0"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deletePath(path._id)}
+                            className="h-7 w-7 p-0"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -385,6 +563,7 @@ export default function Dashboard() {
 
 interface StepCardProps {
   step: Step;
+  paths: Path[];
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   onTogglePriority: (id: string, current: boolean) => void;
@@ -392,10 +571,17 @@ interface StepCardProps {
   onToggleSubstep: (stepId: string, substepId: string) => void;
   onToggleExpanded: (stepId: string) => void;
   isExpanded: boolean;
+  isEditing: boolean;
+  editForm: { title: string; description: string; pathId: string };
+  onStartEdit: (step: Step) => void;
+  onCancelEdit: () => void;
+  onSaveEdit: (id: string, updates: Partial<Step>) => void;
+  onEditFormChange: (updates: Partial<{ title: string; description: string; pathId: string }>) => void;
 }
 
 function StepCard({
   step,
+  paths,
   onToggle,
   onDelete,
   onTogglePriority,
@@ -403,7 +589,60 @@ function StepCard({
   onToggleSubstep,
   onToggleExpanded,
   isExpanded,
+  isEditing,
+  editForm,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  onEditFormChange,
 }: StepCardProps) {
+  if (isEditing) {
+    return (
+      <Card className="border-primary/50">
+        <CardContent className="p-3 space-y-2">
+          <Input
+            placeholder="Step title"
+            value={editForm.title}
+            onChange={(e) => onEditFormChange({ title: e.target.value })}
+          />
+          <Input
+            placeholder="Description (optional)"
+            value={editForm.description}
+            onChange={(e) => onEditFormChange({ description: e.target.value })}
+          />
+          <select
+            className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+            value={editForm.pathId}
+            onChange={(e) => onEditFormChange({ pathId: e.target.value })}
+          >
+            <option value="">No Path</option>
+            {paths.map((path) => (
+              <option key={path._id} value={path._id}>
+                {path.title}
+              </option>
+            ))}
+          </select>
+          <div className="flex space-x-2">
+            <Button
+              size="sm"
+              onClick={() => onSaveEdit(step._id, {
+                title: editForm.title,
+                description: editForm.description,
+                pathId: editForm.pathId || null,
+              })}
+              disabled={!editForm.title.trim()}
+            >
+              Save
+            </Button>
+            <Button size="sm" variant="outline" onClick={onCancelEdit}>
+              Cancel
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="hover:bg-muted/30 transition-colors">
       <CardContent className="p-3">
@@ -446,12 +685,6 @@ function StepCard({
                 {step.recurring.enabled && (
                   <Repeat className="w-3 h-3 text-primary flex-shrink-0" />
                 )}
-                {step.dueDate && (
-                  <span className="text-xs text-muted-foreground flex items-center flex-shrink-0">
-                    <Calendar className="w-3 h-3 mr-1" />
-                    {new Date(step.dueDate).toLocaleDateString()}
-                  </span>
-                )}
               </div>
               <div className="flex items-center space-x-1 flex-shrink-0">
                 <Button
@@ -467,6 +700,14 @@ function StepCard({
                         : "text-muted-foreground"
                     }`}
                   />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onStartEdit(step)}
+                  className="h-7 w-7 p-0"
+                >
+                  <Pencil className="w-4 h-4" />
                 </Button>
                 <Button
                   variant="ghost"

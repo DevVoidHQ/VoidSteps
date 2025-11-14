@@ -19,7 +19,6 @@ export interface IStep {
     interval?: number;
     nextOccurrence?: Date | null;
   };
-  dueDate?: Date | null;
   prioritizedToday: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -81,10 +80,6 @@ const stepSchema = new Schema<IStepDocument>({
       type: Date,
       default: null
     }
-  },
-  dueDate: {
-    type: Date,
-    default: null
   },
   prioritizedToday: {
     type: Boolean,
