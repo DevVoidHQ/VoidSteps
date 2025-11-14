@@ -4,7 +4,6 @@ import type { Step, Path } from "@/types/index";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { useAuth } from "@/contexts/AuthContext";
 import {
   Plus,
   Check,
@@ -17,21 +16,23 @@ import {
   Pencil,
 } from "lucide-react";
 
-type TabType = 'today' | 'steps' | 'paths';
+type TabType = "today" | "steps" | "paths";
 
 export default function Dashboard() {
-  const { user } = useAuth();
   const [steps, setSteps] = useState<Step[]>([]);
   const [paths, setPaths] = useState<Path[]>([]);
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState<TabType>('today');
+  const [activeTab, setActiveTab] = useState<TabType>("today");
   const [quickAddValue, setQuickAddValue] = useState("");
   const [stepDescValue, setStepDescValue] = useState("");
   const [stepPathValue, setStepPathValue] = useState("");
   const [pathAddValue, setPathAddValue] = useState("");
   const [pathDescValue, setPathDescValue] = useState("");
   const [editingPath, setEditingPath] = useState<string | null>(null);
-  const [editPathForm, setEditPathForm] = useState({ title: "", description: "" });
+  const [editPathForm, setEditPathForm] = useState({
+    title: "",
+    description: "",
+  });
   const [editingStep, setEditingStep] = useState<string | null>(null);
   const [editStepForm, setEditStepForm] = useState({
     title: "",
@@ -88,7 +89,11 @@ export default function Dashboard() {
     fetchPaths();
   };
 
-  const createStep = async (title: string, description?: string, pathId?: string) => {
+  const createStep = async (
+    title: string,
+    description?: string,
+    pathId?: string
+  ) => {
     try {
       await api.post("/steps", {
         title,
@@ -117,7 +122,10 @@ export default function Dashboard() {
     setEditStepForm({
       title: step.title,
       description: step.description || "",
-      pathId: typeof step.pathId === 'object' && step.pathId ? step.pathId._id : (step.pathId as string) || "",
+      pathId:
+        typeof step.pathId === "object" && step.pathId
+          ? step.pathId._id
+          : (step.pathId as unknown as string) || "",
     });
   };
 
@@ -186,9 +194,7 @@ export default function Dashboard() {
     <div className="space-y-6">
       {/* Header */}
       <div className="text-center space-y-3">
-        <p className="text-sm text-muted-foreground">
-          Welcome, Aneesh
-        </p>
+        <p className="text-sm text-muted-foreground">Welcome, Aneesh</p>
         <h1 className="text-4xl font-bold">Today</h1>
         <p className="text-muted-foreground">
           {new Date().toLocaleDateString("en-US", {
@@ -202,31 +208,31 @@ export default function Dashboard() {
         {/* Tabs */}
         <div className="flex justify-center space-x-1 pt-2">
           <button
-            onClick={() => setActiveTab('today')}
+            onClick={() => setActiveTab("today")}
             className={`px-4 py-2 transition-all duration-150 font-medium ${
-              activeTab === 'today'
-                ? 'border-b-2 border-white text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
+              activeTab === "today"
+                ? "border-b-2 border-white text-foreground"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
             Today
           </button>
           <button
-            onClick={() => setActiveTab('steps')}
+            onClick={() => setActiveTab("steps")}
             className={`px-4 py-2 transition-all duration-150 font-medium ${
-              activeTab === 'steps'
-                ? 'border-b-2 border-white text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
+              activeTab === "steps"
+                ? "border-b-2 border-white text-foreground"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
             Steps
           </button>
           <button
-            onClick={() => setActiveTab('paths')}
+            onClick={() => setActiveTab("paths")}
             className={`px-4 py-2 transition-all duration-150 font-medium ${
-              activeTab === 'paths'
-                ? 'border-b-2 border-white text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
+              activeTab === "paths"
+                ? "border-b-2 border-white text-foreground"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
             Paths
@@ -235,7 +241,7 @@ export default function Dashboard() {
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'today' && (
+      {activeTab === "today" && (
         <div className="space-y-4">
           {/* Priority Steps */}
           {prioritySteps.length > 0 ? (
@@ -257,7 +263,9 @@ export default function Dashboard() {
                   onStartEdit={startEditStep}
                   onCancelEdit={cancelEditStep}
                   onSaveEdit={updateStep}
-                  onEditFormChange={(updates) => setEditStepForm({ ...editStepForm, ...updates })}
+                  onEditFormChange={(updates) =>
+                    setEditStepForm({ ...editStepForm, ...updates })
+                  }
                 />
               ))}
             </div>
@@ -270,39 +278,44 @@ export default function Dashboard() {
           )}
 
           {/* Completed Today */}
-          {completedSteps.filter(s => s.prioritizedToday).length > 0 && (
+          {completedSteps.filter((s) => s.prioritizedToday).length > 0 && (
             <div className="space-y-3 pt-4 border-t border-border">
               <h2 className="text-sm font-medium text-muted-foreground">
-                Completed ({completedSteps.filter(s => s.prioritizedToday).length})
+                Completed (
+                {completedSteps.filter((s) => s.prioritizedToday).length})
               </h2>
               <div className="space-y-2 opacity-60">
-                {completedSteps.filter(s => s.prioritizedToday).map((step) => (
-                  <StepCard
-                    key={step._id}
-                    step={step}
-                    paths={paths}
-                    onToggle={toggleStep}
-                    onDelete={deleteStep}
-                    onTogglePriority={togglePriority}
-                    onAddSubstep={addSubstep}
-                    onToggleSubstep={toggleSubstep}
-                    onToggleExpanded={toggleExpanded}
-                    isExpanded={expandedSteps.has(step._id)}
-                    isEditing={editingStep === step._id}
-                    editForm={editStepForm}
-                    onStartEdit={startEditStep}
-                    onCancelEdit={cancelEditStep}
-                    onSaveEdit={updateStep}
-                    onEditFormChange={(updates) => setEditStepForm({ ...editStepForm, ...updates })}
-                  />
-                ))}
+                {completedSteps
+                  .filter((s) => s.prioritizedToday)
+                  .map((step) => (
+                    <StepCard
+                      key={step._id}
+                      step={step}
+                      paths={paths}
+                      onToggle={toggleStep}
+                      onDelete={deleteStep}
+                      onTogglePriority={togglePriority}
+                      onAddSubstep={addSubstep}
+                      onToggleSubstep={toggleSubstep}
+                      onToggleExpanded={toggleExpanded}
+                      isExpanded={expandedSteps.has(step._id)}
+                      isEditing={editingStep === step._id}
+                      editForm={editStepForm}
+                      onStartEdit={startEditStep}
+                      onCancelEdit={cancelEditStep}
+                      onSaveEdit={updateStep}
+                      onEditFormChange={(updates) =>
+                        setEditStepForm({ ...editStepForm, ...updates })
+                      }
+                    />
+                  ))}
               </div>
             </div>
           )}
         </div>
       )}
 
-      {activeTab === 'steps' && (
+      {activeTab === "steps" && (
         <div className="space-y-4">
           {/* Quick Add */}
           <div className="space-y-2">
@@ -362,7 +375,9 @@ export default function Dashboard() {
                     onStartEdit={startEditStep}
                     onCancelEdit={cancelEditStep}
                     onSaveEdit={updateStep}
-                    onEditFormChange={(updates) => setEditStepForm({ ...editStepForm, ...updates })}
+                    onEditFormChange={(updates) =>
+                      setEditStepForm({ ...editStepForm, ...updates })
+                    }
                   />
                 ))}
               </div>
@@ -391,7 +406,9 @@ export default function Dashboard() {
                     onStartEdit={startEditStep}
                     onCancelEdit={cancelEditStep}
                     onSaveEdit={updateStep}
-                    onEditFormChange={(updates) => setEditStepForm({ ...editStepForm, ...updates })}
+                    onEditFormChange={(updates) =>
+                      setEditStepForm({ ...editStepForm, ...updates })
+                    }
                   />
                 ))}
               </div>
@@ -422,7 +439,9 @@ export default function Dashboard() {
                     onStartEdit={startEditStep}
                     onCancelEdit={cancelEditStep}
                     onSaveEdit={updateStep}
-                    onEditFormChange={(updates) => setEditStepForm({ ...editStepForm, ...updates })}
+                    onEditFormChange={(updates) =>
+                      setEditStepForm({ ...editStepForm, ...updates })
+                    }
                   />
                 ))}
               </div>
@@ -431,7 +450,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {activeTab === 'paths' && (
+      {activeTab === "paths" && (
         <div className="space-y-4">
           {/* Quick Add Path */}
           <div className="space-y-2">
@@ -439,7 +458,9 @@ export default function Dashboard() {
               placeholder="Path title..."
               value={pathAddValue}
               onChange={(e) => setPathAddValue(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && !e.shiftKey && handlePathAdd()}
+              onKeyPress={(e) =>
+                e.key === "Enter" && !e.shiftKey && handlePathAdd()
+              }
             />
             <div className="flex space-x-2">
               <Input
@@ -459,29 +480,52 @@ export default function Dashboard() {
           {paths.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {paths.map((path) => (
-                <Card key={path._id} className="hover:border-primary/50 transition-colors">
+                <Card
+                  key={path._id}
+                  className="hover:border-primary/50 transition-colors"
+                >
                   <CardContent className="p-4">
                     {editingPath === path._id ? (
                       <div className="space-y-2">
                         <Input
                           placeholder="Path title"
                           value={editPathForm.title}
-                          onChange={(e) => setEditPathForm({ ...editPathForm, title: e.target.value })}
+                          onChange={(e) =>
+                            setEditPathForm({
+                              ...editPathForm,
+                              title: e.target.value,
+                            })
+                          }
                         />
                         <Input
                           placeholder="Description (optional)"
                           value={editPathForm.description}
-                          onChange={(e) => setEditPathForm({ ...editPathForm, description: e.target.value })}
+                          onChange={(e) =>
+                            setEditPathForm({
+                              ...editPathForm,
+                              description: e.target.value,
+                            })
+                          }
                         />
                         <div className="flex space-x-2">
                           <Button
                             size="sm"
-                            onClick={() => updatePath(path._id, editPathForm.title, editPathForm.description)}
+                            onClick={() =>
+                              updatePath(
+                                path._id,
+                                editPathForm.title,
+                                editPathForm.description
+                              )
+                            }
                             disabled={!editPathForm.title.trim()}
                           >
                             Save
                           </Button>
-                          <Button size="sm" variant="outline" onClick={cancelEditPath}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={cancelEditPath}
+                          >
                             Cancel
                           </Button>
                         </div>
@@ -548,7 +592,9 @@ interface StepCardProps {
   onStartEdit: (step: Step) => void;
   onCancelEdit: () => void;
   onSaveEdit: (id: string, updates: Partial<Step>) => void;
-  onEditFormChange: (updates: Partial<{ title: string; description: string; pathId: string }>) => void;
+  onEditFormChange: (
+    updates: Partial<{ title: string; description: string; pathId: string }>
+  ) => void;
 }
 
 function StepCard({
@@ -597,11 +643,13 @@ function StepCard({
           <div className="flex space-x-2">
             <Button
               size="sm"
-              onClick={() => onSaveEdit(step._id, {
-                title: editForm.title,
-                description: editForm.description,
-                pathId: editForm.pathId || null,
-              })}
+              onClick={() =>
+                onSaveEdit(step._id, {
+                  title: editForm.title,
+                  description: editForm.description,
+                  pathId: editForm.pathId as unknown as Path | null,
+                })
+              }
               disabled={!editForm.title.trim()}
             >
               Save
@@ -647,9 +695,7 @@ function StepCard({
                 )}
                 <span
                   className={`font-medium ${
-                    step.completed
-                      ? "line-through text-muted-foreground"
-                      : ""
+                    step.completed ? "line-through text-muted-foreground" : ""
                   }`}
                 >
                   {step.title}
@@ -662,7 +708,9 @@ function StepCard({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => onTogglePriority(step._id, step.prioritizedToday)}
+                  onClick={() =>
+                    onTogglePriority(step._id, step.prioritizedToday)
+                  }
                   className="h-7 w-7 p-0"
                 >
                   <Star
