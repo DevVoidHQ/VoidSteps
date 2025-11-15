@@ -6,19 +6,11 @@ export interface Path {
   updatedAt: string;
 }
 
-export interface Substep {
-  _id: string;
-  title: string;
-  completed: boolean;
-  createdAt: string;
-}
-
 export interface Step {
   _id: string;
   title: string;
   description?: string;
   completed: boolean;
-  substeps: Substep[];
   pathId?: Path | null;
   recurring: {
     enabled: boolean;
@@ -27,6 +19,23 @@ export interface Step {
     nextOccurrence?: string;
   };
   prioritizedToday: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StepTemplate {
+  _id?: string;
+  title: string;
+  description?: string;
+  pathId?: string;
+  prioritizedToday?: boolean;
+}
+
+export interface Routine {
+  _id: string;
+  title: string;
+  description?: string;
+  stepTemplates: StepTemplate[];
   createdAt: string;
   updatedAt: string;
 }

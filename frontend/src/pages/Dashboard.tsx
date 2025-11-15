@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import api from "@/lib/api";
-import type { Step, Path } from "@/types/index";
+import type { Step, Path, Routine, StepTemplate } from "@/types/index";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,14 +14,18 @@ import {
   Star,
   Target,
   Pencil,
+  Zap,
 } from "lucide-react";
 
-type TabType = "today" | "steps" | "paths";
+type TabType = "today" | "steps" | "paths" | "routines";
 
 export default function Dashboard() {
   const [steps, setSteps] = useState<Step[]>([]);
   const [paths, setPaths] = useState<Path[]>([]);
-  const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
+  const [routines, setRoutines] = useState<Routine[]>([]);
+  const [expandedRoutines, setExpandedRoutines] = useState<Set<string>>(
+    new Set()
+  );
   const [activeTab, setActiveTab] = useState<TabType>("today");
   const [quickAddValue, setQuickAddValue] = useState("");
   const [stepDescValue, setStepDescValue] = useState("");
@@ -39,10 +43,28 @@ export default function Dashboard() {
     description: "",
     pathId: "",
   });
+  const [routineAddValue, setRoutineAddValue] = useState("");
+  const [routineDescValue, setRoutineDescValue] = useState("");
+  const [editingRoutine, setEditingRoutine] = useState<string | null>(null);
+  const [editRoutineForm, setEditRoutineForm] = useState({
+    title: "",
+    description: "",
+    stepTemplates: [] as StepTemplate[],
+  });
+  const [showEditRoutineModal, setShowEditRoutineModal] = useState(false);
+  const [newStepTemplateTitle, setNewStepTemplateTitle] = useState("");
+  const [newStepTemplateDesc, setNewStepTemplateDesc] = useState("");
+  const [newStepTemplatePathId, setNewStepTemplatePathId] = useState("");
+  const [newStepTemplatePriority, setNewStepTemplatePriority] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchSteps();
-    fetchPaths();
+    const loadData = async () => {
+      setIsLoading(true);
+      await Promise.all([fetchSteps(), fetchPaths(), fetchRoutines()]);
+      setIsLoading(false);
+    };
+    loadData();
   }, []);
 
   const fetchSteps = async () => {
@@ -87,6 +109,120 @@ export default function Dashboard() {
   const deletePath = async (id: string) => {
     await api.delete(`/paths/${id}`);
     fetchPaths();
+  };
+
+  const fetchRoutines = async () => {
+    try {
+      const res = await api.get("/routines");
+      setRoutines(res.data);
+    } catch (error) {
+      console.error("Error fetching routines:", error);
+      setRoutines([]);
+    }
+  };
+
+  const createRoutine = async (title: string, description?: string) => {
+    try {
+      await api.post("/routines", {
+        title,
+        description: description || "",
+        stepTemplates: [],
+      });
+      fetchRoutines();
+    } catch (error) {
+      console.error("Error creating routine:", error);
+    }
+  };
+
+  const updateRoutine = async (
+    id: string,
+    title: string,
+    description: string,
+    stepTemplates: StepTemplate[]
+  ) => {
+    try {
+      await api.put(`/routines/${id}`, { title, description, stepTemplates });
+      fetchRoutines();
+      setEditingRoutine(null);
+    } catch (error) {
+      console.error("Error updating routine:", error);
+    }
+  };
+
+  const startEditRoutine = (routine: Routine) => {
+    setEditingRoutine(routine._id);
+    setEditRoutineForm({
+      title: routine.title,
+      description: routine.description || "",
+      stepTemplates: routine.stepTemplates,
+    });
+    setShowEditRoutineModal(true);
+  };
+
+  const cancelEditRoutine = () => {
+    setEditingRoutine(null);
+    setEditRoutineForm({ title: "", description: "", stepTemplates: [] });
+    setShowEditRoutineModal(false);
+    setNewStepTemplateTitle("");
+    setNewStepTemplateDesc("");
+    setNewStepTemplatePathId("");
+    setNewStepTemplatePriority(false);
+  };
+
+  const addStepTemplateToRoutine = () => {
+    if (newStepTemplateTitle.trim()) {
+      setEditRoutineForm({
+        ...editRoutineForm,
+        stepTemplates: [
+          ...editRoutineForm.stepTemplates,
+          {
+            title: newStepTemplateTitle.trim(),
+            description: newStepTemplateDesc.trim(),
+            pathId: newStepTemplatePathId || undefined,
+            prioritizedToday: newStepTemplatePriority,
+          },
+        ],
+      });
+      setNewStepTemplateTitle("");
+      setNewStepTemplateDesc("");
+      setNewStepTemplatePathId("");
+      setNewStepTemplatePriority(false);
+    }
+  };
+
+  const removeStepTemplateFromRoutine = (index: number) => {
+    setEditRoutineForm({
+      ...editRoutineForm,
+      stepTemplates: editRoutineForm.stepTemplates.filter(
+        (_, i) => i !== index
+      ),
+    });
+  };
+
+  const saveRoutineEdit = () => {
+    if (editingRoutine && editRoutineForm.title.trim()) {
+      updateRoutine(
+        editingRoutine,
+        editRoutineForm.title,
+        editRoutineForm.description,
+        editRoutineForm.stepTemplates
+      );
+      cancelEditRoutine();
+    }
+  };
+
+  const deleteRoutine = async (id: string) => {
+    await api.delete(`/routines/${id}`);
+    fetchRoutines();
+  };
+
+  const instantiateRoutine = async (routineId: string) => {
+    try {
+      await api.post(`/routines/${routineId}/instantiate`, {});
+      fetchSteps();
+    } catch (error) {
+      console.error("Error instantiating routine:", error);
+    }
   };
 
   const createStep = async (
@@ -149,24 +285,25 @@ export default function Dashboard() {
     fetchSteps();
   };
 
-  const addSubstep = async (stepId: string, title: string) => {
-    await api.post(`/steps/${stepId}/substeps`, { title });
-    fetchSteps();
-  };
-
-  const toggleSubstep = async (stepId: string, substepId: string) => {
-    await api.patch(`/steps/${stepId}/substeps/${substepId}/toggle`);
-    fetchSteps();
-  };
-
-  const toggleExpanded = (stepId: string) => {
-    const newExpanded = new Set(expandedSteps);
-    if (newExpanded.has(stepId)) {
-      newExpanded.delete(stepId);
+  const toggleRoutineExpanded = (routineId: string) => {
+    const newExpanded = new Set(expandedRoutines);
+    if (newExpanded.has(routineId)) {
+      newExpanded.delete(routineId);
     } else {
-      newExpanded.add(stepId);
+      newExpanded.add(routineId);
     }
-    setExpandedSteps(newExpanded);
+    setExpandedRoutines(newExpanded);
+  };
+
+  const getPathStats = (pathId: string) => {
+    const pathSteps = steps.filter(
+      (step) => typeof step.pathId === "object" && step.pathId?._id === pathId
+    );
+    return {
+      total: pathSteps.length,
+      completed: pathSteps.filter((s) => s.completed).length,
+      incomplete: pathSteps.filter((s) => !s.completed).length,
+    };
   };
 
   const handleQuickAdd = () => {
@@ -183,6 +320,14 @@ export default function Dashboard() {
       createPath(pathAddValue.trim(), pathDescValue.trim());
       setPathAddValue("");
       setPathDescValue("");
+    }
+  };
+
+  const handleRoutineAdd = () => {
+    if (routineAddValue.trim()) {
+      createRoutine(routineAddValue.trim(), routineDescValue.trim());
+      setRoutineAddValue("");
+      setRoutineDescValue("");
     }
   };
 
@@ -237,6 +382,16 @@ export default function Dashboard() {
           >
             Paths
           </button>
+          <button
+            onClick={() => setActiveTab("routines")}
+            className={`px-4 py-2 transition-all duration-150 font-medium ${
+              activeTab === "routines"
+                ? "border-b-2 border-white text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Routines
+          </button>
         </div>
       </div>
 
@@ -254,10 +409,6 @@ export default function Dashboard() {
                   onToggle={toggleStep}
                   onDelete={deleteStep}
                   onTogglePriority={togglePriority}
-                  onAddSubstep={addSubstep}
-                  onToggleSubstep={toggleSubstep}
-                  onToggleExpanded={toggleExpanded}
-                  isExpanded={expandedSteps.has(step._id)}
                   isEditing={editingStep === step._id}
                   editForm={editStepForm}
                   onStartEdit={startEditStep}
@@ -295,10 +446,6 @@ export default function Dashboard() {
                       onToggle={toggleStep}
                       onDelete={deleteStep}
                       onTogglePriority={togglePriority}
-                      onAddSubstep={addSubstep}
-                      onToggleSubstep={toggleSubstep}
-                      onToggleExpanded={toggleExpanded}
-                      isExpanded={expandedSteps.has(step._id)}
                       isEditing={editingStep === step._id}
                       editForm={editStepForm}
                       onStartEdit={startEditStep}
@@ -350,6 +497,36 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* Routine Chips */}
+          {isLoading ? (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Quick Actions</p>
+              <div className="flex flex-wrap gap-2">
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="h-9 w-24 rounded-md bg-muted animate-pulse"
+                  />
+                ))}
+              </div>
+            </div>
+          ) : routines.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Quick Actions</p>
+              <div className="flex flex-wrap gap-2">
+                {routines.map((routine) => (
+                  <button
+                    key={routine._id}
+                    onClick={() => instantiateRoutine(routine._id)}
+                    className="px-4 py-2 rounded-md text-sm font-medium border border-border bg-card hover:bg-accent hover:text-accent-foreground transition-all shadow-sm hover:shadow"
+                  >
+                    {routine.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           {/* Priority Steps */}
           {prioritySteps.length > 0 && (
             <div className="space-y-3">
@@ -366,10 +543,6 @@ export default function Dashboard() {
                     onToggle={toggleStep}
                     onDelete={deleteStep}
                     onTogglePriority={togglePriority}
-                    onAddSubstep={addSubstep}
-                    onToggleSubstep={toggleSubstep}
-                    onToggleExpanded={toggleExpanded}
-                    isExpanded={expandedSteps.has(step._id)}
                     isEditing={editingStep === step._id}
                     editForm={editStepForm}
                     onStartEdit={startEditStep}
@@ -397,10 +570,6 @@ export default function Dashboard() {
                     onToggle={toggleStep}
                     onDelete={deleteStep}
                     onTogglePriority={togglePriority}
-                    onAddSubstep={addSubstep}
-                    onToggleSubstep={toggleSubstep}
-                    onToggleExpanded={toggleExpanded}
-                    isExpanded={expandedSteps.has(step._id)}
                     isEditing={editingStep === step._id}
                     editForm={editStepForm}
                     onStartEdit={startEditStep}
@@ -430,10 +599,6 @@ export default function Dashboard() {
                     onToggle={toggleStep}
                     onDelete={deleteStep}
                     onTogglePriority={togglePriority}
-                    onAddSubstep={addSubstep}
-                    onToggleSubstep={toggleSubstep}
-                    onToggleExpanded={toggleExpanded}
-                    isExpanded={expandedSteps.has(step._id)}
                     isEditing={editingStep === step._id}
                     editForm={editStepForm}
                     onStartEdit={startEditStep}
@@ -531,34 +696,48 @@ export default function Dashboard() {
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h3 className="font-medium">{path.title}</h3>
-                          {path.description && (
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {path.description}
-                            </p>
-                          )}
+                      <>
+                        <div className="flex items-start justify-between h-fit">
+                          <div className="flex flex-col flex-1 h-full">
+                            <h3 className="font-medium">{path.title}</h3>
+                            {path.description && (
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {path.description}
+                              </p>
+                            )}
+                            {(() => {
+                              const stats = getPathStats(path._id);
+                              return (
+                                <div className="flex items-center space-x-3 mt-auto pt-2 text-xs text-muted-foreground">
+                                  <span>{stats.completed} taken</span>
+                                  <span>•</span>
+                                  <span>
+                                    {stats.incomplete} yet to be taken
+                                  </span>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                          <div className="flex space-x-1 flex-shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => startEditPath(path)}
+                              className="h-7 w-7 p-0"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deletePath(path._id)}
+                              className="h-7 w-7 p-0"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex space-x-1 flex-shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => startEditPath(path)}
-                            className="h-7 w-7 p-0"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => deletePath(path._id)}
-                            className="h-7 w-7 p-0"
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
+                      </>
                     )}
                   </CardContent>
                 </Card>
@@ -573,6 +752,303 @@ export default function Dashboard() {
           )}
         </div>
       )}
+
+      {activeTab === "routines" && (
+        <div className="space-y-4">
+          {/* Quick Add Routine */}
+          <div className="space-y-2">
+            <Input
+              placeholder="Routine title..."
+              value={routineAddValue}
+              onChange={(e) => setRoutineAddValue(e.target.value)}
+              onKeyPress={(e) =>
+                e.key === "Enter" && !e.shiftKey && handleRoutineAdd()
+              }
+            />
+            <div className="flex space-x-2">
+              <Input
+                placeholder="Description (optional)..."
+                value={routineDescValue}
+                onChange={(e) => setRoutineDescValue(e.target.value)}
+                onKeyPress={(e) => e.key === "Enter" && handleRoutineAdd()}
+                className="flex-1"
+              />
+              <Button
+                onClick={handleRoutineAdd}
+                disabled={!routineAddValue.trim()}
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Routines Grid */}
+          {routines.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {routines.map((routine) => (
+                <Card
+                  key={routine._id}
+                  className="hover:border-primary/50 transition-colors"
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2">
+                          {routine.stepTemplates.length > 0 && (
+                            <button
+                              onClick={() => toggleRoutineExpanded(routine._id)}
+                              className="flex-shrink-0"
+                            >
+                              {expandedRoutines.has(routine._id) ? (
+                                <ChevronDown className="w-4 h-4" />
+                              ) : (
+                                <ChevronRight className="w-4 h-4" />
+                              )}
+                            </button>
+                          )}
+                          <h3 className="font-medium">{routine.title}</h3>
+                        </div>
+                        {routine.description && (
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {routine.description}
+                          </p>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {routine.stepTemplates.length} step
+                          {routine.stepTemplates.length !== 1 ? "s" : ""}
+                        </p>
+                      </div>
+                      <div className="flex space-x-1 flex-shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => startEditRoutine(routine)}
+                          className="h-7 w-7 p-0"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteRoutine(routine._id)}
+                          className="h-7 w-7 p-0"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    {expandedRoutines.has(routine._id) &&
+                      routine.stepTemplates.length > 0 && (
+                        <div className="mt-4 pt-3 border-t border-border space-y-2">
+                          <p className="text-xs font-medium text-muted-foreground mb-2">
+                            Steps in Routine:
+                          </p>
+                          {routine.stepTemplates.map((template, index) => (
+                            <div key={index} className="space-y-1 pl-6">
+                              <div className="flex items-start space-x-2 text-sm">
+                                <span className="text-muted-foreground">
+                                  {index + 1}.
+                                </span>
+                                <div className="flex-1">
+                                  <div className="flex items-center space-x-2">
+                                    <p>{template.title}</p>
+                                    {template.prioritizedToday && (
+                                      <Star className="w-3 h-3 fill-primary text-primary" />
+                                    )}
+                                  </div>
+                                  {template.description && (
+                                    <p className="text-xs text-muted-foreground">
+                                      {template.description}
+                                    </p>
+                                  )}
+                                  {template.pathId && (
+                                    <p className="text-xs text-primary flex items-center mt-1">
+                                      <Target className="w-3 h-3 mr-1" />
+                                      {paths.find(
+                                        (p) => p._id === template.pathId
+                                      )?.title || "Unknown Path"}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-muted-foreground">
+              <Zap className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>No routines yet</p>
+              <p className="text-sm mt-1">Create a routine to get started</p>
+            </div>
+          )}
+
+          {/* Edit Routine Modal */}
+          {showEditRoutineModal && (
+            <div className="fixed inset-0 bg-black flex items-center justify-center z-50 p-4">
+              <Card className="w-full max-w-2xl max-h-[90vh] overflow-hidden">
+                <CardContent className="p-6 space-y-4 overflow-y-auto max-h-[85vh]">
+                  <h3 className="text-lg font-semibold">Edit Routine</h3>
+
+                  {/* Routine Info */}
+                  <div className="space-y-2">
+                    <Input
+                      placeholder="Routine title"
+                      value={editRoutineForm.title}
+                      onChange={(e) =>
+                        setEditRoutineForm({
+                          ...editRoutineForm,
+                          title: e.target.value,
+                        })
+                      }
+                    />
+                    <Input
+                      placeholder="Description (optional)"
+                      value={editRoutineForm.description}
+                      onChange={(e) =>
+                        setEditRoutineForm({
+                          ...editRoutineForm,
+                          description: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+
+                  {/* Steps */}
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-medium">Steps</h4>
+
+                    {editRoutineForm.stepTemplates.map(
+                      (template, templateIndex) => (
+                        <Card key={templateIndex} className="border-muted">
+                          <CardContent className="p-3 space-y-2">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1 space-y-2">
+                                <div className="flex items-center space-x-2">
+                                  <p className="font-medium text-sm">
+                                    {template.title}
+                                  </p>
+                                  {template.prioritizedToday && (
+                                    <Star className="w-3 h-3 fill-primary text-primary" />
+                                  )}
+                                </div>
+                                {template.description && (
+                                  <p className="text-xs text-muted-foreground">
+                                    {template.description}
+                                  </p>
+                                )}
+                                {template.pathId && (
+                                  <p className="text-xs text-primary flex items-center">
+                                    <Target className="w-3 h-3 mr-1" />
+                                    {paths.find(
+                                      (p) => p._id === template.pathId
+                                    )?.title || "Unknown Path"}
+                                  </p>
+                                )}
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  removeStepTemplateFromRoutine(templateIndex)
+                                }
+                                className="h-6 w-6 p-0 ml-2"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )
+                    )}
+
+                    {/* Add Step */}
+                    <div className="space-y-2 pt-2 border-t border-border">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        Add Step
+                      </p>
+                      <Input
+                        placeholder="Step title..."
+                        value={newStepTemplateTitle}
+                        onChange={(e) =>
+                          setNewStepTemplateTitle(e.target.value)
+                        }
+                        onKeyPress={(e) =>
+                          e.key === "Enter" &&
+                          !e.shiftKey &&
+                          addStepTemplateToRoutine()
+                        }
+                      />
+                      <Input
+                        placeholder="Description (optional)..."
+                        value={newStepTemplateDesc}
+                        onChange={(e) => setNewStepTemplateDesc(e.target.value)}
+                        onKeyPress={(e) =>
+                          e.key === "Enter" && addStepTemplateToRoutine()
+                        }
+                      />
+                      <div className="flex items-center space-x-2">
+                        <label className="flex items-center space-x-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={newStepTemplatePriority}
+                            onChange={(e) =>
+                              setNewStepTemplatePriority(e.target.checked)
+                            }
+                            className="w-4 h-4 rounded border-input"
+                          />
+                          <span className="text-sm">Priority</span>
+                        </label>
+                      </div>
+                      <div className="flex space-x-2">
+                        <select
+                          className="flex-1 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                          value={newStepTemplatePathId}
+                          onChange={(e) =>
+                            setNewStepTemplatePathId(e.target.value)
+                          }
+                        >
+                          <option value="">No Path</option>
+                          {paths.map((path) => (
+                            <option key={path._id} value={path._id}>
+                              {path.title}
+                            </option>
+                          ))}
+                        </select>
+                        <Button
+                          onClick={addStepTemplateToRoutine}
+                          disabled={!newStepTemplateTitle.trim()}
+                          size="sm"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex space-x-2 pt-4 border-t border-border">
+                    <Button
+                      onClick={saveRoutineEdit}
+                      disabled={!editRoutineForm.title.trim()}
+                      className="flex-1"
+                    >
+                      Save Routine
+                    </Button>
+                    <Button variant="outline" onClick={cancelEditRoutine}>
+                      Cancel
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -583,10 +1059,6 @@ interface StepCardProps {
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   onTogglePriority: (id: string, current: boolean) => void;
-  onAddSubstep: (stepId: string, title: string) => void;
-  onToggleSubstep: (stepId: string, substepId: string) => void;
-  onToggleExpanded: (stepId: string) => void;
-  isExpanded: boolean;
   isEditing: boolean;
   editForm: { title: string; description: string; pathId: string };
   onStartEdit: (step: Step) => void;
@@ -603,10 +1075,6 @@ function StepCard({
   onToggle,
   onDelete,
   onTogglePriority,
-  onAddSubstep,
-  onToggleSubstep,
-  onToggleExpanded,
-  isExpanded,
   isEditing,
   editForm,
   onStartEdit,
@@ -684,15 +1152,6 @@ function StepCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2 flex-1 min-w-0">
-                {step.substeps.length > 0 && (
-                  <button onClick={() => onToggleExpanded(step._id)}>
-                    {isExpanded ? (
-                      <ChevronDown className="w-4 h-4 flex-shrink-0" />
-                    ) : (
-                      <ChevronRight className="w-4 h-4 flex-shrink-0" />
-                    )}
-                  </button>
-                )}
                 <span
                   className={`font-medium ${
                     step.completed ? "line-through text-muted-foreground" : ""
@@ -750,98 +1209,9 @@ function StepCard({
                 {typeof step.pathId === "object" ? step.pathId.title : ""}
               </div>
             )}
-            {isExpanded && step.substeps.length > 0 && (
-              <div className="mt-3 space-y-2 pl-4 border-l-2 border-muted">
-                {step.substeps.map((substep) => (
-                  <div
-                    key={substep._id}
-                    className="flex items-center space-x-2"
-                  >
-                    <button
-                      onClick={() => onToggleSubstep(step._id, substep._id)}
-                    >
-                      <div
-                        className={`w-4 h-4 rounded border flex items-center justify-center ${
-                          substep.completed
-                            ? "bg-primary border-primary"
-                            : "border-muted-foreground"
-                        }`}
-                      >
-                        {substep.completed && (
-                          <Check className="w-2 h-2 text-black" />
-                        )}
-                      </div>
-                    </button>
-                    <span
-                      className={`text-sm ${
-                        substep.completed
-                          ? "line-through text-muted-foreground"
-                          : ""
-                      }`}
-                    >
-                      {substep.title}
-                    </span>
-                  </div>
-                ))}
-                <AddSubstepInput
-                  onAdd={(title) => onAddSubstep(step._id, title)}
-                />
-              </div>
-            )}
           </div>
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function AddSubstepInput({ onAdd }: { onAdd: (title: string) => void }) {
-  const [value, setValue] = useState("");
-  const [isAdding, setIsAdding] = useState(false);
-
-  const handleSubmit = () => {
-    if (value.trim()) {
-      onAdd(value.trim());
-      setValue("");
-      setIsAdding(false);
-    }
-  };
-
-  if (!isAdding) {
-    return (
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setIsAdding(true)}
-        className="text-primary h-7"
-      >
-        <Plus className="w-3 h-3 mr-1" />
-        Add substep
-      </Button>
-    );
-  }
-
-  return (
-    <div className="flex space-x-2">
-      <Input
-        placeholder="Substep title"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyPress={(e) => e.key === "Enter" && handleSubmit()}
-        autoFocus
-        className="h-8 text-sm"
-      />
-      <Button size="sm" onClick={handleSubmit} className="h-8">
-        Add
-      </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setIsAdding(false)}
-        className="h-8"
-      >
-        Cancel
-      </Button>
-    </div>
   );
 }
