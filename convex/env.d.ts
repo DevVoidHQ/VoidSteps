@@ -10,6 +10,9 @@ declare global {
   var process: {
     env: NodeJS.ProcessEnv;
   };
+
+  function btoa(data: string): string;
+  function atob(data: string): string;
 }
 
 export {};
