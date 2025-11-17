@@ -10,7 +10,7 @@
 
 import mongoose from "mongoose";
 import { ConvexHttpClient } from "convex/browser";
-import { api } from "../convex/_generated/api";
+import { api } from "../frontend/convex/_generated/api";
 import * as dotenv from "dotenv";
 import * as path from "path";
 

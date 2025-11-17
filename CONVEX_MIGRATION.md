@@ -40,10 +40,11 @@ npm install
 
 ### 2. Initialize Convex Project
 
-Run this command from the project root:
+Run this command from the frontend directory:
 
 ```bash
-npm run convex:dev
+cd frontend
+pnpm run convex:dev
 ```
 
 This will:
@@ -235,10 +236,10 @@ The Express/MongoDB backend in `backend/` remains unchanged. You can:
 ## Quick Start
 
 1. `npm install` - Install dependencies
-2. `npm run convex:dev` - Initialize Convex and get deployment URL
+2. `cd frontend && pnpm run convex:dev` - Initialize Convex and get deployment URL
 3. Add `VITE_CONVEX_URL` to `frontend/.env`
 4. Set `USER_EMAIL` and `USER_PASSWORD` in Convex dashboard
-5. `npm run migrate:convex` - Preview data migration (dry run)
+5. `cd .. && npm run migrate:convex` - Preview data migration (dry run)
 6. `npm run migrate:convex --apply` - Migrate your data
 7. `cd frontend && pnpm dev` - Start the app!
 

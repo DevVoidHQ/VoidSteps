@@ -12,6 +12,6 @@
     "resolveJsonModule": true,
     "moduleResolution": "node"
   },
-  "include": ["scripts/**/*", "convex/**/*"],
+  "include": ["scripts/**/*"],
   "exclude": ["node_modules", "dist", "backend", "frontend"]
 }

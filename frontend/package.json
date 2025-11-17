@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "serve": "serve dist -s -p 4173"
+    "serve": "serve dist -s -p 4173",
+    "convex:dev": "convex dev",
+    "convex:deploy": "convex deploy"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.17",

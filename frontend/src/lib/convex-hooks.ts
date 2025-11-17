@@ -1,7 +1,7 @@
 // Helper hooks and utilities for Convex
 import { useMutation, useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import type { Step, Path, Routine } from "@/types";
 
 // Transform Convex data to match our application types

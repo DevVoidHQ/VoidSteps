@@ -16,7 +16,7 @@ import {
   useDeleteRoutine,
   useExecuteRoutine,
 } from "@/lib/convex-hooks";
-import type { Id } from "../../../convex/_generated/dataModel";
+import type { Id } from "../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -313,15 +313,15 @@ export default function Dashboard() {
   const getPathStats = (pathId: string) => {
     if (!steps) return { total: 0, completed: 0, incomplete: 0 };
 
-    const pathSteps = steps.filter((step) => {
+    const pathSteps = steps.filter((step: Step) => {
       // Handle both populated path object and path ID string
       const stepPathId = step.path?._id || (typeof step.pathId === 'string' ? step.pathId : null);
       return stepPathId === pathId;
     });
     return {
       total: pathSteps.length,
-      completed: pathSteps.filter((s) => s.completed).length,
-      incomplete: pathSteps.filter((s) => !s.completed).length,
+      completed: pathSteps.filter((s: Step) => s.completed).length,
+      incomplete: pathSteps.filter((s: Step) => !s.completed).length,
     };
   };
 
@@ -350,9 +350,9 @@ export default function Dashboard() {
     }
   };
 
-  const prioritySteps = steps?.filter((s) => s.prioritizedToday && !s.completed) || [];
-  const regularSteps = steps?.filter((s) => !s.prioritizedToday && !s.completed) || [];
-  const completedSteps = steps?.filter((s) => s.completed) || [];
+  const prioritySteps = steps?.filter((s: Step) => s.prioritizedToday && !s.completed) || [];
+  const regularSteps = steps?.filter((s: Step) => !s.prioritizedToday && !s.completed) || [];
+  const completedSteps = steps?.filter((s: Step) => s.completed) || [];
 
   return (
     <div className="space-y-6">
@@ -420,7 +420,7 @@ export default function Dashboard() {
           {/* Priority Steps */}
           {prioritySteps.length > 0 ? (
             <div className="space-y-2">
-              {prioritySteps.map((step) => (
+              {prioritySteps.map((step: Step) => (
                 <StepCard
                   key={step._id}
                   step={step}
@@ -452,12 +452,12 @@ export default function Dashboard() {
             <div className="space-y-3 pt-4 border-t border-border">
               <h2 className="text-sm font-medium text-muted-foreground">
                 Completed (
-                {completedSteps.filter((s) => s.prioritizedToday).length})
+                {completedSteps.filter((s: Step) => s.prioritizedToday).length})
               </h2>
               <div className="space-y-2 opacity-60">
                 {completedSteps
-                  .filter((s) => s.prioritizedToday)
-                  .map((step) => (
+                  .filter((s: Step) => s.prioritizedToday)
+                  .map((step: Step) => (
                     <StepCard
                       key={step._id}
                       step={step}
@@ -504,7 +504,7 @@ export default function Dashboard() {
                 onChange={(e) => setStepPathValue(e.target.value)}
               >
                 <option value="">No Path</option>
-                {paths?.map((path) => (
+                {paths?.map((path: Path) => (
                   <option key={path._id} value={path._id}>
                     {path.title}
                   </option>
@@ -533,7 +533,7 @@ export default function Dashboard() {
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground">Quick Actions</p>
               <div className="flex flex-wrap gap-2">
-                {routines?.map((routine) => (
+                {routines?.map((routine: Routine) => (
                   <button
                     key={routine._id}
                     onClick={() => instantiateRoutine(routine._id)}
@@ -554,7 +554,7 @@ export default function Dashboard() {
                 <span>Priority</span>
               </h2>
               <div className="space-y-2">
-                {prioritySteps.map((step) => (
+                {prioritySteps.map((step: Step) => (
                   <StepCard
                     key={step._id}
                     step={step}
@@ -581,7 +581,7 @@ export default function Dashboard() {
             <div className="space-y-3">
               <h2 className="text-lg font-semibold">All Steps</h2>
               <div className="space-y-2">
-                {regularSteps.map((step) => (
+                {regularSteps.map((step: Step) => (
                   <StepCard
                     key={step._id}
                     step={step}
@@ -610,7 +610,7 @@ export default function Dashboard() {
                 Completed ({completedSteps.length})
               </h2>
               <div className="space-y-2 opacity-60">
-                {completedSteps.map((step) => (
+                {completedSteps.map((step: Step) => (
                   <StepCard
                     key={step._id}
                     step={step}
@@ -663,7 +663,7 @@ export default function Dashboard() {
           {/* Paths Grid */}
           {paths && paths.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {paths?.map((path) => (
+              {paths?.map((path: Path) => (
                 <Card
                   key={path._id}
                   className="hover:border-primary/50 transition-colors"
@@ -804,7 +804,7 @@ export default function Dashboard() {
           {/* Routines Grid */}
           {routines && routines.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {routines?.map((routine) => (
+              {routines?.map((routine: Routine) => (
                 <Card
                   key={routine._id}
                   className="hover:border-primary/50 transition-colors"
@@ -862,7 +862,7 @@ export default function Dashboard() {
                           <p className="text-xs font-medium text-muted-foreground mb-2">
                             Steps in Routine:
                           </p>
-                          {routine.stepTemplates.map((template, index) => (
+                          {routine.stepTemplates.map((template: StepTemplate, index: number) => (
                             <div key={index} className="space-y-1 pl-6">
                               <div className="flex items-start space-x-2 text-sm">
                                 <span className="text-muted-foreground">
@@ -884,7 +884,7 @@ export default function Dashboard() {
                                     <p className="text-xs text-primary flex items-center mt-1">
                                       <Target className="w-3 h-3 mr-1" />
                                       {paths?.find(
-                                        (p) => p._id === template.pathId
+                                        (p: Path) => p._id === template.pathId
                                       )?.title || "Unknown Path"}
                                     </p>
                                   )}
@@ -964,7 +964,7 @@ export default function Dashboard() {
                                   <p className="text-xs text-primary flex items-center">
                                     <Target className="w-3 h-3 mr-1" />
                                     {paths?.find(
-                                      (p) => p._id === template.pathId
+                                      (p: Path) => p._id === template.pathId
                                     )?.title || "Unknown Path"}
                                   </p>
                                 )}
@@ -1032,7 +1032,7 @@ export default function Dashboard() {
                           }
                         >
                           <option value="">No Path</option>
-                          {paths?.map((path) => (
+                          {paths?.map((path: Path) => (
                             <option key={path._id} value={path._id}>
                               {path.title}
                             </option>
@@ -1121,7 +1121,7 @@ function StepCard({
             onChange={(e) => onEditFormChange({ pathId: e.target.value })}
           >
             <option value="">No Path</option>
-            {paths?.map((path) => (
+            {paths?.map((path: Path) => (
               <option key={path._id} value={path._id}>
                 {path.title}
               </option>

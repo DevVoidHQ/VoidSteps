@@ -1,7 +1,5 @@
 {
   "scripts": {
-    "convex:dev": "convex dev",
-    "convex:deploy": "convex deploy",
     "migrate:convex": "ts-node scripts/migrate-mongodb-to-convex.ts"
   },
   "dependencies": {
