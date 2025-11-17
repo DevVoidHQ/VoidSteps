@@ -1,3 +1,4 @@
+/// <reference path="./env.d.ts" />
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
@@ -22,7 +23,7 @@ export const login = mutation({
     email: v.string(),
     password: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (_ctx, args) => {
     // Get credentials from environment
     const validEmail = process.env.USER_EMAIL;
     const validPassword = process.env.USER_PASSWORD;
@@ -50,7 +51,7 @@ export const verify = query({
   args: {
     token: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (_ctx, args) => {
     try {
       // Simple token verification (decode and check)
       const decoded = decodeToken(args.token);

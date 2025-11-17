@@ -145,7 +145,13 @@ export default function Dashboard() {
     stepTemplates: StepTemplate[]
   ) => {
     try {
-      await updateRoutineMutation({ id: id as Id<"routines">, title, description, stepTemplates });
+      const convexStepTemplates = stepTemplates.map(st => ({
+        title: st.title,
+        description: st.description,
+        pathId: st.pathId ? st.pathId as Id<"paths"> : undefined,
+        prioritizedToday: st.prioritizedToday,
+      }));
+      await updateRoutineMutation({ id: id as Id<"routines">, title, description, stepTemplates: convexStepTemplates });
       setEditingRoutine(null);
     } catch (error) {
       console.error("Error updating routine:", error);
@@ -418,7 +424,7 @@ export default function Dashboard() {
                 <StepCard
                   key={step._id}
                   step={step}
-                  paths={paths}
+                  paths={paths || []}
                   onToggle={toggleStep}
                   onDelete={deleteStep}
                   onTogglePriority={togglePriority}
@@ -455,7 +461,7 @@ export default function Dashboard() {
                     <StepCard
                       key={step._id}
                       step={step}
-                      paths={paths}
+                      paths={paths || []}
                       onToggle={toggleStep}
                       onDelete={deleteStep}
                       onTogglePriority={togglePriority}
@@ -552,7 +558,7 @@ export default function Dashboard() {
                   <StepCard
                     key={step._id}
                     step={step}
-                    paths={paths}
+                    paths={paths || []}
                     onToggle={toggleStep}
                     onDelete={deleteStep}
                     onTogglePriority={togglePriority}
@@ -579,7 +585,7 @@ export default function Dashboard() {
                   <StepCard
                     key={step._id}
                     step={step}
-                    paths={paths}
+                    paths={paths || []}
                     onToggle={toggleStep}
                     onDelete={deleteStep}
                     onTogglePriority={togglePriority}
@@ -608,7 +614,7 @@ export default function Dashboard() {
                   <StepCard
                     key={step._id}
                     step={step}
-                    paths={paths}
+                    paths={paths || []}
                     onToggle={toggleStep}
                     onDelete={deleteStep}
                     onTogglePriority={togglePriority}
