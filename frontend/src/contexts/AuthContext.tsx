@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import api from '@/lib/api';
+import { useLogin, useVerify } from '@/lib/convex-hooks';
 
 interface User {
   email: string;
@@ -17,29 +17,52 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [token, setToken] = useState<string | null>(null);
 
+  const loginMutation = useLogin();
+  const verifyResult = useVerify(token);
+
+  // Initialize auth state from localStorage
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      api.get('/auth/verify')
-        .then((res) => setUser(res.data.user))
-        .catch(() => {
-          localStorage.removeItem('token');
-        })
-        .finally(() => setIsLoading(false));
+    const storedToken = localStorage.getItem('token');
+    if (storedToken) {
+      setToken(storedToken);
     } else {
       setIsLoading(false);
     }
   }, []);
 
+  // Handle verification result
+  useEffect(() => {
+    if (verifyResult !== undefined) {
+      if (verifyResult.valid && verifyResult.user) {
+        setUser(verifyResult.user);
+      } else {
+        localStorage.removeItem('token');
+        setToken(null);
+      }
+      setIsLoading(false);
+    }
+  }, [verifyResult]);
+
   const login = async (email: string, password: string) => {
-    const response = await api.post('/auth/login', { email, password });
-    localStorage.setItem('token', response.data.token);
-    setUser(response.data.user);
+    try {
+      const response = await loginMutation({ email, password });
+      if (response.success && response.token) {
+        localStorage.setItem('token', response.token);
+        setToken(response.token);
+        setUser(response.user);
+      } else {
+        throw new Error('Login failed');
+      }
+    } catch (error) {
+      throw error;
+    }
   };
 
   const logout = () => {
     localStorage.removeItem('token');
+    setToken(null);
     setUser(null);
     window.location.href = '/login';
   };

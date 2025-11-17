@@ -1,9 +1,10 @@
+// Compatible with both MongoDB and Convex backends
 export interface Path {
   _id: string;
   title: string;
   description?: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: string | number;
+  updatedAt: string | number;
 }
 
 export interface Step {
@@ -11,16 +12,17 @@ export interface Step {
   title: string;
   description?: string;
   completed: boolean;
-  pathId?: Path | null;
+  pathId?: Path | string | null;
+  path?: Path | null; // Populated path from Convex
   recurring: {
     enabled: boolean;
-    frequency?: 'daily' | 'weekly' | 'monthly' | 'yearly';
+    frequency?: 'daily' | 'weekly' | 'monthly' | 'yearly' | null;
     interval?: number;
-    nextOccurrence?: string;
+    nextOccurrence?: string | number | null;
   };
   prioritizedToday: boolean;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: string | number;
+  updatedAt: string | number;
 }
 
 export interface StepTemplate {
@@ -36,6 +38,6 @@ export interface Routine {
   title: string;
   description?: string;
   stepTemplates: StepTemplate[];
-  createdAt: string;
-  updatedAt: string;
+  createdAt: string | number;
+  updatedAt: string | number;
 }

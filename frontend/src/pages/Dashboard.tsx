@@ -1,6 +1,22 @@
-import { useState, useEffect } from "react";
-import api from "@/lib/api";
+import { useState } from "react";
 import type { Step, Path, Routine, StepTemplate } from "@/types/index";
+import {
+  useSteps,
+  usePaths,
+  useRoutines,
+  useCreateStep,
+  useUpdateStep,
+  useDeleteStep,
+  useToggleStepCompletion,
+  useCreatePath,
+  useUpdatePath,
+  useDeletePath,
+  useCreateRoutine,
+  useUpdateRoutine,
+  useDeleteRoutine,
+  useExecuteRoutine,
+} from "@/lib/convex-hooks";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,9 +36,27 @@ import {
 type TabType = "today" | "steps" | "paths" | "routines";
 
 export default function Dashboard() {
-  const [steps, setSteps] = useState<Step[]>([]);
-  const [paths, setPaths] = useState<Path[]>([]);
-  const [routines, setRoutines] = useState<Routine[]>([]);
+  // Convex queries - automatically reactive!
+  const steps = useSteps();
+  const paths = usePaths();
+  const routines = useRoutines();
+
+  // Convex mutations
+  const createStepMutation = useCreateStep();
+  const updateStepMutation = useUpdateStep();
+  const deleteStepMutation = useDeleteStep();
+  const toggleStepMutation = useToggleStepCompletion();
+
+  const createPathMutation = useCreatePath();
+  const updatePathMutation = useUpdatePath();
+  const deletePathMutation = useDeletePath();
+
+  const createRoutineMutation = useCreateRoutine();
+  const updateRoutineMutation = useUpdateRoutine();
+  const deleteRoutineMutation = useDeleteRoutine();
+  const executeRoutineMutation = useExecuteRoutine();
+
+  // UI state
   const [expandedRoutines, setExpandedRoutines] = useState<Set<string>>(
     new Set()
   );
@@ -56,31 +90,14 @@ export default function Dashboard() {
   const [newStepTemplateDesc, setNewStepTemplateDesc] = useState("");
   const [newStepTemplatePathId, setNewStepTemplatePathId] = useState("");
   const [newStepTemplatePriority, setNewStepTemplatePriority] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      await Promise.all([fetchSteps(), fetchPaths(), fetchRoutines()]);
-      setIsLoading(false);
-    };
-    loadData();
-  }, []);
-
-  const fetchSteps = async () => {
-    const res = await api.get("/steps");
-    setSteps(res.data);
-  };
-
-  const fetchPaths = async () => {
-    const res = await api.get("/paths");
-    setPaths(res.data);
-  };
+  // Loading state from queries
+  const isLoading = steps === undefined || paths === undefined || routines === undefined;
 
   const createPath = async (title: string, description?: string) => {
     try {
-      await api.post("/paths", { title, description: description || "" });
-      fetchPaths();
+      await createPathMutation({ title, description: description || "" });
+      // No need to refetch - Convex auto-updates!
     } catch (error) {
       console.error("Error creating path:", error);
     }
@@ -88,8 +105,7 @@ export default function Dashboard() {
 
   const updatePath = async (id: string, title: string, description: string) => {
     try {
-      await api.put(`/paths/${id}`, { title, description });
-      fetchPaths();
+      await updatePathMutation({ id: id as Id<"paths">, title, description });
       setEditingPath(null);
     } catch (error) {
       console.error("Error updating path:", error);
@@ -107,28 +123,16 @@ export default function Dashboard() {
   };
 
   const deletePath = async (id: string) => {
-    await api.delete(`/paths/${id}`);
-    fetchPaths();
-  };
-
-  const fetchRoutines = async () => {
-    try {
-      const res = await api.get("/routines");
-      setRoutines(res.data);
-    } catch (error) {
-      console.error("Error fetching routines:", error);
-      setRoutines([]);
-    }
+    await deletePathMutation({ id: id as Id<"paths"> });
   };
 
   const createRoutine = async (title: string, description?: string) => {
     try {
-      await api.post("/routines", {
+      await createRoutineMutation({
         title,
         description: description || "",
         stepTemplates: [],
       });
-      fetchRoutines();
     } catch (error) {
       console.error("Error creating routine:", error);
     }
@@ -141,8 +145,7 @@ export default function Dashboard() {
     stepTemplates: StepTemplate[]
   ) => {
     try {
-      await api.put(`/routines/${id}`, { title, description, stepTemplates });
-      fetchRoutines();
+      await updateRoutineMutation({ id: id as Id<"routines">, title, description, stepTemplates });
       setEditingRoutine(null);
     } catch (error) {
       console.error("Error updating routine:", error);
@@ -212,14 +215,12 @@ export default function Dashboard() {
   };
 
   const deleteRoutine = async (id: string) => {
-    await api.delete(`/routines/${id}`);
-    fetchRoutines();
+    await deleteRoutineMutation({ id: id as Id<"routines"> });
   };
 
   const instantiateRoutine = async (routineId: string) => {
     try {
-      await api.post(`/routines/${routineId}/instantiate`, {});
-      fetchSteps();
+      await executeRoutineMutation({ id: routineId as Id<"routines"> });
     } catch (error) {
       console.error("Error instantiating routine:", error);
     }
@@ -231,13 +232,12 @@ export default function Dashboard() {
     pathId?: string
   ) => {
     try {
-      await api.post("/steps", {
+      await createStepMutation({
         title,
         description: description || "",
-        pathId: pathId || null,
+        pathId: pathId ? (pathId as Id<"paths">) : undefined,
         prioritizedToday: false,
       });
-      fetchSteps();
     } catch (error) {
       console.error("Error creating step:", error);
     }
@@ -245,8 +245,17 @@ export default function Dashboard() {
 
   const updateStep = async (id: string, updates: Partial<Step>) => {
     try {
-      await api.put(`/steps/${id}`, updates);
-      fetchSteps();
+      const updateData: any = { id: id as Id<"steps"> };
+      if (updates.title !== undefined) updateData.title = updates.title;
+      if (updates.description !== undefined) updateData.description = updates.description;
+      if (updates.completed !== undefined) updateData.completed = updates.completed;
+      if (updates.pathId !== undefined) {
+        updateData.pathId = updates.pathId ? (typeof updates.pathId === 'string' ? updates.pathId as Id<"paths"> : null) : null;
+      }
+      if (updates.prioritizedToday !== undefined) updateData.prioritizedToday = updates.prioritizedToday;
+      if (updates.recurring !== undefined) updateData.recurring = updates.recurring;
+
+      await updateStepMutation(updateData);
       setEditingStep(null);
     } catch (error) {
       console.error("Error updating step:", error);
@@ -271,18 +280,18 @@ export default function Dashboard() {
   };
 
   const toggleStep = async (id: string) => {
-    await api.patch(`/steps/${id}/toggle`);
-    fetchSteps();
+    await toggleStepMutation({ id: id as Id<"steps"> });
   };
 
   const togglePriority = async (id: string, currentValue: boolean) => {
-    await api.put(`/steps/${id}`, { prioritizedToday: !currentValue });
-    fetchSteps();
+    await updateStepMutation({
+      id: id as Id<"steps">,
+      prioritizedToday: !currentValue
+    });
   };
 
   const deleteStep = async (id: string) => {
-    await api.delete(`/steps/${id}`);
-    fetchSteps();
+    await deleteStepMutation({ id: id as Id<"steps"> });
   };
 
   const toggleRoutineExpanded = (routineId: string) => {
@@ -296,9 +305,13 @@ export default function Dashboard() {
   };
 
   const getPathStats = (pathId: string) => {
-    const pathSteps = steps.filter(
-      (step) => typeof step.pathId === "object" && step.pathId?._id === pathId
-    );
+    if (!steps) return { total: 0, completed: 0, incomplete: 0 };
+
+    const pathSteps = steps.filter((step) => {
+      // Handle both populated path object and path ID string
+      const stepPathId = step.path?._id || (typeof step.pathId === 'string' ? step.pathId : null);
+      return stepPathId === pathId;
+    });
     return {
       total: pathSteps.length,
       completed: pathSteps.filter((s) => s.completed).length,
@@ -331,9 +344,9 @@ export default function Dashboard() {
     }
   };
 
-  const prioritySteps = steps.filter((s) => s.prioritizedToday && !s.completed);
-  const regularSteps = steps.filter((s) => !s.prioritizedToday && !s.completed);
-  const completedSteps = steps.filter((s) => s.completed);
+  const prioritySteps = steps?.filter((s) => s.prioritizedToday && !s.completed) || [];
+  const regularSteps = steps?.filter((s) => !s.prioritizedToday && !s.completed) || [];
+  const completedSteps = steps?.filter((s) => s.completed) || [];
 
   return (
     <div className="space-y-6">
@@ -485,7 +498,7 @@ export default function Dashboard() {
                 onChange={(e) => setStepPathValue(e.target.value)}
               >
                 <option value="">No Path</option>
-                {paths.map((path) => (
+                {paths?.map((path) => (
                   <option key={path._id} value={path._id}>
                     {path.title}
                   </option>
@@ -510,11 +523,11 @@ export default function Dashboard() {
                 ))}
               </div>
             </div>
-          ) : routines.length > 0 ? (
+          ) : routines && routines.length > 0 ? (
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground">Quick Actions</p>
               <div className="flex flex-wrap gap-2">
-                {routines.map((routine) => (
+                {routines?.map((routine) => (
                   <button
                     key={routine._id}
                     onClick={() => instantiateRoutine(routine._id)}
@@ -642,9 +655,9 @@ export default function Dashboard() {
           </div>
 
           {/* Paths Grid */}
-          {paths.length > 0 ? (
+          {paths && paths.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {paths.map((path) => (
+              {paths?.map((path) => (
                 <Card
                   key={path._id}
                   className="hover:border-primary/50 transition-colors"
@@ -783,9 +796,9 @@ export default function Dashboard() {
           </div>
 
           {/* Routines Grid */}
-          {routines.length > 0 ? (
+          {routines && routines.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {routines.map((routine) => (
+              {routines?.map((routine) => (
                 <Card
                   key={routine._id}
                   className="hover:border-primary/50 transition-colors"
@@ -864,7 +877,7 @@ export default function Dashboard() {
                                   {template.pathId && (
                                     <p className="text-xs text-primary flex items-center mt-1">
                                       <Target className="w-3 h-3 mr-1" />
-                                      {paths.find(
+                                      {paths?.find(
                                         (p) => p._id === template.pathId
                                       )?.title || "Unknown Path"}
                                     </p>
@@ -944,7 +957,7 @@ export default function Dashboard() {
                                 {template.pathId && (
                                   <p className="text-xs text-primary flex items-center">
                                     <Target className="w-3 h-3 mr-1" />
-                                    {paths.find(
+                                    {paths?.find(
                                       (p) => p._id === template.pathId
                                     )?.title || "Unknown Path"}
                                   </p>
@@ -1013,7 +1026,7 @@ export default function Dashboard() {
                           }
                         >
                           <option value="">No Path</option>
-                          {paths.map((path) => (
+                          {paths?.map((path) => (
                             <option key={path._id} value={path._id}>
                               {path.title}
                             </option>
@@ -1102,7 +1115,7 @@ function StepCard({
             onChange={(e) => onEditFormChange({ pathId: e.target.value })}
           >
             <option value="">No Path</option>
-            {paths.map((path) => (
+            {paths?.map((path) => (
               <option key={path._id} value={path._id}>
                 {path.title}
               </option>
@@ -1203,10 +1216,10 @@ function StepCard({
                 {step.description}
               </p>
             )}
-            {step.pathId && (
+            {(step.pathId || step.path) && (
               <div className="mt-1 text-xs text-primary flex items-center">
                 <Target className="w-3 h-3 mr-1" />
-                {typeof step.pathId === "object" ? step.pathId.title : ""}
+                {step.path?.title || (typeof step.pathId === "object" && step.pathId ? step.pathId.title : "")}
               </div>
             )}
           </div>
