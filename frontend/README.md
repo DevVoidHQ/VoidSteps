@@ -9,22 +9,22 @@ React + TypeScript + Vite + Tailwind CSS frontend for the DevVoid Personal Track
 pnpm install
 ```
 
-2. Configure environment variables in `.env`:
+1. Configure environment variables in `.env`:
 ```
 VITE_API_URL=http://localhost:5000/api
 ```
 
-3. Start the development server:
+1. Start the development server:
 ```bash
 pnpm dev
 ```
 
-4. Build for production:
+1. Build for production:
 ```bash
 pnpm build
 ```
 
-5. Preview production build:
+1. Preview production build:
 ```bash
 pnpm preview
 ```
