@@ -119,11 +119,17 @@ export const updateStep = mutation({
     const existing = await ctx.db.get(id);
     if (!existing) throw new Error("Step not found");
 
-    await ctx.db.patch(id, {
+    const patchData: any = {
       ...updates,
-      pathId: updates.pathId === null ? undefined : updates.pathId,
       updatedAt: Date.now(),
-    });
+    };
+
+    // Only include pathId if it was explicitly provided in the updates
+    if ('pathId' in updates) {
+      patchData.pathId = updates.pathId === null ? undefined : updates.pathId;
+    }
+
+    await ctx.db.patch(id, patchData);
 
     const step = await ctx.db.get(id);
     if (!step) throw new Error("Failed to update step");
