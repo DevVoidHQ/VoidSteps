@@ -1,6 +1,6 @@
 # VoidSteps
 
-Track your paths and steps through your journey with a beautiful dark UI.
+Track your paths and steps through your journey with a beautiful dark UI. 
 
 ## Features
 
