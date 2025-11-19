@@ -13,6 +13,9 @@ export default defineSchema({
     title: v.string(),
     description: v.optional(v.string()),
     completed: v.boolean(),
+    completedAt: v.optional(v.number()),
+    failed: v.optional(v.boolean()),
+    failedAt: v.optional(v.number()),
     pathId: v.optional(v.id("paths")),
     recurring: v.object({
       enabled: v.boolean(),

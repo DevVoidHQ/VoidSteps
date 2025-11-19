@@ -12,6 +12,9 @@ export interface Step {
   title: string;
   description?: string;
   completed: boolean;
+  completedAt?: string | number;
+  failed?: boolean;
+  failedAt?: string | number;
   pathId?: Path | string | null;
   path?: Path | null; // Populated path from Convex
   recurring: {

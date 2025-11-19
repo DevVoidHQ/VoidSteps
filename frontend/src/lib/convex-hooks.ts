@@ -28,6 +28,21 @@ export const useSteps = () => {
   return steps?.map(transformStep);
 };
 
+export const useActiveSteps = () => {
+  const steps = useQuery(api.steps.getActiveSteps);
+  return steps?.map(transformStep);
+};
+
+export const useCompletedStepsToday = () => {
+  const steps = useQuery(api.steps.getCompletedStepsToday);
+  return steps?.map(transformStep);
+};
+
+export const useFailedSteps = () => {
+  const steps = useQuery(api.steps.getFailedSteps);
+  return steps?.map(transformStep);
+};
+
 export const useStep = (id: string | null) => {
   const step = useQuery(
     api.steps.getStep,
@@ -41,6 +56,8 @@ export const useUpdateStep = () => useMutation(api.steps.updateStep);
 export const useDeleteStep = () => useMutation(api.steps.deleteStep);
 export const useToggleStepCompletion = () =>
   useMutation(api.steps.toggleStepCompletion);
+export const useToggleStepFailed = () =>
+  useMutation(api.steps.toggleStepFailed);
 
 // Paths
 export const usePaths = () => {

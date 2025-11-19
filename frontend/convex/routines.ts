@@ -88,6 +88,7 @@ export const executeRoutine = mutation({
         title: template.title,
         description: template.description,
         completed: false,
+        failed: false,
         pathId: template.pathId,
         recurring: {
           enabled: false,

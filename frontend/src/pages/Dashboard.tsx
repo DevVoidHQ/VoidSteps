@@ -2,12 +2,16 @@ import { useState } from "react";
 import type { Step, Path, Routine, StepTemplate } from "@/types/index";
 import {
   useSteps,
+  useActiveSteps,
+  useCompletedStepsToday,
+  useFailedSteps,
   usePaths,
   useRoutines,
   useCreateStep,
   useUpdateStep,
   useDeleteStep,
   useToggleStepCompletion,
+  useToggleStepFailed,
   useCreatePath,
   useUpdatePath,
   useDeletePath,
@@ -31,13 +35,18 @@ import {
   Target,
   Pencil,
   Zap,
+  XCircle,
+  Search,
 } from "lucide-react";
 
 type TabType = "today" | "steps" | "paths" | "routines";
 
 export default function Dashboard() {
   // Convex queries - automatically reactive!
-  const steps = useSteps();
+  const activeSteps = useActiveSteps();
+  const allSteps = useSteps();
+  const completedStepsToday = useCompletedStepsToday();
+  const failedSteps = useFailedSteps();
   const paths = usePaths();
   const routines = useRoutines();
 
@@ -46,6 +55,7 @@ export default function Dashboard() {
   const updateStepMutation = useUpdateStep();
   const deleteStepMutation = useDeleteStep();
   const toggleStepMutation = useToggleStepCompletion();
+  const toggleFailedMutation = useToggleStepFailed();
 
   const createPathMutation = useCreatePath();
   const updatePathMutation = useUpdatePath();
@@ -90,9 +100,17 @@ export default function Dashboard() {
   const [newStepTemplateDesc, setNewStepTemplateDesc] = useState("");
   const [newStepTemplatePathId, setNewStepTemplatePathId] = useState("");
   const [newStepTemplatePriority, setNewStepTemplatePriority] = useState(false);
+  const [showCompletedSteps, setShowCompletedSteps] = useState(false);
+  const [showFailedSteps, setShowFailedSteps] = useState(false);
+
+  // Search and filter state
+  const [searchQueryToday, setSearchQueryToday] = useState("");
+  const [selectedPathFilterToday, setSelectedPathFilterToday] = useState("");
+  const [searchQuerySteps, setSearchQuerySteps] = useState("");
+  const [selectedPathFilterSteps, setSelectedPathFilterSteps] = useState("");
 
   // Loading state from queries
-  const isLoading = steps === undefined || paths === undefined || routines === undefined;
+  const isLoading = activeSteps === undefined || paths === undefined || routines === undefined;
 
   const createPath = async (title: string, description?: string) => {
     try {
@@ -289,6 +307,10 @@ export default function Dashboard() {
     await toggleStepMutation({ id: id as Id<"steps"> });
   };
 
+  const toggleFailed = async (id: string) => {
+    await toggleFailedMutation({ id: id as Id<"steps"> });
+  };
+
   const togglePriority = async (id: string, currentValue: boolean) => {
     await updateStepMutation({
       id: id as Id<"steps">,
@@ -311,9 +333,9 @@ export default function Dashboard() {
   };
 
   const getPathStats = (pathId: string) => {
-    if (!steps) return { total: 0, completed: 0, incomplete: 0 };
+    if (!allSteps) return { total: 0, completed: 0, failed: 0, incomplete: 0 };
 
-    const pathSteps = steps.filter((step: Step) => {
+    const pathSteps = allSteps.filter((step: Step) => {
       // Handle both populated path object and path ID string
       const stepPathId = step.path?._id || (typeof step.pathId === 'string' ? step.pathId : null);
       return stepPathId === pathId;
@@ -321,8 +343,24 @@ export default function Dashboard() {
     return {
       total: pathSteps.length,
       completed: pathSteps.filter((s: Step) => s.completed).length,
-      incomplete: pathSteps.filter((s: Step) => !s.completed).length,
+      failed: pathSteps.filter((s: Step) => s.failed === true).length,
+      incomplete: pathSteps.filter((s: Step) => !s.completed && s.failed !== true).length,
     };
+  };
+
+  const filterSteps = (steps: Step[], searchQuery: string, pathFilter: string): Step[] => {
+    return steps.filter((step: Step) => {
+      // Text search filter (case-insensitive, matches title or description)
+      const matchesSearch = !searchQuery ||
+        step.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (step.description || "").toLowerCase().includes(searchQuery.toLowerCase());
+
+      // Path filter
+      const stepPathId = step.path?._id || (typeof step.pathId === 'string' ? step.pathId : null);
+      const matchesPath = !pathFilter || stepPathId === pathFilter;
+
+      return matchesSearch && matchesPath;
+    });
   };
 
   const handleQuickAdd = () => {
@@ -350,9 +388,26 @@ export default function Dashboard() {
     }
   };
 
-  const prioritySteps = steps?.filter((s: Step) => s.prioritizedToday && !s.completed) || [];
-  const regularSteps = steps?.filter((s: Step) => !s.prioritizedToday && !s.completed) || [];
-  const completedSteps = steps?.filter((s: Step) => s.completed) || [];
+  // For Steps tab: use activeSteps (only incomplete and not failed)
+  const steps = activeSteps;
+  const unfilteredPrioritySteps = steps?.filter((s: Step) => s.prioritizedToday) || [];
+  const unfilteredRegularSteps = steps?.filter((s: Step) => !s.prioritizedToday) || [];
+  const unfilteredCompletedSteps = showCompletedSteps ? (allSteps?.filter((s: Step) => s.completed) || []) : [];
+  const unfilteredFailedStepsList = showFailedSteps ? (failedSteps || []) : [];
+
+  // Apply filters for Steps tab
+  const prioritySteps = filterSteps(unfilteredPrioritySteps, searchQuerySteps, selectedPathFilterSteps);
+  const regularSteps = filterSteps(unfilteredRegularSteps, searchQuerySteps, selectedPathFilterSteps);
+  const completedSteps = filterSteps(unfilteredCompletedSteps, searchQuerySteps, selectedPathFilterSteps);
+  const failedStepsList = filterSteps(unfilteredFailedStepsList, searchQuerySteps, selectedPathFilterSteps);
+
+  // For Today tab: filter active steps by priority
+  const unfilteredTodayPrioritySteps = activeSteps?.filter((s: Step) => s.prioritizedToday) || [];
+  const unfilteredTodayCompletedSteps = completedStepsToday?.filter((s: Step) => s.prioritizedToday) || [];
+
+  // Apply filters for Today tab
+  const todayPrioritySteps = filterSteps(unfilteredTodayPrioritySteps, searchQueryToday, selectedPathFilterToday);
+  const todayCompletedSteps = filterSteps(unfilteredTodayCompletedSteps, searchQueryToday, selectedPathFilterToday);
 
   return (
     <div className="space-y-6">
@@ -417,15 +472,41 @@ export default function Dashboard() {
       {/* Tab Content */}
       {activeTab === "today" && (
         <div className="space-y-4">
+          {/* Search and Filter */}
+          <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search steps..."
+                value={searchQueryToday}
+                onChange={(e) => setSearchQueryToday(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <select
+              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm sm:w-48"
+              value={selectedPathFilterToday}
+              onChange={(e) => setSelectedPathFilterToday(e.target.value)}
+            >
+              <option value="">All Paths</option>
+              {paths?.map((path: Path) => (
+                <option key={path._id} value={path._id}>
+                  {path.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Priority Steps */}
-          {prioritySteps.length > 0 ? (
+          {todayPrioritySteps.length > 0 ? (
             <div className="space-y-2">
-              {prioritySteps.map((step: Step) => (
+              {todayPrioritySteps.map((step: Step) => (
                 <StepCard
                   key={step._id}
                   step={step}
                   paths={paths || []}
                   onToggle={toggleStep}
+                  onToggleFailed={toggleFailed}
                   onDelete={deleteStep}
                   onTogglePriority={togglePriority}
                   isEditing={editingStep === step._id}
@@ -442,39 +523,43 @@ export default function Dashboard() {
           ) : (
             <div className="text-center py-12 text-muted-foreground">
               <Star className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p>No steps prioritized for today</p>
-              <p className="text-sm mt-1">Star a step to add it here</p>
+              <p>
+                {searchQueryToday || selectedPathFilterToday
+                  ? "No steps match your search"
+                  : "No steps prioritized for today"}
+              </p>
+              {!searchQueryToday && !selectedPathFilterToday && (
+                <p className="text-sm mt-1">Star a step to add it here</p>
+              )}
             </div>
           )}
 
           {/* Completed Today */}
-          {completedSteps.filter((s) => s.prioritizedToday).length > 0 && (
+          {todayCompletedSteps.length > 0 && (
             <div className="space-y-3 pt-4 border-t border-border">
               <h2 className="text-sm font-medium text-muted-foreground">
-                Completed (
-                {completedSteps.filter((s: Step) => s.prioritizedToday).length})
+                Completed Today ({todayCompletedSteps.length})
               </h2>
               <div className="space-y-2 opacity-60">
-                {completedSteps
-                  .filter((s: Step) => s.prioritizedToday)
-                  .map((step: Step) => (
-                    <StepCard
-                      key={step._id}
-                      step={step}
-                      paths={paths || []}
-                      onToggle={toggleStep}
-                      onDelete={deleteStep}
-                      onTogglePriority={togglePriority}
-                      isEditing={editingStep === step._id}
-                      editForm={editStepForm}
-                      onStartEdit={startEditStep}
-                      onCancelEdit={cancelEditStep}
-                      onSaveEdit={updateStep}
-                      onEditFormChange={(updates) =>
-                        setEditStepForm({ ...editStepForm, ...updates })
-                      }
-                    />
-                  ))}
+                {todayCompletedSteps.map((step: Step) => (
+                  <StepCard
+                    key={step._id}
+                    step={step}
+                    paths={paths || []}
+                    onToggle={toggleStep}
+                    onToggleFailed={toggleFailed}
+                    onDelete={deleteStep}
+                    onTogglePriority={togglePriority}
+                    isEditing={editingStep === step._id}
+                    editForm={editStepForm}
+                    onStartEdit={startEditStep}
+                    onCancelEdit={cancelEditStep}
+                    onSaveEdit={updateStep}
+                    onEditFormChange={(updates) =>
+                      setEditStepForm({ ...editStepForm, ...updates })
+                    }
+                  />
+                ))}
               </div>
             </div>
           )}
@@ -514,6 +599,31 @@ export default function Dashboard() {
                 <Plus className="w-4 h-4" />
               </Button>
             </div>
+          </div>
+
+          {/* Search and Filter */}
+          <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search steps..."
+                value={searchQuerySteps}
+                onChange={(e) => setSearchQuerySteps(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <select
+              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm sm:w-48"
+              value={selectedPathFilterSteps}
+              onChange={(e) => setSelectedPathFilterSteps(e.target.value)}
+            >
+              <option value="">All Paths</option>
+              {paths?.map((path: Path) => (
+                <option key={path._id} value={path._id}>
+                  {path.title}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Routine Chips */}
@@ -560,6 +670,7 @@ export default function Dashboard() {
                     step={step}
                     paths={paths || []}
                     onToggle={toggleStep}
+                    onToggleFailed={toggleFailed}
                     onDelete={deleteStep}
                     onTogglePriority={togglePriority}
                     isEditing={editingStep === step._id}
@@ -587,6 +698,57 @@ export default function Dashboard() {
                     step={step}
                     paths={paths || []}
                     onToggle={toggleStep}
+                    onToggleFailed={toggleFailed}
+                    onDelete={deleteStep}
+                    onTogglePriority={togglePriority}
+                    isEditing={editingStep === step._id}
+                    editForm={editStepForm}
+                    onStartEdit={startEditStep}
+                    onCancelEdit={cancelEditStep}
+                    onSaveEdit={updateStep}
+                    onEditFormChange={(updates) =>
+                      setEditStepForm({ ...editStepForm, ...updates })
+                    }
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Show Completed/Failed Toggles */}
+          <div className="pt-2 flex space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowCompletedSteps(!showCompletedSteps)}
+              className="flex-1"
+            >
+              {showCompletedSteps ? "Hide" : "Show"} Completed
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFailedSteps(!showFailedSteps)}
+              className="flex-1"
+            >
+              {showFailedSteps ? "Hide" : "Show"} Failed
+            </Button>
+          </div>
+
+          {/* Failed Steps */}
+          {showFailedSteps && failedStepsList.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="text-lg font-medium text-destructive">
+                Failed ({failedStepsList.length})
+              </h2>
+              <div className="space-y-2">
+                {failedStepsList.map((step: Step) => (
+                  <StepCard
+                    key={step._id}
+                    step={step}
+                    paths={paths || []}
+                    onToggle={toggleStep}
+                    onToggleFailed={toggleFailed}
                     onDelete={deleteStep}
                     onTogglePriority={togglePriority}
                     isEditing={editingStep === step._id}
@@ -604,7 +766,7 @@ export default function Dashboard() {
           )}
 
           {/* Completed Steps */}
-          {completedSteps.length > 0 && (
+          {showCompletedSteps && completedSteps.length > 0 && (
             <div className="space-y-3">
               <h2 className="text-lg font-medium text-muted-foreground">
                 Completed ({completedSteps.length})
@@ -616,6 +778,7 @@ export default function Dashboard() {
                     step={step}
                     paths={paths || []}
                     onToggle={toggleStep}
+                    onToggleFailed={toggleFailed}
                     onDelete={deleteStep}
                     onTogglePriority={togglePriority}
                     isEditing={editingStep === step._id}
@@ -728,10 +891,12 @@ export default function Dashboard() {
                               const stats = getPathStats(path._id);
                               return (
                                 <div className="flex items-center space-x-3 mt-auto pt-2 text-xs text-muted-foreground">
-                                  <span>{stats.completed} taken</span>
+                                  <span>{stats.completed} completed</span>
+                                  <span>•</span>
+                                  <span className="text-destructive">{stats.failed} failed</span>
                                   <span>•</span>
                                   <span>
-                                    {stats.incomplete} yet to be taken
+                                    {stats.incomplete} in progress
                                   </span>
                                 </div>
                               );
@@ -1076,6 +1241,7 @@ interface StepCardProps {
   step: Step;
   paths: Path[];
   onToggle: (id: string) => void;
+  onToggleFailed?: (id: string) => void;
   onDelete: (id: string) => void;
   onTogglePriority: (id: string, current: boolean) => void;
   isEditing: boolean;
@@ -1092,6 +1258,7 @@ function StepCard({
   step,
   paths,
   onToggle,
+  onToggleFailed,
   onDelete,
   onTogglePriority,
   isEditing,
@@ -1151,7 +1318,7 @@ function StepCard({
   }
 
   return (
-    <Card className="hover:bg-muted/30 transition-colors">
+    <Card className={`hover:bg-muted/30 transition-colors ${step.failed === true ? 'border-destructive/50' : ''}`}>
       <CardContent className="p-3">
         <div className="flex items-start space-x-3">
           <button
@@ -1162,10 +1329,13 @@ function StepCard({
               className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
                 step.completed
                   ? "bg-primary border-primary"
+                  : step.failed === true
+                  ? "bg-destructive border-destructive"
                   : "border-muted-foreground hover:border-primary"
               }`}
             >
               {step.completed && <Check className="w-3 h-3 text-black" />}
+              {step.failed === true && <X className="w-3 h-3 text-black" />}
             </div>
           </button>
           <div className="flex-1 min-w-0">
@@ -1173,7 +1343,11 @@ function StepCard({
               <div className="flex items-center space-x-2 flex-1 min-w-0">
                 <span
                   className={`font-medium ${
-                    step.completed ? "line-through text-muted-foreground" : ""
+                    step.completed
+                      ? "line-through text-muted-foreground"
+                      : step.failed === true
+                      ? "line-through text-destructive"
+                      : ""
                   }`}
                 >
                   {step.title}
@@ -1183,6 +1357,22 @@ function StepCard({
                 )}
               </div>
               <div className="flex items-center space-x-1 flex-shrink-0">
+                {onToggleFailed && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onToggleFailed(step._id)}
+                    className="h-7 w-7 p-0"
+                  >
+                    <XCircle
+                      className={`w-4 h-4 ${
+                        step.failed === true
+                          ? "fill-destructive text-destructive"
+                          : "text-muted-foreground"
+                      }`}
+                    />
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="sm"
