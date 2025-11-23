@@ -34,7 +34,12 @@ export const useActiveSteps = () => {
 };
 
 export const useCompletedStepsToday = () => {
-  const steps = useQuery(api.steps.getCompletedStepsToday);
+  // Calculate start of today in user's local timezone
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const startOfDayTimestamp = startOfToday.getTime();
+
+  const steps = useQuery(api.steps.getCompletedStepsToday, { startOfDayTimestamp });
   return steps?.map(transformStep);
 };
 

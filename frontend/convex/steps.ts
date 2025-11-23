@@ -63,11 +63,20 @@ export const getActiveSteps = query({
 });
 
 export const getCompletedStepsToday = query({
-  handler: async (ctx) => {
-    const now = Date.now();
-    const startOfToday = new Date(now);
-    startOfToday.setHours(0, 0, 0, 0);
-    const startOfTodayTimestamp = startOfToday.getTime();
+  args: {
+    startOfDayTimestamp: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    // Use provided timestamp (from user's timezone) or calculate in server timezone as fallback
+    let startOfTodayTimestamp: number;
+    if (args.startOfDayTimestamp !== undefined) {
+      startOfTodayTimestamp = args.startOfDayTimestamp;
+    } else {
+      const now = Date.now();
+      const startOfToday = new Date(now);
+      startOfToday.setHours(0, 0, 0, 0);
+      startOfTodayTimestamp = startOfToday.getTime();
+    }
 
     const steps = await ctx.db
       .query("steps")
