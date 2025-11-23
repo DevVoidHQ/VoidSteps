@@ -260,7 +260,7 @@ export default function Dashboard() {
         title,
         description: description || "",
         pathId: pathId ? (pathId as Id<"paths">) : undefined,
-        prioritizedToday: false,
+        prioritizedToday: true,
       });
     } catch (error) {
       console.error("Error creating step:", error);
