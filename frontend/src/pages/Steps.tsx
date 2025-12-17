@@ -165,8 +165,8 @@ export default function Steps() {
   const steps = activeSteps;
   const unfilteredPrioritySteps = steps?.filter((s: Step) => s.prioritizedToday) || [];
   const unfilteredRegularSteps = steps?.filter((s: Step) => !s.prioritizedToday) || [];
-  const unfilteredCompletedSteps = showCompletedSteps ? (allSteps?.filter((s: Step) => s.completed) || []) : [];
-  const unfilteredFailedStepsList = showFailedSteps ? (failedSteps || []) : [];
+  const unfilteredCompletedSteps = allSteps?.filter((s: Step) => s.completed) || [];
+  const unfilteredFailedStepsList = failedSteps || [];
 
   const prioritySteps = filterSteps(unfilteredPrioritySteps, searchQuerySteps, selectedPathFilterSteps);
   const regularSteps = filterSteps(unfilteredRegularSteps, searchQuerySteps, selectedPathFilterSteps);
@@ -324,7 +324,7 @@ export default function Steps() {
           onClick={() => setShowCompletedSteps(!showCompletedSteps)}
           className="flex-1"
         >
-          {showCompletedSteps ? "Hide" : "Show"} Completed
+          {showCompletedSteps ? "Hide" : "Show"} Completed ({completedSteps.length})
         </Button>
         <Button
           variant="outline"
@@ -332,7 +332,7 @@ export default function Steps() {
           onClick={() => setShowFailedSteps(!showFailedSteps)}
           className="flex-1"
         >
-          {showFailedSteps ? "Hide" : "Show"} Failed
+          {showFailedSteps ? "Hide" : "Show"} Failed ({failedStepsList.length})
         </Button>
       </div>
 
