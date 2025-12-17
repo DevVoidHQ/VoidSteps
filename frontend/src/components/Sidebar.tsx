@@ -1,9 +1,14 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { LogOut, Settings, Calendar, ListTodo, Target, Zap } from 'lucide-react';
+import { LogOut, Settings, Calendar, ListTodo, Target, Zap, X } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-export default function Sidebar() {
+interface SidebarProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -22,13 +27,48 @@ export default function Sidebar() {
     return location.pathname.startsWith(path);
   };
 
+  const handleNavigate = (path: string) => {
+    navigate(path);
+    onClose();
+  };
+
   return (
-    <div className="w-64 h-screen bg-card border-r border-border flex flex-col">
+    <>
+      {/* Mobile Backdrop */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={onClose}
+        />
+      )}
+
+      {/* Sidebar */}
+      <div
+        className={`
+          fixed md:static
+          w-64 h-screen bg-card border-r border-border flex flex-col
+          z-50
+          transition-transform duration-300 ease-in-out
+          ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        `}
+        style={{ opacity: 1, backgroundColor: 'hsl(var(--card))' }}
+      >
       {/* Header */}
       <div className="p-6 border-b border-border">
-        <p className="text-sm text-muted-foreground">Welcome, Aneesh</p>
-        <h2 className="text-2xl font-bold mt-1">Today</h2>
-        <p className="text-xs text-muted-foreground mt-2">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex-1">
+            <p className="text-sm text-muted-foreground">Welcome, Aneesh</p>
+            <h2 className="text-2xl font-bold mt-1">Today</h2>
+          </div>
+          {/* Close button for mobile */}
+          <button
+            onClick={onClose}
+            className="md:hidden p-2 hover:bg-muted rounded-lg"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <p className="text-xs text-muted-foreground">
           {new Date().toLocaleDateString("en-US", {
             weekday: "long",
             month: "short",
@@ -45,7 +85,7 @@ export default function Sidebar() {
           return (
             <button
               key={item.path}
-              onClick={() => navigate(item.path)}
+              onClick={() => handleNavigate(item.path)}
               className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
                 active
                   ? 'bg-primary text-primary-foreground font-medium'
@@ -62,7 +102,7 @@ export default function Sidebar() {
       {/* Footer */}
       <div className="p-4 border-t border-border space-y-1">
         <button
-          onClick={() => navigate('/settings')}
+          onClick={() => handleNavigate('/settings')}
           className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
             location.pathname === '/settings'
               ? 'bg-primary text-primary-foreground font-medium'
@@ -82,5 +122,6 @@ export default function Sidebar() {
         </Button>
       </div>
     </div>
+    </>
   );
 }
