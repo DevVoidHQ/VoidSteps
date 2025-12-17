@@ -3,7 +3,10 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import Layout from '@/components/Layout';
 import Login from '@/pages/Login';
-import Dashboard from '@/pages/Dashboard';
+import Today from '@/pages/Today';
+import Steps from '@/pages/Steps';
+import Paths from '@/pages/Paths';
+import Routines from '@/pages/Routines';
 import Settings from '@/pages/Settings';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -48,7 +51,37 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Layout>
-              <Dashboard />
+              <Today />
+            </Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/steps"
+        element={
+          <PrivateRoute>
+            <Layout>
+              <Steps />
+            </Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/paths"
+        element={
+          <PrivateRoute>
+            <Layout>
+              <Paths />
+            </Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/routines"
+        element={
+          <PrivateRoute>
+            <Layout>
+              <Routines />
             </Layout>
           </PrivateRoute>
         }

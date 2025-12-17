@@ -1073,7 +1073,7 @@ export default function Dashboard() {
 
           {/* Edit Routine Modal */}
           {showEditRoutineModal && (
-            <div className="fixed inset-0 bg-black flex items-center justify-center z-50 p-4">
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
               <Card className="w-full max-w-2xl max-h-[90vh] overflow-hidden">
                 <CardContent className="p-6 space-y-4 overflow-y-auto max-h-[85vh]">
                   <h3 className="text-lg font-semibold">Edit Routine</h3>
