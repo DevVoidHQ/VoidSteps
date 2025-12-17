@@ -105,3 +105,8 @@ export const useExecuteRoutine = () => useMutation(api.routines.executeRoutine);
 export const useLogin = () => useMutation(api.auth.login);
 export const useVerify = (token: string | null) =>
   useQuery(api.auth.verify, token ? { token } : "skip");
+
+// User Settings
+export const useUserSettings = (userId: string | null) =>
+  useQuery(api.userSettings.getUserSettings, userId ? { userId: userId as Id<"users"> } : "skip");
+export const useUpdateUserSettings = () => useMutation(api.userSettings.updateUserSettings);
