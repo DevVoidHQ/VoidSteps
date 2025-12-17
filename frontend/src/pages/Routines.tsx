@@ -6,7 +6,6 @@ import {
   useCreateRoutine,
   useUpdateRoutine,
   useDeleteRoutine,
-  useExecuteRoutine,
 } from "@/lib/convex-hooks";
 import type { Id } from "../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
@@ -30,9 +29,10 @@ export default function Routines() {
   const createRoutineMutation = useCreateRoutine();
   const updateRoutineMutation = useUpdateRoutine();
   const deleteRoutineMutation = useDeleteRoutine();
-  const executeRoutineMutation = useExecuteRoutine();
 
-  const [expandedRoutines, setExpandedRoutines] = useState<Set<string>>(new Set());
+  const [expandedRoutines, setExpandedRoutines] = useState<Set<string>>(
+    new Set()
+  );
   const [routineAddValue, setRoutineAddValue] = useState("");
   const [routineDescValue, setRoutineDescValue] = useState("");
   const [editingRoutine, setEditingRoutine] = useState<string | null>(null);
@@ -66,13 +66,18 @@ export default function Routines() {
     stepTemplates: StepTemplate[]
   ) => {
     try {
-      const convexStepTemplates = stepTemplates.map(st => ({
+      const convexStepTemplates = stepTemplates.map((st) => ({
         title: st.title,
         description: st.description,
-        pathId: st.pathId ? st.pathId as Id<"paths"> : undefined,
+        pathId: st.pathId ? (st.pathId as Id<"paths">) : undefined,
         prioritizedToday: st.prioritizedToday,
       }));
-      await updateRoutineMutation({ id: id as Id<"routines">, title, description, stepTemplates: convexStepTemplates });
+      await updateRoutineMutation({
+        id: id as Id<"routines">,
+        title,
+        description,
+        stepTemplates: convexStepTemplates,
+      });
       setEditingRoutine(null);
     } catch (error) {
       console.error("Error updating routine:", error);
@@ -145,14 +150,6 @@ export default function Routines() {
     await deleteRoutineMutation({ id: id as Id<"routines"> });
   };
 
-  const instantiateRoutine = async (routineId: string) => {
-    try {
-      await executeRoutineMutation({ id: routineId as Id<"routines"> });
-    } catch (error) {
-      console.error("Error instantiating routine:", error);
-    }
-  };
-
   const toggleRoutineExpanded = (routineId: string) => {
     const newExpanded = new Set(expandedRoutines);
     if (newExpanded.has(routineId)) {
@@ -193,10 +190,7 @@ export default function Routines() {
             onKeyPress={(e) => e.key === "Enter" && handleRoutineAdd()}
             className="flex-1"
           />
-          <Button
-            onClick={handleRoutineAdd}
-            disabled={!routineAddValue.trim()}
-          >
+          <Button onClick={handleRoutineAdd} disabled={!routineAddValue.trim()}>
             <Plus className="w-4 h-4" />
           </Button>
         </div>
@@ -263,36 +257,38 @@ export default function Routines() {
                       <p className="text-xs font-medium text-muted-foreground mb-2">
                         Steps in Routine:
                       </p>
-                      {routine.stepTemplates.map((template: StepTemplate, index: number) => (
-                        <div key={index} className="space-y-1 pl-6">
-                          <div className="flex items-start space-x-2 text-sm">
-                            <span className="text-muted-foreground">
-                              {index + 1}.
-                            </span>
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-2">
-                                <p>{template.title}</p>
-                                {template.prioritizedToday && (
-                                  <Star className="w-3 h-3 fill-primary text-primary" />
+                      {routine.stepTemplates.map(
+                        (template: StepTemplate, index: number) => (
+                          <div key={index} className="space-y-1 pl-6">
+                            <div className="flex items-start space-x-2 text-sm">
+                              <span className="text-muted-foreground">
+                                {index + 1}.
+                              </span>
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-2">
+                                  <p>{template.title}</p>
+                                  {template.prioritizedToday && (
+                                    <Star className="w-3 h-3 fill-primary text-primary" />
+                                  )}
+                                </div>
+                                {template.description && (
+                                  <p className="text-xs text-muted-foreground">
+                                    {template.description}
+                                  </p>
+                                )}
+                                {template.pathId && (
+                                  <p className="text-xs text-primary flex items-center mt-1">
+                                    <Target className="w-3 h-3 mr-1" />
+                                    {paths?.find(
+                                      (p: Path) => p._id === template.pathId
+                                    )?.title || "Unknown Path"}
+                                  </p>
                                 )}
                               </div>
-                              {template.description && (
-                                <p className="text-xs text-muted-foreground">
-                                  {template.description}
-                                </p>
-                              )}
-                              {template.pathId && (
-                                <p className="text-xs text-primary flex items-center mt-1">
-                                  <Target className="w-3 h-3 mr-1" />
-                                  {paths?.find(
-                                    (p: Path) => p._id === template.pathId
-                                  )?.title || "Unknown Path"}
-                                </p>
-                              )}
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        )
+                      )}
                     </div>
                   )}
               </CardContent>
@@ -394,9 +390,7 @@ export default function Routines() {
                   <Input
                     placeholder="Step title..."
                     value={newStepTemplateTitle}
-                    onChange={(e) =>
-                      setNewStepTemplateTitle(e.target.value)
-                    }
+                    onChange={(e) => setNewStepTemplateTitle(e.target.value)}
                     onKeyPress={(e) =>
                       e.key === "Enter" &&
                       !e.shiftKey &&
@@ -428,9 +422,7 @@ export default function Routines() {
                     <select
                       className="flex-1 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
                       value={newStepTemplatePathId}
-                      onChange={(e) =>
-                        setNewStepTemplatePathId(e.target.value)
-                      }
+                      onChange={(e) => setNewStepTemplatePathId(e.target.value)}
                     >
                       <option value="">No Path</option>
                       {paths?.map((path: Path) => (
