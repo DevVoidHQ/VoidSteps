@@ -8,6 +8,7 @@ import {
   useDeleteStep,
   useToggleStepCompletion,
   useToggleStepFailed,
+  useReorderSteps,
 } from "@/lib/convex-hooks";
 import type { Id } from "../../convex/_generated/dataModel";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,7 @@ import {
   Search,
 } from "lucide-react";
 import { StepCard } from "@/components/StepCard";
+import { DraggableStepList } from "@/components/DraggableStepList";
 
 export default function Today() {
   const activeSteps = useActiveSteps();
@@ -26,6 +28,7 @@ export default function Today() {
   const deleteStepMutation = useDeleteStep();
   const toggleStepMutation = useToggleStepCompletion();
   const toggleFailedMutation = useToggleStepFailed();
+  const reorderStepsMutation = useReorderSteps();
 
   const [editingStep, setEditingStep] = useState<string | null>(null);
   const [editStepForm, setEditStepForm] = useState({
@@ -91,6 +94,10 @@ export default function Today() {
     await deleteStepMutation({ id: id as Id<"steps"> });
   };
 
+  const handleReorder = async (stepIds: string[]) => {
+    await reorderStepsMutation({ stepIds: stepIds as Id<"steps">[] });
+  };
+
   const filterSteps = (steps: Step[], searchQuery: string, pathFilter: string): Step[] => {
     return steps.filter((step: Step) => {
       const matchesSearch = !searchQuery ||
@@ -141,27 +148,23 @@ export default function Today() {
 
       {/* Priority Steps */}
       {todayPrioritySteps.length > 0 ? (
-        <div className="space-y-2">
-          {todayPrioritySteps.map((step: Step) => (
-            <StepCard
-              key={step._id}
-              step={step}
-              paths={paths || []}
-              onToggle={toggleStep}
-              onToggleFailed={toggleFailed}
-              onDelete={deleteStep}
-              onTogglePriority={togglePriority}
-              isEditing={editingStep === step._id}
-              editForm={editStepForm}
-              onStartEdit={startEditStep}
-              onCancelEdit={cancelEditStep}
-              onSaveEdit={updateStep}
-              onEditFormChange={(updates) =>
-                setEditStepForm({ ...editStepForm, ...updates })
-              }
-            />
-          ))}
-        </div>
+        <DraggableStepList
+          steps={todayPrioritySteps}
+          paths={paths || []}
+          onReorder={handleReorder}
+          onToggle={toggleStep}
+          onToggleFailed={toggleFailed}
+          onDelete={deleteStep}
+          onTogglePriority={togglePriority}
+          editingStep={editingStep}
+          editForm={editStepForm}
+          onStartEdit={startEditStep}
+          onCancelEdit={cancelEditStep}
+          onSaveEdit={updateStep}
+          onEditFormChange={(updates) =>
+            setEditStepForm({ ...editStepForm, ...updates })
+          }
+        />
       ) : (
         <div className="text-center py-12 text-muted-foreground">
           <Star className="w-12 h-12 mx-auto mb-3 opacity-50" />

@@ -110,3 +110,6 @@ export const useVerify = (token: string | null) =>
 export const useUserSettings = (userId: string | null) =>
   useQuery(api.userSettings.getUserSettings, userId ? { userId: userId as Id<"users"> } : "skip");
 export const useUpdateUserSettings = () => useMutation(api.userSettings.updateUserSettings);
+
+// Step Reordering
+export const useReorderSteps = () => useMutation(api.steps.reorderSteps);

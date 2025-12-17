@@ -12,6 +12,7 @@ import {
   useToggleStepCompletion,
   useToggleStepFailed,
   useExecuteRoutine,
+  useReorderSteps,
 } from "@/lib/convex-hooks";
 import type { Id } from "../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import {
   Search,
 } from "lucide-react";
 import { StepCard } from "@/components/StepCard";
+import { DraggableStepList } from "@/components/DraggableStepList";
 
 export default function Steps() {
   const activeSteps = useActiveSteps();
@@ -36,6 +38,7 @@ export default function Steps() {
   const toggleStepMutation = useToggleStepCompletion();
   const toggleFailedMutation = useToggleStepFailed();
   const executeRoutineMutation = useExecuteRoutine();
+  const reorderStepsMutation = useReorderSteps();
 
   const [quickAddValue, setQuickAddValue] = useState("");
   const [stepDescValue, setStepDescValue] = useState("");
@@ -123,6 +126,10 @@ export default function Steps() {
 
   const deleteStep = async (id: string) => {
     await deleteStepMutation({ id: id as Id<"steps"> });
+  };
+
+  const handleReorder = async (stepIds: string[]) => {
+    await reorderStepsMutation({ stepIds: stepIds as Id<"steps">[] });
   };
 
   const instantiateRoutine = async (routineId: string) => {
@@ -265,27 +272,23 @@ export default function Steps() {
             <Star className="w-5 h-5 fill-primary text-primary" />
             <span>Priority</span>
           </h2>
-          <div className="space-y-2">
-            {prioritySteps.map((step: Step) => (
-              <StepCard
-                key={step._id}
-                step={step}
-                paths={paths || []}
-                onToggle={toggleStep}
-                onToggleFailed={toggleFailed}
-                onDelete={deleteStep}
-                onTogglePriority={togglePriority}
-                isEditing={editingStep === step._id}
-                editForm={editStepForm}
-                onStartEdit={startEditStep}
-                onCancelEdit={cancelEditStep}
-                onSaveEdit={updateStep}
-                onEditFormChange={(updates) =>
-                  setEditStepForm({ ...editStepForm, ...updates })
-                }
-              />
-            ))}
-          </div>
+          <DraggableStepList
+            steps={prioritySteps}
+            paths={paths || []}
+            onReorder={handleReorder}
+            onToggle={toggleStep}
+            onToggleFailed={toggleFailed}
+            onDelete={deleteStep}
+            onTogglePriority={togglePriority}
+            editingStep={editingStep}
+            editForm={editStepForm}
+            onStartEdit={startEditStep}
+            onCancelEdit={cancelEditStep}
+            onSaveEdit={updateStep}
+            onEditFormChange={(updates) =>
+              setEditStepForm({ ...editStepForm, ...updates })
+            }
+          />
         </div>
       )}
 
@@ -293,27 +296,23 @@ export default function Steps() {
       {regularSteps.length > 0 && (
         <div className="space-y-3">
           <h2 className="text-lg font-semibold">All Steps</h2>
-          <div className="space-y-2">
-            {regularSteps.map((step: Step) => (
-              <StepCard
-                key={step._id}
-                step={step}
-                paths={paths || []}
-                onToggle={toggleStep}
-                onToggleFailed={toggleFailed}
-                onDelete={deleteStep}
-                onTogglePriority={togglePriority}
-                isEditing={editingStep === step._id}
-                editForm={editStepForm}
-                onStartEdit={startEditStep}
-                onCancelEdit={cancelEditStep}
-                onSaveEdit={updateStep}
-                onEditFormChange={(updates) =>
-                  setEditStepForm({ ...editStepForm, ...updates })
-                }
-              />
-            ))}
-          </div>
+          <DraggableStepList
+            steps={regularSteps}
+            paths={paths || []}
+            onReorder={handleReorder}
+            onToggle={toggleStep}
+            onToggleFailed={toggleFailed}
+            onDelete={deleteStep}
+            onTogglePriority={togglePriority}
+            editingStep={editingStep}
+            editForm={editStepForm}
+            onStartEdit={startEditStep}
+            onCancelEdit={cancelEditStep}
+            onSaveEdit={updateStep}
+            onEditFormChange={(updates) =>
+              setEditStepForm({ ...editStepForm, ...updates })
+            }
+          />
         </div>
       )}
 

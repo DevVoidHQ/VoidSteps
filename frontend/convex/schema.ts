@@ -31,6 +31,7 @@ export default defineSchema({
       nextOccurrence: v.optional(v.number()),
     }),
     prioritizedToday: v.boolean(),
+    sortOrder: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_path", ["pathId"]),

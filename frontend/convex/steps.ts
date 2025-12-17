@@ -47,9 +47,16 @@ export const getActiveSteps = query({
     // Filter out failed steps (handle undefined as false for backward compatibility)
     const steps = allSteps.filter(step => !(step.failed ?? false));
 
+    // Sort by sortOrder (ascending) with fallback to createdAt
+    const sortedSteps = steps.sort((a, b) => {
+      const orderA = a.sortOrder ?? a.createdAt;
+      const orderB = b.sortOrder ?? b.createdAt;
+      return orderA - orderB;
+    });
+
     // Populate pathId references
     const stepsWithPaths = await Promise.all(
-      steps.map(async (step) => {
+      sortedSteps.map(async (step) => {
         if (step.pathId) {
           const path = await ctx.db.get(step.pathId);
           return { ...step, path };
@@ -329,5 +336,26 @@ export const toggleStepFailed = mutation({
     }
 
     return { ...updatedStep, path: null };
+  },
+});
+
+export const reorderSteps = mutation({
+  args: {
+    stepIds: v.array(v.id("steps")),
+  },
+  handler: async (ctx, { stepIds }) => {
+    const now = Date.now();
+
+    // Update sortOrder for each step based on position in array
+    await Promise.all(
+      stepIds.map((stepId, index) =>
+        ctx.db.patch(stepId, {
+          sortOrder: index,
+          updatedAt: now,
+        })
+      )
+    );
+
+    return { success: true };
   },
 });
