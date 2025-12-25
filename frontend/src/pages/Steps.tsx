@@ -1,11 +1,6 @@
 import { useState } from "react";
 import type { Step, Path, Routine } from "@/types/index";
 import {
-  useSteps,
-  useActiveSteps,
-  useFailedSteps,
-  usePaths,
-  useRoutines,
   useCreateStep,
   useUpdateStep,
   useDeleteStep,
@@ -14,6 +9,7 @@ import {
   useExecuteRoutine,
   useReorderSteps,
 } from "@/lib/convex-hooks";
+import { useData } from "@/contexts/DataContext";
 import type { Id } from "../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,11 +22,7 @@ import { StepCard } from "@/components/StepCard";
 import { DraggableStepList } from "@/components/DraggableStepList";
 
 export default function Steps() {
-  const activeSteps = useActiveSteps();
-  const allSteps = useSteps();
-  const failedSteps = useFailedSteps();
-  const paths = usePaths();
-  const routines = useRoutines();
+  const { paths, routines, activeSteps, allSteps, failedSteps } = useData();
 
   const createStepMutation = useCreateStep();
   const updateStepMutation = useUpdateStep();
@@ -53,8 +45,6 @@ export default function Steps() {
   const [showFailedSteps, setShowFailedSteps] = useState(false);
   const [searchQuerySteps, setSearchQuerySteps] = useState("");
   const [selectedPathFilterSteps, setSelectedPathFilterSteps] = useState("");
-
-  const isLoading = activeSteps === undefined || paths === undefined || routines === undefined;
 
   const createStep = async (
     title: string,
@@ -162,9 +152,8 @@ export default function Steps() {
     }
   };
 
-  const steps = activeSteps;
-  const unfilteredPrioritySteps = steps?.filter((s: Step) => s.prioritizedToday) || [];
-  const unfilteredRegularSteps = steps?.filter((s: Step) => !s.prioritizedToday) || [];
+  const unfilteredPrioritySteps = activeSteps?.filter((s: Step) => s.prioritizedToday) || [];
+  const unfilteredRegularSteps = activeSteps?.filter((s: Step) => !s.prioritizedToday) || [];
   const unfilteredCompletedSteps = allSteps?.filter((s: Step) => s.completed) || [];
   const unfilteredFailedStepsList = failedSteps || [];
 
@@ -236,19 +225,7 @@ export default function Steps() {
       </div>
 
       {/* Routine Chips */}
-      {isLoading ? (
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground">Quick Actions</p>
-          <div className="flex flex-wrap gap-2">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="h-9 w-24 rounded-md bg-muted animate-pulse"
-              />
-            ))}
-          </div>
-        </div>
-      ) : routines && routines.length > 0 ? (
+      {routines && routines.length > 0 ? (
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground">Quick Actions</p>
           <div className="flex flex-wrap gap-2">

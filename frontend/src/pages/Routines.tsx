@@ -1,12 +1,11 @@
 import { useState } from "react";
 import type { Path, Routine, StepTemplate } from "@/types/index";
 import {
-  usePaths,
-  useRoutines,
   useCreateRoutine,
   useUpdateRoutine,
   useDeleteRoutine,
 } from "@/lib/convex-hooks";
+import { useData } from "@/contexts/DataContext";
 import type { Id } from "../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,8 +22,7 @@ import {
 } from "lucide-react";
 
 export default function Routines() {
-  const paths = usePaths();
-  const routines = useRoutines();
+  const { paths, routines } = useData();
 
   const createRoutineMutation = useCreateRoutine();
   const updateRoutineMutation = useUpdateRoutine();

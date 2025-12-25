@@ -1,12 +1,11 @@
 import { useState } from "react";
 import type { Step, Path } from "@/types/index";
 import {
-  useSteps,
-  usePaths,
   useCreatePath,
   useUpdatePath,
   useDeletePath,
 } from "@/lib/convex-hooks";
+import { useData } from "@/contexts/DataContext";
 import type { Id } from "../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,8 +18,7 @@ import {
 } from "lucide-react";
 
 export default function Paths() {
-  const allSteps = useSteps();
-  const paths = usePaths();
+  const { paths, allSteps } = useData();
 
   const createPathMutation = useCreatePath();
   const updatePathMutation = useUpdatePath();

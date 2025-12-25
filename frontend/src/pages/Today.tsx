@@ -1,15 +1,13 @@
 import { useState } from "react";
 import type { Step, Path } from "@/types/index";
 import {
-  useActiveSteps,
-  useCompletedStepsToday,
-  usePaths,
   useUpdateStep,
   useDeleteStep,
   useToggleStepCompletion,
   useToggleStepFailed,
   useReorderSteps,
 } from "@/lib/convex-hooks";
+import { useData } from "@/contexts/DataContext";
 import type { Id } from "../../convex/_generated/dataModel";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,9 +18,7 @@ import { StepCard } from "@/components/StepCard";
 import { DraggableStepList } from "@/components/DraggableStepList";
 
 export default function Today() {
-  const activeSteps = useActiveSteps();
-  const completedStepsToday = useCompletedStepsToday();
-  const paths = usePaths();
+  const { paths, activeSteps, completedStepsToday } = useData();
 
   const updateStepMutation = useUpdateStep();
   const deleteStepMutation = useDeleteStep();
