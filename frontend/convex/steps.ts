@@ -161,6 +161,22 @@ export const createStep = mutation({
   },
   handler: async (ctx, args) => {
     const now = Date.now();
+
+    // Get all active steps to determine the minimum sortOrder
+    const activeSteps = await ctx.db
+      .query("steps")
+      .filter((q) => q.eq(q.field("completed"), false))
+      .collect();
+
+    // Find the minimum sortOrder (or use 0 if no steps exist)
+    const minSortOrder = activeSteps.reduce((min, step) => {
+      const order = step.sortOrder ?? step.createdAt;
+      return Math.min(min, order);
+    }, now);
+
+    // Set new step's sortOrder to be lower than the minimum
+    const newSortOrder = minSortOrder - 1;
+
     const stepId = await ctx.db.insert("steps", {
       title: args.title,
       description: args.description,
@@ -174,6 +190,7 @@ export const createStep = mutation({
         nextOccurrence: undefined,
       },
       prioritizedToday: args.prioritizedToday || false,
+      sortOrder: newSortOrder,
       createdAt: now,
       updatedAt: now,
     });

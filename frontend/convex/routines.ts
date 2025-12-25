@@ -83,7 +83,22 @@ export const executeRoutine = mutation({
     const now = Date.now();
     const createdSteps = [];
 
-    for (const template of routine.stepTemplates) {
+    // Get all active steps to determine the minimum sortOrder
+    const activeSteps = await ctx.db
+      .query("steps")
+      .filter((q) => q.eq(q.field("completed"), false))
+      .collect();
+
+    // Find the minimum sortOrder
+    const minSortOrder = activeSteps.reduce((min, step) => {
+      const order = step.sortOrder ?? step.createdAt;
+      return Math.min(min, order);
+    }, now);
+
+    // Create steps with sortOrder values that place them at the top
+    // Steps are added in order, with the first template getting the lowest sortOrder
+    for (let i = 0; i < routine.stepTemplates.length; i++) {
+      const template = routine.stepTemplates[i];
       const stepId = await ctx.db.insert("steps", {
         title: template.title,
         description: template.description,
@@ -94,6 +109,7 @@ export const executeRoutine = mutation({
           enabled: false,
         },
         prioritizedToday: template.prioritizedToday || false,
+        sortOrder: minSortOrder - routine.stepTemplates.length + i,
         createdAt: now,
         updatedAt: now,
       });

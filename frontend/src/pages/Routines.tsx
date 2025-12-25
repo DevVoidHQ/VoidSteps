@@ -109,13 +109,13 @@ export default function Routines() {
       setEditRoutineForm({
         ...editRoutineForm,
         stepTemplates: [
-          ...editRoutineForm.stepTemplates,
           {
             title: newStepTemplateTitle.trim(),
             description: newStepTemplateDesc.trim(),
             pathId: newStepTemplatePathId || undefined,
             prioritizedToday: newStepTemplatePriority,
           },
+          ...editRoutineForm.stepTemplates,
         ],
       });
       setNewStepTemplateTitle("");
