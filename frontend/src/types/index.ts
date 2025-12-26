@@ -1,4 +1,14 @@
 // Compatible with both MongoDB and Convex backends
+export interface Pathway {
+  _id: string;
+  title: string;
+  description?: string;
+  parentId?: string | null;
+  pathIds?: string[];
+  createdAt: string | number;
+  updatedAt: string | number;
+}
+
 export interface Path {
   _id: string;
   title: string;

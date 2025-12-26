@@ -1,6 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { LogOut, Settings, Calendar, ListTodo, Target, Zap, X } from 'lucide-react';
+import { LogOut, Settings, Calendar, ListTodo, Target, Zap, Network, X } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 interface SidebarProps {
@@ -18,6 +18,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { path: '/steps', label: 'Steps', icon: ListTodo },
     { path: '/paths', label: 'Paths', icon: Target },
     { path: '/routines', label: 'Routines', icon: Zap },
+    { path: '/pathway', label: 'Pathway', icon: Network },
   ];
 
   const isActive = (path: string) => {

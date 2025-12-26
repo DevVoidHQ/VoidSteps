@@ -1,15 +1,17 @@
 import React, { createContext, useContext, useMemo } from 'react';
 import {
   usePaths,
+  usePathways,
   useRoutines,
   useSteps,
   useActiveSteps,
   useFailedSteps,
   useCompletedStepsToday
 } from '@/lib/convex-hooks';
-import type { Path, Routine, Step } from '@/types';
+import type { Path, Pathway, Routine, Step } from '@/types';
 
 interface DataContextType {
+  pathways: Pathway[] | undefined;
   paths: Path[] | undefined;
   routines: Routine[] | undefined;
   allSteps: Step[] | undefined;
@@ -22,6 +24,7 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const pathways = usePathways();
   const paths = usePaths();
   const routines = useRoutines();
   const allSteps = useSteps();
@@ -30,6 +33,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const completedStepsToday = useCompletedStepsToday();
 
   const isLoading =
+    pathways === undefined ||
     paths === undefined ||
     routines === undefined ||
     allSteps === undefined ||
@@ -39,6 +43,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const value = useMemo(
     () => ({
+      pathways,
       paths,
       routines,
       allSteps,
@@ -47,7 +52,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       completedStepsToday,
       isLoading
     }),
-    [paths, routines, allSteps, activeSteps, failedSteps, completedStepsToday, isLoading]
+    [pathways, paths, routines, allSteps, activeSteps, failedSteps, completedStepsToday, isLoading]
   );
 
   return (

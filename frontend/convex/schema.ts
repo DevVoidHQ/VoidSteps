@@ -2,6 +2,15 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
+  pathways: defineTable({
+    title: v.string(),
+    description: v.optional(v.string()),
+    parentId: v.optional(v.id("pathways")),
+    pathIds: v.optional(v.array(v.id("paths"))),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_parent", ["parentId"]),
+
   paths: defineTable({
     title: v.string(),
     description: v.optional(v.string()),

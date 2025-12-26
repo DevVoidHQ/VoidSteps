@@ -8,6 +8,7 @@ import Today from '@/pages/Today';
 import Steps from '@/pages/Steps';
 import Paths from '@/pages/Paths';
 import Routines from '@/pages/Routines';
+import Pathway from '@/pages/Pathway';
 import Settings from '@/pages/Settings';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -83,6 +84,16 @@ function AppRoutes() {
           <PrivateRoute>
             <Layout>
               <Routines />
+            </Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/pathway"
+        element={
+          <PrivateRoute>
+            <Layout>
+              <Pathway />
             </Layout>
           </PrivateRoute>
         }

@@ -2,7 +2,7 @@
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import type { Step, Path, Routine } from "@/types";
+import type { Step, Path, Pathway, Routine } from "@/types";
 
 // Transform Convex data to match our application types
 const transformStep = (step: any): Step => ({
@@ -15,6 +15,13 @@ const transformStep = (step: any): Step => ({
 const transformPath = (path: any): Path => ({
   ...path,
   _id: path._id.toString(),
+});
+
+const transformPathway = (pathway: any): Pathway => ({
+  ...pathway,
+  _id: pathway._id.toString(),
+  parentId: pathway.parentId?.toString() || null,
+  pathIds: pathway.pathIds?.map((id: any) => id.toString()) || [],
 });
 
 const transformRoutine = (routine: any): Routine => ({
@@ -81,6 +88,24 @@ export const usePath = (id: string | null) => {
 export const useCreatePath = () => useMutation(api.paths.createPath);
 export const useUpdatePath = () => useMutation(api.paths.updatePath);
 export const useDeletePath = () => useMutation(api.paths.deletePath);
+
+// Pathways
+export const usePathways = () => {
+  const pathways = useQuery(api.pathways.getPathways);
+  return pathways?.map(transformPathway);
+};
+
+export const usePathway = (id: string | null) => {
+  const pathway = useQuery(
+    api.pathways.getPathway,
+    id ? { id: id as Id<"pathways"> } : "skip"
+  );
+  return pathway ? transformPathway(pathway) : undefined;
+};
+
+export const useCreatePathway = () => useMutation(api.pathways.createPathway);
+export const useUpdatePathway = () => useMutation(api.pathways.updatePathway);
+export const useDeletePathway = () => useMutation(api.pathways.deletePathway);
 
 // Routines
 export const useRoutines = () => {

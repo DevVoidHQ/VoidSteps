@@ -10,6 +10,7 @@
 
 import type * as auth from "../auth.js";
 import type * as paths from "../paths.js";
+import type * as pathways from "../pathways.js";
 import type * as routines from "../routines.js";
 import type * as steps from "../steps.js";
 import type * as userSettings from "../userSettings.js";
@@ -23,6 +24,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   paths: typeof paths;
+  pathways: typeof pathways;
   routines: typeof routines;
   steps: typeof steps;
   userSettings: typeof userSettings;
