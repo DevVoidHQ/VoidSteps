@@ -5,6 +5,7 @@ import ReactFlow, {
   useNodesState,
   useEdgesState,
   BackgroundVariant,
+  MarkerType,
 } from 'reactflow';
 import type { Node, Edge } from 'reactflow';
 import 'reactflow/dist/style.css';
@@ -18,8 +19,6 @@ import PathNode from '@/components/graph/PathNode';
 import StepNode from '@/components/graph/StepNode';
 import ManagePathways from '@/components/ManagePathways';
 import { useData } from '@/contexts/DataContext';
-import type { Pathway } from '@/types';
-import type { Id } from '../../convex/_generated/dataModel';
 
 // Define viewport type
 type ViewportType = {
@@ -106,7 +105,6 @@ const buildNodesFromData = (
   // Root pathways (no parentId)
   const rootPathways = pathways.filter(pw => !pw.parentId);
   const nestedPathways = pathways.filter(pw => pw.parentId);
-  const orphanedPaths = paths.filter(p => !assignedPathIds.has(p._id));
 
   // User node at center top (handles will be calculated after edges)
   const youPosition = savedPositions?.['you'] || { x: 400, y: 50 };
@@ -301,7 +299,7 @@ const buildEdgesFromData = (
       sourceHandle: `${sourceHandle}-out`,
       target: targetId,
       targetHandle: `${targetHandle}-in`,
-      markerEnd: { type: 'arrowclosed' },
+      markerEnd: { type: MarkerType.ArrowClosed },
       style: isOrphan ? { strokeDasharray: '5,5' } : undefined,
     });
   };
@@ -349,6 +347,7 @@ const buildEdgesFromData = (
 export default function Pathway() {
   const { pathways, paths, allSteps, isLoading } = useData();
   const [mode, setMode] = useState<'pan' | 'edit'>('pan');
+  const [activeTab, setActiveTab] = useState<'graph' | 'manage'>('graph');
 
   // Build initial nodes and edges from real data
   const savedPositions = useMemo(() => loadNodePositions(), []);
@@ -394,7 +393,7 @@ export default function Pathway() {
   const defaultViewport = savedViewport || { x: 0, y: 0, zoom: 1 };
 
   // Debounce timer for saving viewport
-  const saveViewportTimer = useRef<NodeJS.Timeout>();
+  const saveViewportTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // Handle viewport changes (pan/zoom)
   const handleMove = useCallback((viewport: ViewportType) => {
@@ -439,93 +438,87 @@ export default function Pathway() {
 
   return (
     <div className="h-[calc(100vh-6rem)] w-full">
-      <div className="mb-4">
-        <h1 className="text-3xl font-bold mb-4">Pathway</h1>
+      <Tabs defaultValue="graph" value={activeTab} onValueChange={(value) => setActiveTab(value as 'graph' | 'manage')}>
+        {/* Compact Header Row */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-6">
+            <h1 className="text-3xl font-bold">Pathway</h1>
+            <TabsList>
+              <TabsTrigger value="graph">Graph</TabsTrigger>
+              <TabsTrigger value="manage">Manage</TabsTrigger>
+            </TabsList>
+          </div>
 
-        <Tabs defaultValue="graph">
-          <TabsList>
-            <TabsTrigger value="graph">Graph</TabsTrigger>
-            <TabsTrigger value="manage">Manage</TabsTrigger>
-          </TabsList>
-
-          {/* Manage Tab */}
-          <TabsContent value="manage">
-            <ManagePathways pathways={pathways || []} paths={paths || []} />
-          </TabsContent>
-
-          {/* Graph Tab */}
-          <TabsContent value="graph">
-            <div className="space-y-4">
-              {/* Graph Controls */}
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">
-                  {mode === 'pan'
-                    ? 'Drag to pan, pinch to zoom'
-                    : 'Drag nodes to reposition them'}
-                </p>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant={mode === 'edit' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setMode(mode === 'pan' ? 'edit' : 'pan')}
-                    className="flex items-center space-x-2"
-                  >
-                    {mode === 'pan' ? (
-                      <>
-                        <Edit3 className="w-4 h-4" />
-                        <span>Edit Nodes</span>
-                      </>
-                    ) : (
-                      <>
-                        <Hand className="w-4 h-4" />
-                        <span>Pan View</span>
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleReset}
-                    className="flex items-center space-x-2"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                    <span>Reset</span>
-                  </Button>
-                </div>
-              </div>
-
-              {/* Graph Visualization */}
-              <div className="h-[calc(100vh-18rem)] border border-border rounded-lg overflow-hidden bg-background" style={{ touchAction: 'none' }}>
-                <ReactFlow
-                  nodes={nodes}
-                  edges={edges}
-                  onNodesChange={onNodesChange}
-                  onEdgesChange={onEdgesChange}
-                  onNodeDragStop={handleNodeDragStop}
-                  nodeTypes={nodeTypes}
-                  defaultViewport={defaultViewport}
-                  onMove={(_event, viewport) => handleMove(viewport)}
-                  fitView={!savedViewport}
-                  minZoom={0.1}
-                  maxZoom={2}
-                  panOnDrag={mode === 'pan'}
-                  panOnScroll={false}
-                  nodesDraggable={mode === 'edit'}
-                  selectionOnDrag={false}
-                  defaultEdgeOptions={{
-                    type: 'default',
-                    animated: false,
-                    style: { stroke: '#94a3b8', strokeWidth: 2 },
-                  }}
-                >
-                  <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
-                  <Controls />
-                </ReactFlow>
-              </div>
+          {/* Controls - only visible on Graph tab */}
+          {activeTab === 'graph' && (
+            <div className="flex items-center space-x-2">
+              <Button
+                variant={mode === 'edit' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setMode(mode === 'pan' ? 'edit' : 'pan')}
+                className="flex items-center space-x-2"
+              >
+                {mode === 'pan' ? (
+                  <>
+                    <Edit3 className="w-4 h-4" />
+                    <span>Edit Nodes</span>
+                  </>
+                ) : (
+                  <>
+                    <Hand className="w-4 h-4" />
+                    <span>Pan View</span>
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleReset}
+                className="flex items-center space-x-2"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>Reset</span>
+              </Button>
             </div>
-          </TabsContent>
-        </Tabs>
-      </div>
+          )}
+        </div>
+
+        {/* Manage Tab */}
+        <TabsContent value="manage">
+          <ManagePathways pathways={pathways || []} paths={paths || []} />
+        </TabsContent>
+
+        {/* Graph Tab */}
+        <TabsContent value="graph" className="mt-0">
+          <div className="h-[calc(100vh-13rem)] border border-border rounded-lg overflow-hidden bg-background" style={{ touchAction: 'none' }}>
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onNodeDragStop={handleNodeDragStop}
+              nodeTypes={nodeTypes}
+              defaultViewport={defaultViewport}
+              onMove={(_event, viewport) => handleMove(viewport)}
+              fitView={!savedViewport}
+              minZoom={0.1}
+              maxZoom={2}
+              panOnDrag={mode === 'pan'}
+              panOnScroll={false}
+              nodesDraggable={mode === 'edit'}
+              selectionOnDrag={false}
+              defaultEdgeOptions={{
+                type: 'default',
+                animated: false,
+                style: { stroke: '#94a3b8', strokeWidth: 2 },
+              }}
+            >
+              <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
+              <Controls />
+            </ReactFlow>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

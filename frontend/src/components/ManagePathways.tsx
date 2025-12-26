@@ -17,7 +17,10 @@ interface ManagePathwaysProps {
   paths: Path[];
 }
 
-export default function ManagePathways({ pathways, paths }: ManagePathwaysProps) {
+export default function ManagePathways({
+  pathways,
+  paths,
+}: ManagePathwaysProps) {
   const createPathwayMutation = useCreatePathway();
   const updatePathwayMutation = useUpdatePathway();
   const deletePathwayMutation = useDeletePathway();
@@ -46,9 +49,10 @@ export default function ManagePathways({ pathways, paths }: ManagePathwaysProps)
         title: titleValue.trim(),
         description: descValue.trim() || undefined,
         parentId: parentIdValue ? (parentIdValue as Id<"pathways">) : undefined,
-        pathIds: selectedPathIds.length > 0
-          ? selectedPathIds.map(id => id as Id<"paths">)
-          : undefined,
+        pathIds:
+          selectedPathIds.length > 0
+            ? selectedPathIds.map((id) => id as Id<"paths">)
+            : undefined,
       });
       setTitleValue("");
       setDescValue("");
@@ -68,10 +72,13 @@ export default function ManagePathways({ pathways, paths }: ManagePathwaysProps)
         id: id as Id<"pathways">,
         title: editForm.title.trim(),
         description: editForm.description.trim() || undefined,
-        parentId: editForm.parentId ? (editForm.parentId as Id<"pathways">) : undefined,
-        pathIds: editForm.pathIds.length > 0
-          ? editForm.pathIds.map(id => id as Id<"paths">)
+        parentId: editForm.parentId
+          ? (editForm.parentId as Id<"pathways">)
           : undefined,
+        pathIds:
+          editForm.pathIds.length > 0
+            ? editForm.pathIds.map((id) => id as Id<"paths">)
+            : undefined,
       });
       setEditingPathway(null);
     } catch (error) {
@@ -107,46 +114,46 @@ export default function ManagePathways({ pathways, paths }: ManagePathwaysProps)
 
   // Toggle path in quick-add form
   const toggleQuickAddPath = (pathId: string) => {
-    setSelectedPathIds(prev =>
+    setSelectedPathIds((prev) =>
       prev.includes(pathId)
-        ? prev.filter(id => id !== pathId)
+        ? prev.filter((id) => id !== pathId)
         : [...prev, pathId]
     );
   };
 
   // Toggle path in edit form
   const toggleEditPath = (pathId: string) => {
-    setEditForm(prev => ({
+    setEditForm((prev) => ({
       ...prev,
       pathIds: prev.pathIds.includes(pathId)
-        ? prev.pathIds.filter(id => id !== pathId)
+        ? prev.pathIds.filter((id) => id !== pathId)
         : [...prev.pathIds, pathId],
     }));
   };
 
   // Get assigned paths
   const getAssignedPaths = (pathwayId: string) => {
-    const pathway = pathways.find(p => p._id === pathwayId);
+    const pathway = pathways.find((p) => p._id === pathwayId);
     if (!pathway || !pathway.pathIds) return [];
-    return paths.filter(p => pathway.pathIds?.includes(p._id));
+    return paths.filter((p) => pathway.pathIds?.includes(p._id));
   };
 
   // Get child pathways
   const getChildPathways = (parentId: string) => {
-    return pathways.filter(pw => pw.parentId === parentId);
+    return pathways.filter((pw) => pw.parentId === parentId);
   };
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Manage Pathways</h2>
-
       {/* Quick Add Pathway */}
       <div className="space-y-2">
         <Input
           placeholder="Pathway title..."
           value={titleValue}
           onChange={(e) => setTitleValue(e.target.value)}
-          onKeyPress={(e) => e.key === "Enter" && !e.shiftKey && createPathway()}
+          onKeyPress={(e) =>
+            e.key === "Enter" && !e.shiftKey && createPathway()
+          }
         />
         <div className="flex space-x-2">
           <Input
@@ -187,7 +194,10 @@ export default function ManagePathways({ pathways, paths }: ManagePathwaysProps)
             const childPathways = getChildPathways(pathway._id);
 
             return (
-              <Card key={pathway._id} className="hover:border-primary/50 transition-colors">
+              <Card
+                key={pathway._id}
+                className="hover:border-primary/50 transition-colors"
+              >
                 <CardContent className="p-4">
                   {editingPathway === pathway._id ? (
                     // Edit Mode
@@ -195,24 +205,35 @@ export default function ManagePathways({ pathways, paths }: ManagePathwaysProps)
                       <Input
                         placeholder="Pathway title"
                         value={editForm.title}
-                        onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, title: e.target.value })
+                        }
                       />
                       <Input
                         placeholder="Description (optional)"
                         value={editForm.description}
-                        onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                        onChange={(e) =>
+                          setEditForm({
+                            ...editForm,
+                            description: e.target.value,
+                          })
+                        }
                       />
                       <select
                         value={editForm.parentId}
-                        onChange={(e) => setEditForm({ ...editForm, parentId: e.target.value })}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, parentId: e.target.value })
+                        }
                         className="w-full px-3 py-2 bg-background border border-input rounded-md text-sm"
                       >
                         <option value="">Root Pathway</option>
-                        {pathways.filter(p => p._id !== pathway._id).map((pw) => (
-                          <option key={pw._id} value={pw._id}>
-                            {pw.title}
-                          </option>
-                        ))}
+                        {pathways
+                          .filter((p) => p._id !== pathway._id)
+                          .map((pw) => (
+                            <option key={pw._id} value={pw._id}>
+                              {pw.title}
+                            </option>
+                          ))}
                       </select>
                       <PathSelector
                         paths={paths}
@@ -227,7 +248,11 @@ export default function ManagePathways({ pathways, paths }: ManagePathwaysProps)
                         >
                           Save
                         </Button>
-                        <Button size="sm" variant="outline" onClick={cancelEdit}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={cancelEdit}
+                        >
                           Cancel
                         </Button>
                         <Button
@@ -248,17 +273,22 @@ export default function ManagePathways({ pathways, paths }: ManagePathwaysProps)
                         <div className="flex-1">
                           <h3 className="font-semibold">{pathway.title}</h3>
                           {pathway.description && (
-                            <p className="text-xs text-muted-foreground">{pathway.description}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {pathway.description}
+                            </p>
                           )}
                           <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
                             <span>
                               {assignedPaths.length > 0
-                                ? `${assignedPaths.length} path${assignedPaths.length > 1 ? 's' : ''}`
-                                : 'No paths'}
+                                ? `${assignedPaths.length} path${
+                                    assignedPaths.length > 1 ? "s" : ""
+                                  }`
+                                : "No paths"}
                             </span>
                             {childPathways.length > 0 && (
                               <span>
-                                {childPathways.length} child pathway{childPathways.length > 1 ? 's' : ''}
+                                {childPathways.length} child pathway
+                                {childPathways.length > 1 ? "s" : ""}
                               </span>
                             )}
                           </div>

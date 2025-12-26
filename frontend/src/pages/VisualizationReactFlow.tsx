@@ -5,6 +5,7 @@ import ReactFlow, {
   useNodesState,
   useEdgesState,
   BackgroundVariant,
+  MarkerType,
 } from 'reactflow';
 import type { Node, Edge } from 'reactflow';
 import 'reactflow/dist/style.css';
@@ -209,19 +210,19 @@ const defaultNodePositions: Node[] = [
 // Convert mock data to ReactFlow edges
 const initialEdges: Edge[] = [
   // User to root pathways
-  { id: 'e-you-pw1', source: 'you', target: 'pw1', markerEnd: { type: 'arrowclosed' } },
-  { id: 'e-you-pw2', source: 'you', target: 'pw2', markerEnd: { type: 'arrowclosed' } },
-  { id: 'e-you-pw3', source: 'you', target: 'pw3', markerEnd: { type: 'arrowclosed' } },
+  { id: 'e-you-pw1', source: 'you', target: 'pw1', markerEnd: { type: MarkerType.ArrowClosed } },
+  { id: 'e-you-pw2', source: 'you', target: 'pw2', markerEnd: { type: MarkerType.ArrowClosed } },
+  { id: 'e-you-pw3', source: 'you', target: 'pw3', markerEnd: { type: MarkerType.ArrowClosed } },
 
   // Pathway to nested pathway
-  { id: 'e-pw1-pw4', source: 'pw1', target: 'pw4', markerEnd: { type: 'arrowclosed' } },
+  { id: 'e-pw1-pw4', source: 'pw1', target: 'pw4', markerEnd: { type: MarkerType.ArrowClosed } },
 
   // Pathways to paths
-  { id: 'e-pw1-p2', source: 'pw1', target: 'p2', markerEnd: { type: 'arrowclosed' } },
-  { id: 'e-pw2-p3', source: 'pw2', target: 'p3', markerEnd: { type: 'arrowclosed' } },
-  { id: 'e-pw3-p4', source: 'pw3', target: 'p4', markerEnd: { type: 'arrowclosed' } },
-  { id: 'e-pw4-p1', source: 'pw4', target: 'p1', markerEnd: { type: 'arrowclosed' } },
-  { id: 'e-pw4-p5', source: 'pw4', target: 'p5', markerEnd: { type: 'arrowclosed' } },
+  { id: 'e-pw1-p2', source: 'pw1', target: 'p2', markerEnd: { type: MarkerType.ArrowClosed } },
+  { id: 'e-pw2-p3', source: 'pw2', target: 'p3', markerEnd: { type: MarkerType.ArrowClosed } },
+  { id: 'e-pw3-p4', source: 'pw3', target: 'p4', markerEnd: { type: MarkerType.ArrowClosed } },
+  { id: 'e-pw4-p1', source: 'pw4', target: 'p1', markerEnd: { type: MarkerType.ArrowClosed } },
+  { id: 'e-pw4-p5', source: 'pw4', target: 'p5', markerEnd: { type: MarkerType.ArrowClosed } },
 ];
 
 // Merge saved positions with default nodes
@@ -240,7 +241,7 @@ const getInitialNodes = (): Node[] => {
 
 export default function Visualization() {
   const [nodes, setNodes, onNodesChange] = useNodesState(getInitialNodes());
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [edges, , onEdgesChange] = useEdgesState(initialEdges);
   const [mode, setMode] = useState<'pan' | 'edit'>('pan');
 
   // Load saved viewport
@@ -248,7 +249,7 @@ export default function Visualization() {
   const defaultViewport = savedViewport || { x: 0, y: 0, zoom: 1 };
 
   // Debounce timer for saving viewport
-  const saveViewportTimer = useRef<NodeJS.Timeout>();
+  const saveViewportTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // Handle viewport changes (pan/zoom)
   const handleMove = useCallback((viewport: ViewportType) => {
