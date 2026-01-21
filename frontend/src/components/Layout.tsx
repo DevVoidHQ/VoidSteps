@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Sidebar from "./Sidebar";
-import { Button } from "./ui/button";
+import { Button } from "@devvoid/ui";
 import { Menu } from "lucide-react";
 
 export default function Layout({ children }: { children: React.ReactNode }) {

@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { useTheme, PRESET_THEMES } from "@/contexts/ThemeContext";
 import type { ThemeColors } from "@/contexts/ThemeContext";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { Button, Input, Card, CardContent } from "@devvoid/ui";
 import { Download, Upload, RotateCcw, Palette } from "lucide-react";
 
 const COLOR_LABELS: Record<keyof ThemeColors, string> = {
@@ -176,7 +174,7 @@ export default function Settings() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {(Object.keys(theme) as Array<keyof ThemeColors>).map((key) => (
-              <div key={key} className="space-y-2">
+              <div key={String(key)} className="space-y-2">
                 <label className="text-sm font-medium">{COLOR_LABELS[key]}</label>
                 <div className="flex space-x-2">
                   <input

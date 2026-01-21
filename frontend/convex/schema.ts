@@ -26,6 +26,7 @@ export default defineSchema({
     failed: v.optional(v.boolean()),
     failedAt: v.optional(v.number()),
     pathId: v.optional(v.id("paths")),
+    parentId: v.optional(v.id("steps")),
     recurring: v.object({
       enabled: v.boolean(),
       frequency: v.optional(
@@ -43,7 +44,8 @@ export default defineSchema({
     sortOrder: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_path", ["pathId"]),
+  }).index("by_path", ["pathId"])
+    .index("by_parent", ["parentId"]),
 
   routines: defineTable({
     title: v.string(),

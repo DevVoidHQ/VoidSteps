@@ -1,7 +1,5 @@
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { Button, Input, Card, CardContent } from "@devvoid/ui";
 import { Plus, Pencil } from "lucide-react";
 import type { Pathway, Path } from "@/types";
 import type { Id } from "../../convex/_generated/dataModel";

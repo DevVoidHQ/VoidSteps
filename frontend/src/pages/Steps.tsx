@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import type { Step, Path, Routine } from "@/types/index";
 import {
   useCreateStep,
@@ -8,11 +8,11 @@ import {
   useToggleStepFailed,
   useExecuteRoutine,
   useReorderSteps,
+  useUpdateStepParent,
 } from "@/lib/convex-hooks";
 import { useData } from "@/contexts/DataContext";
 import type { Id } from "../../convex/_generated/dataModel";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button, Input } from "@devvoid/ui";
 import {
   Plus,
   Star,
@@ -22,8 +22,18 @@ import { StepCard } from "@/components/StepCard";
 import { DraggableStepList } from "@/components/DraggableStepList";
 
 export default function Steps() {
-  const { paths, routines, activeSteps, allSteps, failedSteps } = useData();
+  const {
+    paths,
+    routines,
+    activeSteps,
+    allSteps,
+    failedSteps,
+    applyOptimisticUpdate,
+    applyOptimisticDelete,
+    clearOptimisticDelete,
+  } = useData();
 
+  // Mutations
   const createStepMutation = useCreateStep();
   const updateStepMutation = useUpdateStep();
   const deleteStepMutation = useDeleteStep();
@@ -31,22 +41,181 @@ export default function Steps() {
   const toggleFailedMutation = useToggleStepFailed();
   const executeRoutineMutation = useExecuteRoutine();
   const reorderStepsMutation = useReorderSteps();
+  const updateStepParentMutation = useUpdateStepParent();
 
+  // Form state for quick add
   const [quickAddValue, setQuickAddValue] = useState("");
   const [stepDescValue, setStepDescValue] = useState("");
   const [stepPathValue, setStepPathValue] = useState("");
-  const [editingStep, setEditingStep] = useState<string | null>(null);
-  const [editStepForm, setEditStepForm] = useState({
-    title: "",
-    description: "",
-    pathId: "",
-  });
+
+  // UI state
   const [showCompletedSteps, setShowCompletedSteps] = useState(false);
   const [showFailedSteps, setShowFailedSteps] = useState(false);
   const [searchQuerySteps, setSearchQuerySteps] = useState("");
   const [selectedPathFilterSteps, setSelectedPathFilterSteps] = useState("");
 
-  const createStep = async (
+  // Memoize paths for stable reference
+  const memoizedPaths = useMemo(() => paths || [], [paths]);
+
+  // Stable filter function
+  const filterSteps = useCallback((
+    steps: Step[],
+    searchQuery: string,
+    pathFilter: string
+  ): Step[] => {
+    return steps.filter((step: Step) => {
+      const matchesSearch = !searchQuery ||
+        step.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (step.description || "").toLowerCase().includes(searchQuery.toLowerCase());
+
+      const stepPathId = step.path?._id || (typeof step.pathId === 'string' ? step.pathId : null);
+      const matchesPath = !pathFilter || stepPathId === pathFilter;
+
+      return matchesSearch && matchesPath;
+    });
+  }, []);
+
+  // Memoized filtered arrays
+  const unfilteredPrioritySteps = useMemo(
+    () => activeSteps?.filter((s: Step) => s.prioritizedToday) || [],
+    [activeSteps]
+  );
+
+  const unfilteredRegularSteps = useMemo(
+    () => activeSteps?.filter((s: Step) => !s.prioritizedToday) || [],
+    [activeSteps]
+  );
+
+  const unfilteredCompletedSteps = useMemo(
+    () => allSteps?.filter((s: Step) => s.completed) || [],
+    [allSteps]
+  );
+
+  const unfilteredFailedStepsList = useMemo(
+    () => failedSteps || [],
+    [failedSteps]
+  );
+
+  const prioritySteps = useMemo(
+    () => filterSteps(unfilteredPrioritySteps, searchQuerySteps, selectedPathFilterSteps),
+    [filterSteps, unfilteredPrioritySteps, searchQuerySteps, selectedPathFilterSteps]
+  );
+
+  const regularSteps = useMemo(
+    () => filterSteps(unfilteredRegularSteps, searchQuerySteps, selectedPathFilterSteps),
+    [filterSteps, unfilteredRegularSteps, searchQuerySteps, selectedPathFilterSteps]
+  );
+
+  const completedSteps = useMemo(
+    () => filterSteps(unfilteredCompletedSteps, searchQuerySteps, selectedPathFilterSteps),
+    [filterSteps, unfilteredCompletedSteps, searchQuerySteps, selectedPathFilterSteps]
+  );
+
+  const failedStepsList = useMemo(
+    () => filterSteps(unfilteredFailedStepsList, searchQuerySteps, selectedPathFilterSteps),
+    [filterSteps, unfilteredFailedStepsList, searchQuerySteps, selectedPathFilterSteps]
+  );
+
+  // Stable callbacks with optimistic updates
+  const toggleStep = useCallback(async (id: string) => {
+    const step = activeSteps?.find(s => s._id === id) || allSteps?.find(s => s._id === id);
+    if (step) {
+      applyOptimisticUpdate(id, {
+        completed: !step.completed,
+        failed: false,
+        completedAt: !step.completed ? Date.now() : undefined,
+      });
+    }
+    try {
+      await toggleStepMutation({ id: id as Id<"steps"> });
+    } catch (error) {
+      console.error("Error toggling step:", error);
+    }
+  }, [activeSteps, allSteps, toggleStepMutation, applyOptimisticUpdate]);
+
+  const toggleFailed = useCallback(async (id: string) => {
+    const step = activeSteps?.find(s => s._id === id) || failedSteps?.find(s => s._id === id);
+    if (step) {
+      const currentFailed = step.failed ?? false;
+      applyOptimisticUpdate(id, {
+        failed: !currentFailed,
+        completed: false,
+        failedAt: !currentFailed ? Date.now() : undefined,
+        completedAt: undefined,
+      });
+    }
+    try {
+      await toggleFailedMutation({ id: id as Id<"steps"> });
+    } catch (error) {
+      console.error("Error toggling failed:", error);
+    }
+  }, [activeSteps, failedSteps, toggleFailedMutation, applyOptimisticUpdate]);
+
+  const togglePriority = useCallback(async (id: string, currentValue: boolean) => {
+    applyOptimisticUpdate(id, { prioritizedToday: !currentValue });
+    try {
+      await updateStepMutation({
+        id: id as Id<"steps">,
+        prioritizedToday: !currentValue,
+      });
+    } catch (error) {
+      console.error("Error toggling priority:", error);
+    }
+  }, [updateStepMutation, applyOptimisticUpdate]);
+
+  const deleteStep = useCallback(async (id: string) => {
+    applyOptimisticDelete(id);
+    try {
+      await deleteStepMutation({ id: id as Id<"steps"> });
+    } catch (error) {
+      clearOptimisticDelete(id);
+      console.error("Error deleting step:", error);
+    }
+  }, [deleteStepMutation, applyOptimisticDelete, clearOptimisticDelete]);
+
+  const handleReorder = useCallback(async (stepIds: string[], parentId?: string) => {
+    try {
+      await reorderStepsMutation({
+        stepIds: stepIds as Id<"steps">[],
+        parentId: parentId as Id<"steps"> | undefined,
+      });
+    } catch (error) {
+      console.error("Error reordering steps:", error);
+    }
+  }, [reorderStepsMutation]);
+
+  const handleUpdateParent = useCallback(async (stepId: string, newParentId: string | undefined) => {
+    try {
+      await updateStepParentMutation({
+        id: stepId as Id<"steps">,
+        parentId: newParentId as Id<"steps"> | undefined,
+      });
+    } catch (error) {
+      console.error("Error updating step parent:", error);
+    }
+  }, [updateStepParentMutation]);
+
+  const updateStep = useCallback(async (id: string, updates: Partial<Step>) => {
+    try {
+      const updateData: any = { id: id as Id<"steps"> };
+      if (updates.title !== undefined) updateData.title = updates.title;
+      if (updates.description !== undefined) updateData.description = updates.description;
+      if (updates.completed !== undefined) updateData.completed = updates.completed;
+      if (updates.pathId !== undefined) {
+        updateData.pathId = updates.pathId
+          ? (typeof updates.pathId === 'string' ? updates.pathId as Id<"paths"> : null)
+          : null;
+      }
+      if (updates.prioritizedToday !== undefined) updateData.prioritizedToday = updates.prioritizedToday;
+      if (updates.recurring !== undefined) updateData.recurring = updates.recurring;
+
+      await updateStepMutation(updateData);
+    } catch (error) {
+      console.error("Error updating step:", error);
+    }
+  }, [updateStepMutation]);
+
+  const createStep = useCallback(async (
     title: string,
     description?: string,
     pathId?: string
@@ -61,106 +230,24 @@ export default function Steps() {
     } catch (error) {
       console.error("Error creating step:", error);
     }
-  };
+  }, [createStepMutation]);
 
-  const updateStep = async (id: string, updates: Partial<Step>) => {
-    try {
-      const updateData: any = { id: id as Id<"steps"> };
-      if (updates.title !== undefined) updateData.title = updates.title;
-      if (updates.description !== undefined) updateData.description = updates.description;
-      if (updates.completed !== undefined) updateData.completed = updates.completed;
-      if (updates.pathId !== undefined) {
-        updateData.pathId = updates.pathId ? (typeof updates.pathId === 'string' ? updates.pathId as Id<"paths"> : null) : null;
-      }
-      if (updates.prioritizedToday !== undefined) updateData.prioritizedToday = updates.prioritizedToday;
-      if (updates.recurring !== undefined) updateData.recurring = updates.recurring;
-
-      await updateStepMutation(updateData);
-      setEditingStep(null);
-    } catch (error) {
-      console.error("Error updating step:", error);
-    }
-  };
-
-  const startEditStep = (step: Step) => {
-    setEditingStep(step._id);
-    setEditStepForm({
-      title: step.title,
-      description: step.description || "",
-      pathId:
-        typeof step.pathId === "object" && step.pathId
-          ? step.pathId._id
-          : (step.pathId as unknown as string) || "",
-    });
-  };
-
-  const cancelEditStep = () => {
-    setEditingStep(null);
-    setEditStepForm({ title: "", description: "", pathId: "" });
-  };
-
-  const toggleStep = async (id: string) => {
-    await toggleStepMutation({ id: id as Id<"steps"> });
-  };
-
-  const toggleFailed = async (id: string) => {
-    await toggleFailedMutation({ id: id as Id<"steps"> });
-  };
-
-  const togglePriority = async (id: string, currentValue: boolean) => {
-    await updateStepMutation({
-      id: id as Id<"steps">,
-      prioritizedToday: !currentValue
-    });
-  };
-
-  const deleteStep = async (id: string) => {
-    await deleteStepMutation({ id: id as Id<"steps"> });
-  };
-
-  const handleReorder = async (stepIds: string[]) => {
-    await reorderStepsMutation({ stepIds: stepIds as Id<"steps">[] });
-  };
-
-  const instantiateRoutine = async (routineId: string) => {
+  const instantiateRoutine = useCallback(async (routineId: string) => {
     try {
       await executeRoutineMutation({ id: routineId as Id<"routines"> });
     } catch (error) {
       console.error("Error instantiating routine:", error);
     }
-  };
+  }, [executeRoutineMutation]);
 
-  const filterSteps = (steps: Step[], searchQuery: string, pathFilter: string): Step[] => {
-    return steps.filter((step: Step) => {
-      const matchesSearch = !searchQuery ||
-        step.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (step.description || "").toLowerCase().includes(searchQuery.toLowerCase());
-
-      const stepPathId = step.path?._id || (typeof step.pathId === 'string' ? step.pathId : null);
-      const matchesPath = !pathFilter || stepPathId === pathFilter;
-
-      return matchesSearch && matchesPath;
-    });
-  };
-
-  const handleQuickAdd = () => {
+  const handleQuickAdd = useCallback(() => {
     if (quickAddValue.trim()) {
       createStep(quickAddValue.trim(), stepDescValue.trim(), stepPathValue);
       setQuickAddValue("");
       setStepDescValue("");
       setStepPathValue("");
     }
-  };
-
-  const unfilteredPrioritySteps = activeSteps?.filter((s: Step) => s.prioritizedToday) || [];
-  const unfilteredRegularSteps = activeSteps?.filter((s: Step) => !s.prioritizedToday) || [];
-  const unfilteredCompletedSteps = allSteps?.filter((s: Step) => s.completed) || [];
-  const unfilteredFailedStepsList = failedSteps || [];
-
-  const prioritySteps = filterSteps(unfilteredPrioritySteps, searchQuerySteps, selectedPathFilterSteps);
-  const regularSteps = filterSteps(unfilteredRegularSteps, searchQuerySteps, selectedPathFilterSteps);
-  const completedSteps = filterSteps(unfilteredCompletedSteps, searchQuerySteps, selectedPathFilterSteps);
-  const failedStepsList = filterSteps(unfilteredFailedStepsList, searchQuerySteps, selectedPathFilterSteps);
+  }, [quickAddValue, stepDescValue, stepPathValue, createStep]);
 
   return (
     <div className="space-y-6">
@@ -251,20 +338,14 @@ export default function Steps() {
           </h2>
           <DraggableStepList
             steps={prioritySteps}
-            paths={paths || []}
+            paths={memoizedPaths}
             onReorder={handleReorder}
             onToggle={toggleStep}
             onToggleFailed={toggleFailed}
             onDelete={deleteStep}
             onTogglePriority={togglePriority}
-            editingStep={editingStep}
-            editForm={editStepForm}
-            onStartEdit={startEditStep}
-            onCancelEdit={cancelEditStep}
             onSaveEdit={updateStep}
-            onEditFormChange={(updates) =>
-              setEditStepForm({ ...editStepForm, ...updates })
-            }
+            onUpdateParent={handleUpdateParent}
           />
         </div>
       )}
@@ -275,20 +356,14 @@ export default function Steps() {
           <h2 className="text-lg font-semibold">All Steps</h2>
           <DraggableStepList
             steps={regularSteps}
-            paths={paths || []}
+            paths={memoizedPaths}
             onReorder={handleReorder}
             onToggle={toggleStep}
             onToggleFailed={toggleFailed}
             onDelete={deleteStep}
             onTogglePriority={togglePriority}
-            editingStep={editingStep}
-            editForm={editStepForm}
-            onStartEdit={startEditStep}
-            onCancelEdit={cancelEditStep}
             onSaveEdit={updateStep}
-            onEditFormChange={(updates) =>
-              setEditStepForm({ ...editStepForm, ...updates })
-            }
+            onUpdateParent={handleUpdateParent}
           />
         </div>
       )}
@@ -324,19 +399,12 @@ export default function Steps() {
               <StepCard
                 key={step._id}
                 step={step}
-                paths={paths || []}
+                paths={memoizedPaths}
                 onToggle={toggleStep}
                 onToggleFailed={toggleFailed}
                 onDelete={deleteStep}
                 onTogglePriority={togglePriority}
-                isEditing={editingStep === step._id}
-                editForm={editStepForm}
-                onStartEdit={startEditStep}
-                onCancelEdit={cancelEditStep}
                 onSaveEdit={updateStep}
-                onEditFormChange={(updates) =>
-                  setEditStepForm({ ...editStepForm, ...updates })
-                }
               />
             ))}
           </div>
@@ -354,19 +422,12 @@ export default function Steps() {
               <StepCard
                 key={step._id}
                 step={step}
-                paths={paths || []}
+                paths={memoizedPaths}
                 onToggle={toggleStep}
                 onToggleFailed={toggleFailed}
                 onDelete={deleteStep}
                 onTogglePriority={togglePriority}
-                isEditing={editingStep === step._id}
-                editForm={editStepForm}
-                onStartEdit={startEditStep}
-                onCancelEdit={cancelEditStep}
                 onSaveEdit={updateStep}
-                onEditFormChange={(updates) =>
-                  setEditStepForm({ ...editStepForm, ...updates })
-                }
               />
             ))}
           </div>

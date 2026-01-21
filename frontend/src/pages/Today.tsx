@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import type { Step, Path } from "@/types/index";
 import {
   useUpdateStep,
@@ -6,10 +6,11 @@ import {
   useToggleStepCompletion,
   useToggleStepFailed,
   useReorderSteps,
+  useUpdateStepParent,
 } from "@/lib/convex-hooks";
 import { useData } from "@/contexts/DataContext";
 import type { Id } from "../../convex/_generated/dataModel";
-import { Input } from "@/components/ui/input";
+import { Input } from "@devvoid/ui";
 import {
   Star,
   Search,
@@ -18,83 +19,36 @@ import { StepCard } from "@/components/StepCard";
 import { DraggableStepList } from "@/components/DraggableStepList";
 
 export default function Today() {
-  const { paths, activeSteps, completedStepsToday } = useData();
+  const {
+    paths,
+    activeSteps,
+    completedStepsToday,
+    applyOptimisticUpdate,
+    applyOptimisticDelete,
+    clearOptimisticDelete,
+  } = useData();
 
+  // Mutations
   const updateStepMutation = useUpdateStep();
   const deleteStepMutation = useDeleteStep();
   const toggleStepMutation = useToggleStepCompletion();
   const toggleFailedMutation = useToggleStepFailed();
   const reorderStepsMutation = useReorderSteps();
+  const updateStepParentMutation = useUpdateStepParent();
 
-  const [editingStep, setEditingStep] = useState<string | null>(null);
-  const [editStepForm, setEditStepForm] = useState({
-    title: "",
-    description: "",
-    pathId: "",
-  });
+  // UI state
   const [searchQueryToday, setSearchQueryToday] = useState("");
   const [selectedPathFilterToday, setSelectedPathFilterToday] = useState("");
 
-  const updateStep = async (id: string, updates: Partial<Step>) => {
-    try {
-      const updateData: any = { id: id as Id<"steps"> };
-      if (updates.title !== undefined) updateData.title = updates.title;
-      if (updates.description !== undefined) updateData.description = updates.description;
-      if (updates.completed !== undefined) updateData.completed = updates.completed;
-      if (updates.pathId !== undefined) {
-        updateData.pathId = updates.pathId ? (typeof updates.pathId === 'string' ? updates.pathId as Id<"paths"> : null) : null;
-      }
-      if (updates.prioritizedToday !== undefined) updateData.prioritizedToday = updates.prioritizedToday;
-      if (updates.recurring !== undefined) updateData.recurring = updates.recurring;
+  // Memoize paths for stable reference
+  const memoizedPaths = useMemo(() => paths || [], [paths]);
 
-      await updateStepMutation(updateData);
-      setEditingStep(null);
-    } catch (error) {
-      console.error("Error updating step:", error);
-    }
-  };
-
-  const startEditStep = (step: Step) => {
-    setEditingStep(step._id);
-    setEditStepForm({
-      title: step.title,
-      description: step.description || "",
-      pathId:
-        typeof step.pathId === "object" && step.pathId
-          ? step.pathId._id
-          : (step.pathId as unknown as string) || "",
-    });
-  };
-
-  const cancelEditStep = () => {
-    setEditingStep(null);
-    setEditStepForm({ title: "", description: "", pathId: "" });
-  };
-
-  const toggleStep = async (id: string) => {
-    await toggleStepMutation({ id: id as Id<"steps"> });
-  };
-
-  const toggleFailed = async (id: string) => {
-    await toggleFailedMutation({ id: id as Id<"steps"> });
-  };
-
-  const togglePriority = async (id: string, currentValue: boolean) => {
-    await updateStepMutation({
-      id: id as Id<"steps">,
-      prioritizedToday: !currentValue
-    });
-  };
-
-  const deleteStep = async (id: string) => {
-    await deleteStepMutation({ id: id as Id<"steps"> });
-  };
-
-  const handleReorder = async (stepIds: string[]) => {
-    await reorderStepsMutation({ stepIds: stepIds as Id<"steps">[] });
-  };
-
-  const filterSteps = (steps: Step[], searchQuery: string, pathFilter: string): Step[] => {
+  // Stable filter function
+  const filterSteps = useCallback((
+    steps: Step[],
+    searchQuery: string,
+    pathFilter: string
+  ): Step[] => {
     return steps.filter((step: Step) => {
       const matchesSearch = !searchQuery ||
         step.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -105,13 +59,127 @@ export default function Today() {
 
       return matchesSearch && matchesPath;
     });
-  };
+  }, []);
 
-  const unfilteredTodayPrioritySteps = activeSteps?.filter((s: Step) => s.prioritizedToday) || [];
-  const unfilteredTodayCompletedSteps = completedStepsToday?.filter((s: Step) => s.prioritizedToday) || [];
+  // Memoized filtered arrays
+  const unfilteredTodayPrioritySteps = useMemo(
+    () => activeSteps?.filter((s: Step) => s.prioritizedToday) || [],
+    [activeSteps]
+  );
 
-  const todayPrioritySteps = filterSteps(unfilteredTodayPrioritySteps, searchQueryToday, selectedPathFilterToday);
-  const todayCompletedSteps = filterSteps(unfilteredTodayCompletedSteps, searchQueryToday, selectedPathFilterToday);
+  const unfilteredTodayCompletedSteps = useMemo(
+    () => completedStepsToday?.filter((s: Step) => s.prioritizedToday) || [],
+    [completedStepsToday]
+  );
+
+  const todayPrioritySteps = useMemo(
+    () => filterSteps(unfilteredTodayPrioritySteps, searchQueryToday, selectedPathFilterToday),
+    [filterSteps, unfilteredTodayPrioritySteps, searchQueryToday, selectedPathFilterToday]
+  );
+
+  const todayCompletedSteps = useMemo(
+    () => filterSteps(unfilteredTodayCompletedSteps, searchQueryToday, selectedPathFilterToday),
+    [filterSteps, unfilteredTodayCompletedSteps, searchQueryToday, selectedPathFilterToday]
+  );
+
+  // Stable callbacks with optimistic updates
+  const toggleStep = useCallback(async (id: string) => {
+    const step = activeSteps?.find(s => s._id === id) || completedStepsToday?.find(s => s._id === id);
+    if (step) {
+      applyOptimisticUpdate(id, {
+        completed: !step.completed,
+        failed: false,
+        completedAt: !step.completed ? Date.now() : undefined,
+      });
+    }
+    try {
+      await toggleStepMutation({ id: id as Id<"steps"> });
+    } catch (error) {
+      console.error("Error toggling step:", error);
+    }
+  }, [activeSteps, completedStepsToday, toggleStepMutation, applyOptimisticUpdate]);
+
+  const toggleFailed = useCallback(async (id: string) => {
+    const step = activeSteps?.find(s => s._id === id);
+    if (step) {
+      const currentFailed = step.failed ?? false;
+      applyOptimisticUpdate(id, {
+        failed: !currentFailed,
+        completed: false,
+        failedAt: !currentFailed ? Date.now() : undefined,
+        completedAt: undefined,
+      });
+    }
+    try {
+      await toggleFailedMutation({ id: id as Id<"steps"> });
+    } catch (error) {
+      console.error("Error toggling failed:", error);
+    }
+  }, [activeSteps, toggleFailedMutation, applyOptimisticUpdate]);
+
+  const togglePriority = useCallback(async (id: string, currentValue: boolean) => {
+    applyOptimisticUpdate(id, { prioritizedToday: !currentValue });
+    try {
+      await updateStepMutation({
+        id: id as Id<"steps">,
+        prioritizedToday: !currentValue,
+      });
+    } catch (error) {
+      console.error("Error toggling priority:", error);
+    }
+  }, [updateStepMutation, applyOptimisticUpdate]);
+
+  const deleteStep = useCallback(async (id: string) => {
+    applyOptimisticDelete(id);
+    try {
+      await deleteStepMutation({ id: id as Id<"steps"> });
+    } catch (error) {
+      clearOptimisticDelete(id);
+      console.error("Error deleting step:", error);
+    }
+  }, [deleteStepMutation, applyOptimisticDelete, clearOptimisticDelete]);
+
+  const handleReorder = useCallback(async (stepIds: string[], parentId?: string) => {
+    try {
+      await reorderStepsMutation({
+        stepIds: stepIds as Id<"steps">[],
+        parentId: parentId as Id<"steps"> | undefined,
+      });
+    } catch (error) {
+      console.error("Error reordering steps:", error);
+    }
+  }, [reorderStepsMutation]);
+
+  const handleUpdateParent = useCallback(async (stepId: string, newParentId: string | undefined) => {
+    try {
+      await updateStepParentMutation({
+        id: stepId as Id<"steps">,
+        parentId: newParentId as Id<"steps"> | undefined,
+      });
+    } catch (error) {
+      console.error("Error updating step parent:", error);
+    }
+  }, [updateStepParentMutation]);
+
+  const updateStep = useCallback(async (id: string, updates: Partial<Step>) => {
+    try {
+      const updateData: any = { id: id as Id<"steps"> };
+      if (updates.title !== undefined) updateData.title = updates.title;
+      if (updates.description !== undefined) updateData.description = updates.description;
+      if (updates.completed !== undefined) updateData.completed = updates.completed;
+      if (updates.pathId !== undefined) {
+        updateData.pathId = updates.pathId
+          ? (typeof updates.pathId === 'string' ? updates.pathId as Id<"paths"> : null)
+          : null;
+      }
+      if (updates.prioritizedToday !== undefined) updateData.prioritizedToday = updates.prioritizedToday;
+      if (updates.recurring !== undefined) updateData.recurring = updates.recurring;
+
+      await updateStepMutation(updateData);
+    } catch (error) {
+      console.error("Error updating step:", error);
+    }
+  }, [updateStepMutation]);
 
   return (
     <div className="space-y-6">
@@ -146,20 +214,14 @@ export default function Today() {
       {todayPrioritySteps.length > 0 ? (
         <DraggableStepList
           steps={todayPrioritySteps}
-          paths={paths || []}
+          paths={memoizedPaths}
           onReorder={handleReorder}
           onToggle={toggleStep}
           onToggleFailed={toggleFailed}
           onDelete={deleteStep}
           onTogglePriority={togglePriority}
-          editingStep={editingStep}
-          editForm={editStepForm}
-          onStartEdit={startEditStep}
-          onCancelEdit={cancelEditStep}
           onSaveEdit={updateStep}
-          onEditFormChange={(updates) =>
-            setEditStepForm({ ...editStepForm, ...updates })
-          }
+          onUpdateParent={handleUpdateParent}
         />
       ) : (
         <div className="text-center py-12 text-muted-foreground">
@@ -186,19 +248,12 @@ export default function Today() {
               <StepCard
                 key={step._id}
                 step={step}
-                paths={paths || []}
+                paths={memoizedPaths}
                 onToggle={toggleStep}
                 onToggleFailed={toggleFailed}
                 onDelete={deleteStep}
                 onTogglePriority={togglePriority}
-                isEditing={editingStep === step._id}
-                editForm={editStepForm}
-                onStartEdit={startEditStep}
-                onCancelEdit={cancelEditStep}
                 onSaveEdit={updateStep}
-                onEditFormChange={(updates) =>
-                  setEditStepForm({ ...editStepForm, ...updates })
-                }
               />
             ))}
           </div>

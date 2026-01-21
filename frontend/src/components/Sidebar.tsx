@@ -1,5 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
+import { Button } from '@devvoid/ui';
 import { LogOut, Settings, Calendar, ListTodo, Target, Zap, Network, X } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 

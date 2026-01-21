@@ -7,9 +7,7 @@ import {
 } from "@/lib/convex-hooks";
 import { useData } from "@/contexts/DataContext";
 import type { Id } from "../../convex/_generated/dataModel";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { Button, Input, Card, CardContent } from "@devvoid/ui";
 import {
   Plus,
   X,

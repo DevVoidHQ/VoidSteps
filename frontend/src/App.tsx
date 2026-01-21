@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { DataProvider } from '@/contexts/DataContext';
@@ -30,6 +30,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 
 function AppRoutes() {
   const { user, isLoading } = useAuth();
+  const location = useLocation();
 
   if (isLoading) {
     return (
@@ -52,7 +53,7 @@ function AppRoutes() {
         path="/"
         element={
           <PrivateRoute>
-            <Layout>
+            <Layout key={location.pathname}>
               <Today />
             </Layout>
           </PrivateRoute>
@@ -62,7 +63,7 @@ function AppRoutes() {
         path="/steps"
         element={
           <PrivateRoute>
-            <Layout>
+            <Layout key={location.pathname}>
               <Steps />
             </Layout>
           </PrivateRoute>
@@ -72,7 +73,7 @@ function AppRoutes() {
         path="/paths"
         element={
           <PrivateRoute>
-            <Layout>
+            <Layout key={location.pathname}>
               <Paths />
             </Layout>
           </PrivateRoute>
@@ -82,7 +83,7 @@ function AppRoutes() {
         path="/routines"
         element={
           <PrivateRoute>
-            <Layout>
+            <Layout key={location.pathname}>
               <Routines />
             </Layout>
           </PrivateRoute>
@@ -92,7 +93,7 @@ function AppRoutes() {
         path="/pathway"
         element={
           <PrivateRoute>
-            <Layout>
+            <Layout key={location.pathname}>
               <Pathway />
             </Layout>
           </PrivateRoute>
@@ -102,7 +103,7 @@ function AppRoutes() {
         path="/settings"
         element={
           <PrivateRoute>
-            <Layout>
+            <Layout key={location.pathname}>
               <Settings />
             </Layout>
           </PrivateRoute>

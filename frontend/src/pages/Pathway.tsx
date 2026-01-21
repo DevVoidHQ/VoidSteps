@@ -9,8 +9,7 @@ import ReactFlow, {
 } from 'reactflow';
 import type { Node, Edge } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Button, Tabs, TabsList, TabsTrigger, TabsContent } from '@devvoid/ui';
 import { RotateCcw, Hand, Edit3 } from 'lucide-react';
 
 import UserNode from '@/components/graph/UserNode';

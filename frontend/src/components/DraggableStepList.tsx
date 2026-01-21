@@ -1,12 +1,16 @@
+import { memo, useMemo, useCallback, useState } from 'react';
 import {
   DndContext,
-  closestCenter,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
+  useDroppable,
+  DragOverlay,
+  pointerWithin,
+  rectIntersection,
 } from '@dnd-kit/core';
-import type { DragEndEvent } from '@dnd-kit/core';
+import type { DragEndEvent, DragStartEvent, DragOverEvent, UniqueIdentifier } from '@dnd-kit/core';
 import {
   arrayMove,
   SortableContext,
@@ -18,30 +22,65 @@ import { CSS } from '@dnd-kit/utilities';
 import type { Step, Path } from "@/types/index";
 import { StepCard } from "./StepCard";
 import type { StepCardProps } from "./StepCard";
-import { GripVertical } from "lucide-react";
+import { GripVertical, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
+import { useStepHierarchy } from "@/hooks/useStepHierarchy";
 
 interface DraggableStepListProps {
   steps: Step[];
   paths: Path[];
-  onReorder: (stepIds: string[]) => void;
+  onReorder: (stepIds: string[], parentId?: string) => void;
   onToggle: (id: string) => void;
   onToggleFailed?: (id: string) => void;
   onDelete: (id: string) => void;
   onTogglePriority: (id: string, current: boolean) => void;
-  editingStep: string | null;
-  editForm: { title: string; description: string; pathId: string };
-  onStartEdit: (step: Step) => void;
-  onCancelEdit: () => void;
   onSaveEdit: (id: string, updates: Partial<Step>) => void;
-  onEditFormChange: (updates: Partial<{ title: string; description: string; pathId: string }>) => void;
+  onUpdateParent?: (stepId: string, newParentId: string | undefined) => void;
 }
 
 interface SortableStepItemProps extends Omit<StepCardProps, 'step'> {
   step: Step;
   isDragging?: boolean;
+  isOverlay?: boolean;
 }
 
-function SortableStepItem({ step, isDragging, ...props }: SortableStepItemProps) {
+// Droppable wrapper for nesting
+function DroppableStepWrapper({
+  id,
+  children,
+  isActive,
+  canAcceptDrop,
+}: {
+  id: string;
+  children: React.ReactNode;
+  isActive: boolean;
+  canAcceptDrop: boolean;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `droppable-${id}`,
+    data: { type: 'step', stepId: id },
+    disabled: !canAcceptDrop,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`transition-all ${
+        isOver && canAcceptDrop && isActive
+          ? 'scale-[1.02]'
+          : ''
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
+
+const SortableStepItem = memo(function SortableStepItem({
+  step,
+  isDragging,
+  isOverlay,
+  ...props
+}: SortableStepItemProps) {
   const {
     attributes,
     listeners,
@@ -50,11 +89,27 @@ function SortableStepItem({ step, isDragging, ...props }: SortableStepItemProps)
     transition,
   } = useSortable({ id: step._id });
 
-  const style = {
+  // Memoize style to prevent unnecessary re-renders
+  const style = useMemo(() => ({
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
+    opacity: isDragging ? 0.3 : 1,
+  }), [transform, transition, isDragging]);
+
+  if (isOverlay) {
+    return (
+      <div className="opacity-90 shadow-lg">
+        <div className="flex items-center space-x-2">
+          <div className="flex-shrink-0 p-2 text-muted-foreground">
+            <GripVertical className="w-4 h-4" />
+          </div>
+          <div className="flex-1">
+            <StepCard step={step} {...props} />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div ref={setNodeRef} style={style} className="relative group">
@@ -72,7 +127,7 @@ function SortableStepItem({ step, isDragging, ...props }: SortableStepItemProps)
       </div>
     </div>
   );
-}
+});
 
 export function DraggableStepList({
   steps,
@@ -82,17 +137,39 @@ export function DraggableStepList({
   onToggleFailed,
   onDelete,
   onTogglePriority,
-  editingStep,
-  editForm,
-  onStartEdit,
-  onCancelEdit,
   onSaveEdit,
-  onEditFormChange,
+  onUpdateParent,
 }: DraggableStepListProps) {
+  const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
+  const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+
+  const { rootSteps, getChildren, getProgress, hasChildren } = useStepHierarchy(steps);
+
+  // Compute list of step IDs that have children
+  const stepsWithChildren = useMemo(() => {
+    return rootSteps.filter((step) => hasChildren(step._id)).map((step) => step._id);
+  }, [rootSteps, hasChildren]);
+
+  // Check if all expandable steps are currently expanded
+  const allExpanded = useMemo(() => {
+    if (stepsWithChildren.length === 0) return false;
+    return stepsWithChildren.every((id) => expandedSteps.has(id));
+  }, [stepsWithChildren, expandedSteps]);
+
+  // Toggle all expanded/collapsed
+  const toggleAllExpanded = useCallback(() => {
+    if (allExpanded) {
+      setExpandedSteps(new Set()); // Collapse all
+    } else {
+      setExpandedSteps(new Set(stepsWithChildren)); // Expand all
+    }
+  }, [allExpanded, stepsWithChildren]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8, // Require 8px movement before drag starts
+        distance: 8,
       },
     }),
     useSensor(KeyboardSensor, {
@@ -100,50 +177,258 @@ export function DraggableStepList({
     })
   );
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
+  const toggleExpand = useCallback((stepId: string) => {
+    setExpandedSteps((prev) => {
+      const next = new Set(prev);
+      if (next.has(stepId)) {
+        next.delete(stepId);
+      } else {
+        next.add(stepId);
+      }
+      return next;
+    });
+  }, []);
 
-    if (over && active.id !== over.id) {
-      const oldIndex = steps.findIndex(step => step._id === active.id);
-      const newIndex = steps.findIndex(step => step._id === over.id);
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveId(event.active.id);
+  }, []);
 
-      const reorderedSteps = arrayMove(steps, oldIndex, newIndex);
-      const stepIds = reorderedSteps.map(step => step._id);
-
-      onReorder(stepIds);
+  const handleDragOver = useCallback((event: DragOverEvent) => {
+    const { over } = event;
+    if (over) {
+      // Check if we're over a droppable step (for nesting)
+      const overId = String(over.id);
+      if (overId.startsWith('droppable-')) {
+        setOverId(overId.replace('droppable-', ''));
+      } else {
+        setOverId(null);
+      }
+    } else {
+      setOverId(null);
     }
-  };
+  }, []);
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+    setOverId(null);
+
+    if (!over) return;
+
+    const activeStepId = String(active.id);
+    const activeStep = steps.find((s) => s._id === activeStepId);
+    if (!activeStep) return;
+
+    const overId = String(over.id);
+
+    // Check if dropped onto a droppable step (nesting)
+    if (overId.startsWith('droppable-')) {
+      const targetStepId = overId.replace('droppable-', '');
+      const targetStep = steps.find((s) => s._id === targetStepId);
+
+      if (
+        targetStep &&
+        !targetStep.parentId && // Target must be a root step
+        !activeStep.parentId && // Active must also be a root step (can't nest children of children)
+        activeStepId !== targetStepId && // Can't drop on itself
+        !hasChildren(activeStepId) // Can't nest a step that has children
+      ) {
+        // Nest the step under the target
+        onUpdateParent?.(activeStepId, targetStepId);
+        // Auto-expand the parent
+        setExpandedSteps((prev) => new Set([...prev, targetStepId]));
+        return;
+      }
+    }
+
+    // Regular reordering
+    if (active.id !== over.id) {
+      const overStepId = overId.startsWith('droppable-')
+        ? overId.replace('droppable-', '')
+        : overId;
+      const overStep = steps.find((s) => s._id === overStepId);
+
+      if (!overStep) return;
+
+      // Determine the context (root or within a parent)
+      const activeParent = activeStep.parentId;
+      const overParent = overStep.parentId;
+
+      // If both are in the same context (same parent or both root)
+      if (activeParent === overParent) {
+        const contextSteps =
+          activeParent
+            ? getChildren(activeParent)
+            : rootSteps;
+
+        const oldIndex = contextSteps.findIndex((s) => s._id === activeStepId);
+        const newIndex = contextSteps.findIndex((s) => s._id === overStepId);
+
+        if (oldIndex !== -1 && newIndex !== -1) {
+          const reordered = arrayMove(contextSteps, oldIndex, newIndex);
+          const stepIds = reordered.map((s) => s._id);
+          onReorder(stepIds, activeParent || undefined);
+        }
+      } else {
+        // Moving between different parents
+        // If active is a child being moved to root
+        if (activeParent && !overParent) {
+          // Promote to root
+          onUpdateParent?.(activeStepId, undefined);
+        }
+        // If active is root being moved onto a child (this shouldn't happen with our logic)
+        // The droppable logic above handles nesting
+      }
+    }
+  }, [steps, rootSteps, getChildren, hasChildren, onReorder, onUpdateParent]);
+
+  // Build the sortable IDs including children
+  const allSortableIds = useMemo(() => {
+    const ids: string[] = [];
+    for (const step of rootSteps) {
+      ids.push(step._id);
+      if (expandedSteps.has(step._id)) {
+        const children = getChildren(step._id);
+        for (const child of children) {
+          ids.push(child._id);
+        }
+      }
+    }
+    return ids;
+  }, [rootSteps, expandedSteps, getChildren]);
+
+  const activeStep = activeId ? steps.find((s) => s._id === activeId) : null;
+
+  // Custom collision detection that prefers droppable areas when directly over them
+  const collisionDetection = useCallback(
+    (args: any) => {
+      // First check for pointer within collisions (more precise for droppables)
+      const pointerCollisions = pointerWithin(args);
+      if (pointerCollisions.length > 0) {
+        // Prefer droppable collisions
+        const droppableCollision = pointerCollisions.find(
+          (c) => String(c.id).startsWith('droppable-')
+        );
+        if (droppableCollision) {
+          return [droppableCollision];
+        }
+      }
+      // Fall back to rect intersection for sortable
+      return rectIntersection(args);
+    },
+    []
+  );
 
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={collisionDetection}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <SortableContext
-        items={steps.map(step => step._id)}
-        strategy={verticalListSortingStrategy}
-      >
+      {stepsWithChildren.length > 0 && (
+        <button
+          onClick={toggleAllExpanded}
+          className="flex items-center gap-1.5 px-2 py-1 mb-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          {allExpanded ? (
+            <ChevronsDownUp className="w-4 h-4" />
+          ) : (
+            <ChevronsUpDown className="w-4 h-4" />
+          )}
+          {allExpanded ? "Collapse All" : "Expand All"}
+        </button>
+      )}
+      <SortableContext items={allSortableIds} strategy={verticalListSortingStrategy}>
         <div className="space-y-2">
-          {steps.map((step) => (
-            <SortableStepItem
-              key={step._id}
-              step={step}
-              paths={paths}
-              onToggle={onToggle}
-              onToggleFailed={onToggleFailed}
-              onDelete={onDelete}
-              onTogglePriority={onTogglePriority}
-              isEditing={editingStep === step._id}
-              editForm={editForm}
-              onStartEdit={onStartEdit}
-              onCancelEdit={onCancelEdit}
-              onSaveEdit={onSaveEdit}
-              onEditFormChange={onEditFormChange}
-            />
-          ))}
+          {rootSteps.map((step) => {
+            const isExpanded = expandedSteps.has(step._id);
+            const children = getChildren(step._id);
+            const progress = getProgress(step._id);
+            const stepHasChildren = hasChildren(step._id);
+            const isDragging = activeId === step._id;
+            const isDropTarget = Boolean(
+              overId === step._id &&
+              activeId !== step._id &&
+              !step.parentId &&
+              activeStep &&
+              !activeStep.parentId &&
+              !hasChildren(String(activeId))
+            );
+
+            return (
+              <div key={step._id}>
+                <DroppableStepWrapper
+                  id={step._id}
+                  isActive={activeId !== null}
+                  canAcceptDrop={Boolean(
+                    !step.parentId &&
+                    activeId !== null &&
+                    activeId !== step._id &&
+                    activeStep &&
+                    !activeStep.parentId &&
+                    !hasChildren(String(activeId))
+                  )}
+                >
+                  <SortableStepItem
+                    step={step}
+                    paths={paths}
+                    onToggle={onToggle}
+                    onToggleFailed={onToggleFailed}
+                    onDelete={onDelete}
+                    onTogglePriority={onTogglePriority}
+                    onSaveEdit={onSaveEdit}
+                    isDragging={isDragging}
+                    depth={0}
+                    hasChildren={stepHasChildren}
+                    isExpanded={isExpanded}
+                    childProgress={progress}
+                    onToggleExpand={toggleExpand}
+                    isDropTarget={isDropTarget}
+                  />
+                </DroppableStepWrapper>
+
+                {/* Render children when expanded */}
+                {isExpanded && children.length > 0 && (
+                  <div className="ml-8 mt-2 space-y-2 border-l-2 border-muted pl-4">
+                    {children.map((child) => (
+                      <SortableStepItem
+                        key={child._id}
+                        step={child}
+                        paths={paths}
+                        onToggle={onToggle}
+                        onToggleFailed={onToggleFailed}
+                        onDelete={onDelete}
+                        onTogglePriority={onTogglePriority}
+                        onSaveEdit={onSaveEdit}
+                        isDragging={activeId === child._id}
+                        depth={1}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </SortableContext>
+
+      <DragOverlay>
+        {activeStep ? (
+          <SortableStepItem
+            step={activeStep}
+            paths={paths}
+            onToggle={onToggle}
+            onToggleFailed={onToggleFailed}
+            onDelete={onDelete}
+            onTogglePriority={onTogglePriority}
+            onSaveEdit={onSaveEdit}
+            isOverlay
+            depth={activeStep.parentId ? 1 : 0}
+          />
+        ) : null}
+      </DragOverlay>
     </DndContext>
   );
 }

@@ -136,12 +136,43 @@ export const getFailedSteps = query({
   },
 });
 
+export const getChildSteps = query({
+  args: { parentId: v.id("steps") },
+  handler: async (ctx, args) => {
+    const children = await ctx.db
+      .query("steps")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.parentId))
+      .collect();
+
+    // Sort by sortOrder (ascending) with fallback to createdAt
+    const sortedChildren = children.sort((a, b) => {
+      const orderA = a.sortOrder ?? a.createdAt;
+      const orderB = b.sortOrder ?? b.createdAt;
+      return orderA - orderB;
+    });
+
+    // Populate pathId references
+    const stepsWithPaths = await Promise.all(
+      sortedChildren.map(async (step) => {
+        if (step.pathId) {
+          const path = await ctx.db.get(step.pathId);
+          return { ...step, path };
+        }
+        return { ...step, path: null };
+      })
+    );
+
+    return stepsWithPaths;
+  },
+});
+
 // Mutations
 export const createStep = mutation({
   args: {
     title: v.string(),
     description: v.optional(v.string()),
     pathId: v.optional(v.id("paths")),
+    parentId: v.optional(v.id("steps")),
     recurring: v.optional(
       v.object({
         enabled: v.boolean(),
@@ -162,14 +193,33 @@ export const createStep = mutation({
   handler: async (ctx, args) => {
     const now = Date.now();
 
-    // Get all active steps to determine the minimum sortOrder
-    const activeSteps = await ctx.db
-      .query("steps")
-      .filter((q) => q.eq(q.field("completed"), false))
-      .collect();
+    // If parentId is provided, validate it exists and is not itself a child (enforce 1 level)
+    if (args.parentId) {
+      const parent = await ctx.db.get(args.parentId);
+      if (!parent) throw new Error("Parent step not found");
+      if (parent.parentId) throw new Error("Cannot nest more than 1 level deep");
+    }
+
+    // Get steps to determine sortOrder - scoped to parent context
+    let siblingSteps;
+    if (args.parentId) {
+      // Get children of the same parent
+      siblingSteps = await ctx.db
+        .query("steps")
+        .withIndex("by_parent", (q) => q.eq("parentId", args.parentId))
+        .filter((q) => q.eq(q.field("completed"), false))
+        .collect();
+    } else {
+      // Get root-level active steps (no parent)
+      const allActiveSteps = await ctx.db
+        .query("steps")
+        .filter((q) => q.eq(q.field("completed"), false))
+        .collect();
+      siblingSteps = allActiveSteps.filter((s) => !s.parentId);
+    }
 
     // Find the minimum sortOrder (or use 0 if no steps exist)
-    const minSortOrder = activeSteps.reduce((min, step) => {
+    const minSortOrder = siblingSteps.reduce((min, step) => {
       const order = step.sortOrder ?? step.createdAt;
       return Math.min(min, order);
     }, now);
@@ -183,6 +233,7 @@ export const createStep = mutation({
       completed: false,
       failed: false,
       pathId: args.pathId,
+      parentId: args.parentId,
       recurring: args.recurring || {
         enabled: false,
         frequency: undefined,
@@ -291,6 +342,16 @@ export const updateStep = mutation({
 export const deleteStep = mutation({
   args: { id: v.id("steps") },
   handler: async (ctx, args) => {
+    // Cascade delete: delete all children first
+    const children = await ctx.db
+      .query("steps")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.id))
+      .collect();
+
+    for (const child of children) {
+      await ctx.db.delete(child._id);
+    }
+
     await ctx.db.delete(args.id);
     return { success: true, message: "Step deleted successfully" };
   },
@@ -359,20 +420,70 @@ export const toggleStepFailed = mutation({
 export const reorderSteps = mutation({
   args: {
     stepIds: v.array(v.id("steps")),
+    parentId: v.optional(v.id("steps")),
   },
-  handler: async (ctx, { stepIds }) => {
+  handler: async (ctx, { stepIds, parentId }) => {
     const now = Date.now();
 
     // Update sortOrder for each step based on position in array
+    // Also ensure they all have the correct parentId
     await Promise.all(
       stepIds.map((stepId, index) =>
         ctx.db.patch(stepId, {
           sortOrder: index,
+          parentId: parentId,
           updatedAt: now,
         })
       )
     );
 
     return { success: true };
+  },
+});
+
+export const updateStepParent = mutation({
+  args: {
+    id: v.id("steps"),
+    parentId: v.optional(v.id("steps")),
+  },
+  handler: async (ctx, args) => {
+    const step = await ctx.db.get(args.id);
+    if (!step) throw new Error("Step not found");
+
+    // Validate new parent if provided
+    if (args.parentId) {
+      const parent = await ctx.db.get(args.parentId);
+      if (!parent) throw new Error("Parent step not found");
+      if (parent.parentId) throw new Error("Cannot nest more than 1 level deep");
+      // Prevent circular reference
+      if (args.parentId === args.id) throw new Error("Step cannot be its own parent");
+    }
+
+    // If this step has children and we're trying to make it a child, prevent it
+    if (args.parentId) {
+      const existingChildren = await ctx.db
+        .query("steps")
+        .withIndex("by_parent", (q) => q.eq("parentId", args.id))
+        .collect();
+      if (existingChildren.length > 0) {
+        throw new Error("Cannot nest a step that has children");
+      }
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(args.id, {
+      parentId: args.parentId,
+      updatedAt: now,
+    });
+
+    const updatedStep = await ctx.db.get(args.id);
+    if (!updatedStep) throw new Error("Failed to update step parent");
+
+    if (updatedStep.pathId) {
+      const path = await ctx.db.get(updatedStep.pathId);
+      return { ...updatedStep, path };
+    }
+
+    return { ...updatedStep, path: null };
   },
 });
