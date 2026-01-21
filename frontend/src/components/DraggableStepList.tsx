@@ -19,7 +19,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { Step, Path } from "@/types/index";
+import type { Step, Path, Routine } from "@/types/index";
 import { StepCard } from "./StepCard";
 import type { StepCardProps } from "./StepCard";
 import { GripVertical, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
@@ -28,6 +28,7 @@ import { useStepHierarchy } from "@/hooks/useStepHierarchy";
 interface DraggableStepListProps {
   steps: Step[];
   paths: Path[];
+  routines?: Routine[];
   onReorder: (stepIds: string[], parentId?: string) => void;
   onToggle: (id: string) => void;
   onToggleFailed?: (id: string) => void;
@@ -35,6 +36,11 @@ interface DraggableStepListProps {
   onTogglePriority: (id: string, current: boolean) => void;
   onSaveEdit: (id: string, updates: Partial<Step>) => void;
   onUpdateParent?: (stepId: string, newParentId: string | undefined) => void;
+  // Controlled expand state (optional - if not provided, uses internal state)
+  expandedStepIds?: Set<string>;
+  onExpandedChange?: (ids: Set<string>) => void;
+  // Hide the internal expand all button when parent wants to render it
+  hideExpandAllButton?: boolean;
 }
 
 interface SortableStepItemProps extends Omit<StepCardProps, 'step'> {
@@ -132,6 +138,7 @@ const SortableStepItem = memo(function SortableStepItem({
 export function DraggableStepList({
   steps,
   paths,
+  routines,
   onReorder,
   onToggle,
   onToggleFailed,
@@ -139,8 +146,27 @@ export function DraggableStepList({
   onTogglePriority,
   onSaveEdit,
   onUpdateParent,
+  expandedStepIds,
+  onExpandedChange,
+  hideExpandAllButton,
 }: DraggableStepListProps) {
-  const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
+  const [internalExpandedSteps, setInternalExpandedSteps] = useState<Set<string>>(new Set());
+
+  // Use controlled or internal state
+  const expandedSteps = expandedStepIds ?? internalExpandedSteps;
+
+  // Wrapper to update expanded state (handles both controlled and uncontrolled)
+  const updateExpandedSteps = useCallback((updater: Set<string> | ((prev: Set<string>) => Set<string>)) => {
+    if (onExpandedChange) {
+      // Controlled mode - compute new value and call callback
+      const newValue = typeof updater === 'function' ? updater(expandedSteps) : updater;
+      onExpandedChange(newValue);
+    } else {
+      // Uncontrolled mode - use internal state setter
+      setInternalExpandedSteps(updater);
+    }
+  }, [onExpandedChange, expandedSteps]);
+
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
 
@@ -160,9 +186,9 @@ export function DraggableStepList({
   // Toggle all expanded/collapsed
   const toggleAllExpanded = useCallback(() => {
     if (allExpanded) {
-      setExpandedSteps(new Set()); // Collapse all
+      updateExpandedSteps(new Set()); // Collapse all
     } else {
-      setExpandedSteps(new Set(stepsWithChildren)); // Expand all
+      updateExpandedSteps(new Set(stepsWithChildren)); // Expand all
     }
   }, [allExpanded, stepsWithChildren]);
 
@@ -178,7 +204,7 @@ export function DraggableStepList({
   );
 
   const toggleExpand = useCallback((stepId: string) => {
-    setExpandedSteps((prev) => {
+    updateExpandedSteps((prev) => {
       const next = new Set(prev);
       if (next.has(stepId)) {
         next.delete(stepId);
@@ -236,7 +262,7 @@ export function DraggableStepList({
         // Nest the step under the target
         onUpdateParent?.(activeStepId, targetStepId);
         // Auto-expand the parent
-        setExpandedSteps((prev) => new Set([...prev, targetStepId]));
+        updateExpandedSteps((prev) => new Set([...prev, targetStepId]));
         return;
       }
     }
@@ -327,7 +353,8 @@ export function DraggableStepList({
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      {stepsWithChildren.length > 0 && (
+      {/* Render expand all button only if not hidden and there are expandable items */}
+      {!hideExpandAllButton && stepsWithChildren.length > 0 && (
         <button
           onClick={toggleAllExpanded}
           className="flex items-center gap-1.5 px-2 py-1 mb-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -374,6 +401,7 @@ export function DraggableStepList({
                   <SortableStepItem
                     step={step}
                     paths={paths}
+                    routines={routines}
                     onToggle={onToggle}
                     onToggleFailed={onToggleFailed}
                     onDelete={onDelete}
@@ -397,6 +425,7 @@ export function DraggableStepList({
                         key={child._id}
                         step={child}
                         paths={paths}
+                        routines={routines}
                         onToggle={onToggle}
                         onToggleFailed={onToggleFailed}
                         onDelete={onDelete}
@@ -419,6 +448,7 @@ export function DraggableStepList({
           <SortableStepItem
             step={activeStep}
             paths={paths}
+            routines={routines}
             onToggle={onToggle}
             onToggleFailed={onToggleFailed}
             onDelete={onDelete}

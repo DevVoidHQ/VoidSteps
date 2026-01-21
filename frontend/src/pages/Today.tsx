@@ -10,17 +10,21 @@ import {
 } from "@/lib/convex-hooks";
 import { useData } from "@/contexts/DataContext";
 import type { Id } from "../../convex/_generated/dataModel";
-import { Input } from "@devvoid/ui";
+import { Input, Button } from "@devvoid/ui";
 import {
   Star,
   Search,
+  ChevronsDownUp,
+  ChevronsUpDown,
 } from "lucide-react";
 import { StepCard } from "@/components/StepCard";
 import { DraggableStepList } from "@/components/DraggableStepList";
+import { useStepHierarchy } from "@/hooks/useStepHierarchy";
 
 export default function Today() {
   const {
     paths,
+    routines,
     activeSteps,
     completedStepsToday,
     applyOptimisticUpdate,
@@ -39,9 +43,33 @@ export default function Today() {
   // UI state
   const [searchQueryToday, setSearchQueryToday] = useState("");
   const [selectedPathFilterToday, setSelectedPathFilterToday] = useState("");
+  const [expandedStepIds, setExpandedStepIds] = useState<Set<string>>(new Set());
 
   // Memoize paths for stable reference
   const memoizedPaths = useMemo(() => paths || [], [paths]);
+
+  // Get hierarchy info for expand all button
+  const { rootSteps, hasChildren } = useStepHierarchy(
+    useMemo(() => activeSteps?.filter((s: Step) => s.prioritizedToday) || [], [activeSteps])
+  );
+
+  // Compute steps with children for expand all logic
+  const stepsWithChildren = useMemo(() => {
+    return rootSteps.filter((step) => hasChildren(step._id)).map((step) => step._id);
+  }, [rootSteps, hasChildren]);
+
+  const allExpanded = useMemo(() => {
+    if (stepsWithChildren.length === 0) return false;
+    return stepsWithChildren.every((id) => expandedStepIds.has(id));
+  }, [stepsWithChildren, expandedStepIds]);
+
+  const toggleAllExpanded = useCallback(() => {
+    if (allExpanded) {
+      setExpandedStepIds(new Set());
+    } else {
+      setExpandedStepIds(new Set(stepsWithChildren));
+    }
+  }, [allExpanded, stepsWithChildren]);
 
   // Stable filter function
   const filterSteps = useCallback((
@@ -208,6 +236,22 @@ export default function Today() {
             </option>
           ))}
         </select>
+        {/* Expand All button */}
+        {stepsWithChildren.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleAllExpanded}
+            className="h-10 w-10 p-0"
+            title={allExpanded ? "Collapse All" : "Expand All"}
+          >
+            {allExpanded ? (
+              <ChevronsDownUp className="w-4 h-4" />
+            ) : (
+              <ChevronsUpDown className="w-4 h-4" />
+            )}
+          </Button>
+        )}
       </div>
 
       {/* Priority Steps */}
@@ -215,6 +259,7 @@ export default function Today() {
         <DraggableStepList
           steps={todayPrioritySteps}
           paths={memoizedPaths}
+          routines={routines}
           onReorder={handleReorder}
           onToggle={toggleStep}
           onToggleFailed={toggleFailed}
@@ -222,6 +267,9 @@ export default function Today() {
           onTogglePriority={togglePriority}
           onSaveEdit={updateStep}
           onUpdateParent={handleUpdateParent}
+          expandedStepIds={expandedStepIds}
+          onExpandedChange={setExpandedStepIds}
+          hideExpandAllButton
         />
       ) : (
         <div className="text-center py-12 text-muted-foreground">
@@ -249,6 +297,7 @@ export default function Today() {
                 key={step._id}
                 step={step}
                 paths={memoizedPaths}
+                routines={routines}
                 onToggle={toggleStep}
                 onToggleFailed={toggleFailed}
                 onDelete={deleteStep}

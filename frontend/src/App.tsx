@@ -8,6 +8,7 @@ import Today from '@/pages/Today';
 import Steps from '@/pages/Steps';
 import Paths from '@/pages/Paths';
 import Routines from '@/pages/Routines';
+import RoutineEdit from '@/pages/RoutineEdit';
 import Pathway from '@/pages/Pathway';
 import Settings from '@/pages/Settings';
 
@@ -85,6 +86,26 @@ function AppRoutes() {
           <PrivateRoute>
             <Layout key={location.pathname}>
               <Routines />
+            </Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/routines/new"
+        element={
+          <PrivateRoute>
+            <Layout key={location.pathname}>
+              <RoutineEdit />
+            </Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/routines/:id"
+        element={
+          <PrivateRoute>
+            <Layout key={location.pathname}>
+              <RoutineEdit />
             </Layout>
           </PrivateRoute>
         }

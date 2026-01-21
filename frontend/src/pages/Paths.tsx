@@ -104,9 +104,9 @@ export default function Paths() {
             value={pathDescValue}
             onChange={(e) => setPathDescValue(e.target.value)}
             onKeyPress={(e) => e.key === "Enter" && handlePathAdd()}
-            className="flex-1"
+            className="flex-1 min-w-0"
           />
-          <Button onClick={handlePathAdd} disabled={!pathAddValue.trim()}>
+          <Button onClick={handlePathAdd} disabled={!pathAddValue.trim()} className="flex-shrink-0">
             <Plus className="w-4 h-4" />
           </Button>
         </div>

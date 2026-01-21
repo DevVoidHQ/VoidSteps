@@ -339,6 +339,7 @@ export default function Steps() {
           <DraggableStepList
             steps={prioritySteps}
             paths={memoizedPaths}
+            routines={routines}
             onReorder={handleReorder}
             onToggle={toggleStep}
             onToggleFailed={toggleFailed}
@@ -357,6 +358,7 @@ export default function Steps() {
           <DraggableStepList
             steps={regularSteps}
             paths={memoizedPaths}
+            routines={routines}
             onReorder={handleReorder}
             onToggle={toggleStep}
             onToggleFailed={toggleFailed}
@@ -400,6 +402,7 @@ export default function Steps() {
                 key={step._id}
                 step={step}
                 paths={memoizedPaths}
+                routines={routines}
                 onToggle={toggleStep}
                 onToggleFailed={toggleFailed}
                 onDelete={deleteStep}
@@ -423,6 +426,7 @@ export default function Steps() {
                 key={step._id}
                 step={step}
                 paths={memoizedPaths}
+                routines={routines}
                 onToggle={toggleStep}
                 onToggleFailed={toggleFailed}
                 onDelete={deleteStep}

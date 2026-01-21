@@ -28,6 +28,7 @@ export interface Step {
   pathId?: Path | string | null;
   path?: Path | null; // Populated path from Convex
   parentId?: string | null;
+  routineId?: string;
   recurring: {
     enabled: boolean;
     frequency?: 'daily' | 'weekly' | 'monthly' | 'yearly' | null;

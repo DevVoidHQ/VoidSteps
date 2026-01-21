@@ -27,6 +27,7 @@ export default defineSchema({
     failedAt: v.optional(v.number()),
     pathId: v.optional(v.id("paths")),
     parentId: v.optional(v.id("steps")),
+    routineId: v.optional(v.id("routines")),
     recurring: v.object({
       enabled: v.boolean(),
       frequency: v.optional(

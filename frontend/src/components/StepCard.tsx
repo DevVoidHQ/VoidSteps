@@ -1,6 +1,6 @@
 import { useState, useCallback, memo } from "react";
-import type { Step, Path } from "@/types/index";
-import { Button, Input, Card, CardContent } from "@devvoid/ui";
+import type { Step, Path, Routine } from "@/types/index";
+import { Button, Input, Card, CardContent, Badge } from "@devvoid/ui";
 import {
   Check,
   X,
@@ -16,6 +16,7 @@ import {
 export interface StepCardProps {
   step: Step;
   paths: Path[];
+  routines?: Routine[];
   onToggle: (id: string) => void;
   onToggleFailed?: (id: string) => void;
   onDelete: (id: string) => void;
@@ -33,6 +34,7 @@ export interface StepCardProps {
 function StepCardComponent({
   step,
   paths,
+  routines,
   onToggle,
   onToggleFailed,
   onDelete,
@@ -139,12 +141,12 @@ function StepCardComponent({
   return (
     <Card className={cardClasses}>
       <CardContent className="p-3">
-        <div className="flex items-start space-x-3">
-          {/* Expand/collapse button for parent steps */}
+        <div className="flex items-center space-x-3">
+          {/* Left: Expand button */}
           {hasChildren ? (
             <button
               onClick={() => onToggleExpand?.(step._id)}
-              className="mt-0.5 flex-shrink-0 p-0.5 hover:bg-muted rounded"
+              className="flex-shrink-0 p-0.5 hover:bg-muted rounded"
             >
               {isExpanded ? (
                 <ChevronDown className="w-4 h-4 text-muted-foreground" />
@@ -156,12 +158,14 @@ function StepCardComponent({
             // Spacer for alignment when no children
             depth === 0 && <div className="w-5 flex-shrink-0" />
           )}
+
+          {/* Checkbox - larger, vertically centered */}
           <button
             onClick={() => onToggle(step._id)}
-            className="mt-0.5 flex-shrink-0"
+            className="flex-shrink-0"
           >
             <div
-              className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+              className={`w-6 h-6 rounded border-2 flex items-center justify-center ${
                 step.completed
                   ? "bg-primary border-primary"
                   : step.failed === true
@@ -169,96 +173,109 @@ function StepCardComponent({
                   : "border-muted-foreground hover:border-primary"
               }`}
             >
-              {step.completed && <Check className="w-3 h-3 text-black" />}
-              {step.failed === true && <X className="w-3 h-3 text-black" />}
+              {step.completed && <Check className="w-4 h-4 text-black" />}
+              {step.failed === true && <X className="w-4 h-4 text-black" />}
             </div>
           </button>
+
+          {/* Middle: Content area (title + description + path) */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2 flex-1 min-w-0">
-                <span
-                  className={`font-medium ${
-                    step.completed
-                      ? "line-through text-muted-foreground"
-                      : step.failed === true
-                      ? "line-through text-destructive"
-                      : ""
-                  }`}
-                >
-                  {step.title}
+            {/* Row 1: Title + recurring + progress */}
+            <div className="flex items-center space-x-2">
+              <span
+                className={`font-medium ${
+                  step.completed
+                    ? "line-through text-muted-foreground"
+                    : step.failed === true
+                    ? "line-through text-destructive"
+                    : ""
+                }`}
+              >
+                {step.title}
+              </span>
+              {step.recurring.enabled && (
+                <Repeat className="w-3 h-3 text-primary flex-shrink-0" />
+              )}
+              {/* Progress indicator for collapsed parents */}
+              {hasChildren && !isExpanded && childProgress && childProgress.total > 0 && (
+                <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                  {childProgress.completed}/{childProgress.total}
                 </span>
-                {step.recurring.enabled && (
-                  <Repeat className="w-3 h-3 text-primary flex-shrink-0" />
-                )}
-                {/* Progress indicator for collapsed parents */}
-                {hasChildren && !isExpanded && childProgress && childProgress.total > 0 && (
-                  <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                    {childProgress.completed}/{childProgress.total}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center space-x-1 flex-shrink-0">
-                {onToggleFailed && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onToggleFailed(step._id)}
-                    className="h-7 w-7 p-0"
-                  >
-                    <XCircle
-                      className={`w-4 h-4 ${
-                        step.failed === true
-                          ? "fill-destructive text-destructive"
-                          : "text-muted-foreground"
-                      }`}
-                    />
-                  </Button>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() =>
-                    onTogglePriority(step._id, step.prioritizedToday)
-                  }
-                  className="h-7 w-7 p-0"
-                >
-                  <Star
-                    className={`w-4 h-4 ${
-                      step.prioritizedToday
-                        ? "fill-primary text-primary"
-                        : "text-muted-foreground"
-                    }`}
-                  />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleStartEdit}
-                  className="h-7 w-7 p-0"
-                >
-                  <Pencil className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onDelete(step._id)}
-                  className="h-7 w-7 p-0"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
+              )}
             </div>
+
+            {/* Row 2: Description (if any) */}
             {step.description && (
               <p className="text-sm text-muted-foreground mt-1">
                 {step.description}
               </p>
             )}
+
+            {/* Row 3: Path */}
             {(step.pathId || step.path) && (
-              <div className="mt-1 text-xs text-primary flex items-center">
+              <div className="text-xs text-primary flex items-center mt-1">
                 <Target className="w-3 h-3 mr-1" />
                 {step.path?.title || (typeof step.pathId === "object" && step.pathId ? step.pathId.title : "")}
               </div>
             )}
+          </div>
+
+          {/* Right: Routine Badge + Action buttons - vertically centered */}
+          <div className="flex items-center space-x-1 flex-shrink-0">
+            {/* Routine Badge */}
+            {step.routineId && (
+              <Badge variant="secondary" className="text-sm px-2 py-0.5 mr-1">
+                {routines?.find(r => r._id === step.routineId)?.title || "Routine"}
+              </Badge>
+            )}
+            {onToggleFailed && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onToggleFailed(step._id)}
+                className="h-7 w-7 p-0"
+              >
+                <XCircle
+                  className={`w-4 h-4 ${
+                    step.failed === true
+                      ? "fill-destructive text-destructive"
+                      : "text-muted-foreground"
+                  }`}
+                />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                onTogglePriority(step._id, step.prioritizedToday)
+              }
+              className="h-7 w-7 p-0"
+            >
+              <Star
+                className={`w-4 h-4 ${
+                  step.prioritizedToday
+                    ? "fill-primary text-primary"
+                    : "text-muted-foreground"
+                }`}
+              />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleStartEdit}
+              className="h-7 w-7 p-0"
+            >
+              <Pencil className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onDelete(step._id)}
+              className="h-7 w-7 p-0"
+            >
+              <X className="w-4 h-4" />
+            </Button>
           </div>
         </div>
       </CardContent>
@@ -278,7 +295,9 @@ export const StepCard = memo(StepCardComponent, (prevProps, nextProps) => {
     prevProps.step.prioritizedToday === nextProps.step.prioritizedToday &&
     prevProps.step.recurring?.enabled === nextProps.step.recurring?.enabled &&
     prevProps.step.path?._id === nextProps.step.path?._id &&
+    prevProps.step.routineId === nextProps.step.routineId &&
     prevProps.paths === nextProps.paths &&
+    prevProps.routines === nextProps.routines &&
     prevProps.onToggle === nextProps.onToggle &&
     prevProps.onToggleFailed === nextProps.onToggleFailed &&
     prevProps.onDelete === nextProps.onDelete &&

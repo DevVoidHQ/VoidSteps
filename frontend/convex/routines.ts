@@ -105,6 +105,7 @@ export const executeRoutine = mutation({
         completed: false,
         failed: false,
         pathId: template.pathId,
+        routineId: args.id,
         recurring: {
           enabled: false,
         },
