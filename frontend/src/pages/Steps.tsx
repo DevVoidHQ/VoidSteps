@@ -374,7 +374,7 @@ export default function Steps() {
           variant="outline"
           size="sm"
           onClick={() => setShowCompletedSteps(!showCompletedSteps)}
-          className="flex-1"
+          className="flex-1 h-8"
         >
           {showCompletedSteps ? "Hide" : "Show"} Completed ({completedSteps.length})
         </Button>
@@ -382,7 +382,7 @@ export default function Steps() {
           variant="outline"
           size="sm"
           onClick={() => setShowFailedSteps(!showFailedSteps)}
-          className="flex-1"
+          className="flex-1 h-8"
         >
           {showFailedSteps ? "Hide" : "Show"} Failed ({failedStepsList.length})
         </Button>
