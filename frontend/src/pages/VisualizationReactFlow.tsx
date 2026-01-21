@@ -293,7 +293,7 @@ export default function Visualization() {
             variant={mode === 'edit' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setMode(mode === 'pan' ? 'edit' : 'pan')}
-            className="flex items-center space-x-2"
+            className="flex items-center space-x-2 h-8"
           >
             {mode === 'pan' ? (
               <>
@@ -311,7 +311,7 @@ export default function Visualization() {
             variant="outline"
             size="sm"
             onClick={handleReset}
-            className="flex items-center space-x-2"
+            className="flex items-center space-x-2 h-8"
           >
             <RotateCcw className="w-4 h-4" />
             <span>Reset</span>
