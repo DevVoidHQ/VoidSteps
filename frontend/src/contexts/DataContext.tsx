@@ -79,6 +79,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return optimistic?.updates.completed ?? step.completed ?? false;
   }, [optimisticUpdates]);
 
+  // Check if a step has a pending optimistic update that marks it as completed
+  const hasOptimisticCompletedUpdate = useCallback((step: Step): boolean => {
+    const optimistic = optimisticUpdates.get(step._id);
+    return optimistic?.updates.completed === true;
+  }, [optimisticUpdates]);
+
   // Check if a step should be considered "upcoming" (startDate in the future)
   const isStepUpcoming = useCallback((step: Step): boolean => {
     const optimistic = optimisticUpdates.get(step._id);
@@ -160,18 +166,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .filter(step => !pendingDeletes.has(step._id) && isStepCompleted(step))
       .map(applyOptimisticToStep);
 
-    // Include steps that are now optimistically completed
+    // Include steps that are now optimistically completed (user just marked them complete)
     const newlyCompleted = allServerSteps
       .filter(step => {
         if (pendingDeletes.has(step._id)) return false;
         const wasInCompleted = serverCompletedStepsToday.some(s => s._id === step._id);
         if (wasInCompleted) return false;
-        return isStepCompleted(step);
+        // Only include if there's a pending optimistic update marking it as completed
+        return hasOptimisticCompletedUpdate(step);
       })
       .map(applyOptimisticToStep);
 
     return [...fromServer, ...newlyCompleted];
-  }, [serverCompletedStepsToday, allServerSteps, pendingDeletes, isStepCompleted, applyOptimisticToStep]);
+  }, [serverCompletedStepsToday, allServerSteps, pendingDeletes, hasOptimisticCompletedUpdate, applyOptimisticToStep]);
 
   // Upcoming steps: have startDate in the future (respecting optimistic state)
   const upcomingSteps = useMemo(() => {
