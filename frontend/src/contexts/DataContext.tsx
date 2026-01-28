@@ -47,22 +47,117 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [optimisticUpdates, setOptimisticUpdates] = useState<Map<string, OptimisticUpdate>>(new Map());
   const [pendingDeletes, setPendingDeletes] = useState<Set<string>>(new Set());
 
-  // Helper to apply optimistic state to a step array
-  const applyOptimisticToSteps = useCallback((steps: Step[] | undefined): Step[] | undefined => {
-    if (!steps) return undefined;
-    return steps
-      .filter(step => !pendingDeletes.has(step._id))
-      .map(step => {
-        const optimistic = optimisticUpdates.get(step._id);
-        return optimistic ? { ...step, ...optimistic.updates } : step;
-      });
-  }, [optimisticUpdates, pendingDeletes]);
+  // Helper to apply optimistic updates to a single step
+  const applyOptimisticToStep = useCallback((step: Step): Step => {
+    const optimistic = optimisticUpdates.get(step._id);
+    return optimistic ? { ...step, ...optimistic.updates } : step;
+  }, [optimisticUpdates]);
 
-  // Apply optimistic state to all step arrays
-  const allSteps = useMemo(() => applyOptimisticToSteps(serverAllSteps), [applyOptimisticToSteps, serverAllSteps]);
-  const activeSteps = useMemo(() => applyOptimisticToSteps(serverActiveSteps), [applyOptimisticToSteps, serverActiveSteps]);
-  const failedSteps = useMemo(() => applyOptimisticToSteps(serverFailedSteps), [applyOptimisticToSteps, serverFailedSteps]);
-  const completedStepsToday = useMemo(() => applyOptimisticToSteps(serverCompletedStepsToday), [applyOptimisticToSteps, serverCompletedStepsToday]);
+  // Check if a step should be considered "active" (not completed, not failed)
+  const isStepActive = useCallback((step: Step): boolean => {
+    const optimistic = optimisticUpdates.get(step._id);
+    const completed = optimistic?.updates.completed ?? step.completed;
+    const failed = optimistic?.updates.failed ?? step.failed;
+    return !completed && !failed;
+  }, [optimisticUpdates]);
+
+  // Check if a step should be considered "failed"
+  const isStepFailed = useCallback((step: Step): boolean => {
+    const optimistic = optimisticUpdates.get(step._id);
+    return optimistic?.updates.failed ?? step.failed ?? false;
+  }, [optimisticUpdates]);
+
+  // Check if a step should be considered "completed"
+  const isStepCompleted = useCallback((step: Step): boolean => {
+    const optimistic = optimisticUpdates.get(step._id);
+    return optimistic?.updates.completed ?? step.completed ?? false;
+  }, [optimisticUpdates]);
+
+  // Build unified step pool from all server sources (deduplicated)
+  const allServerSteps = useMemo(() => {
+    const stepMap = new Map<string, Step>();
+    // Add from all sources to create a deduplicated pool
+    serverAllSteps?.forEach(s => stepMap.set(s._id, s));
+    serverActiveSteps?.forEach(s => stepMap.set(s._id, s));
+    serverFailedSteps?.forEach(s => stepMap.set(s._id, s));
+    serverCompletedStepsToday?.forEach(s => stepMap.set(s._id, s));
+    return Array.from(stepMap.values());
+  }, [serverAllSteps, serverActiveSteps, serverFailedSteps, serverCompletedStepsToday]);
+
+  // Apply optimistic state and filter into correct lists
+  const allSteps = useMemo(() => {
+    if (!serverAllSteps) return undefined;
+    return serverAllSteps
+      .filter(step => !pendingDeletes.has(step._id))
+      .map(applyOptimisticToStep);
+  }, [serverAllSteps, pendingDeletes, applyOptimisticToStep]);
+
+  // Active steps: not completed, not failed (respecting optimistic state)
+  const activeSteps = useMemo(() => {
+    if (!serverActiveSteps) return undefined;
+
+    // Start with server active steps, filter by optimistic state
+    const fromServer = serverActiveSteps
+      .filter(step => !pendingDeletes.has(step._id) && isStepActive(step))
+      .map(applyOptimisticToStep);
+
+    // Also include steps that were completed/failed but are now optimistically active
+    const reactivated = allServerSteps
+      .filter(step => {
+        if (pendingDeletes.has(step._id)) return false;
+        // Step wasn't in active list but is now optimistically active
+        const wasInActive = serverActiveSteps.some(s => s._id === step._id);
+        if (wasInActive) return false;
+        return isStepActive(step);
+      })
+      .map(applyOptimisticToStep);
+
+    return [...fromServer, ...reactivated];
+  }, [serverActiveSteps, allServerSteps, pendingDeletes, isStepActive, applyOptimisticToStep]);
+
+  // Failed steps: failed=true (respecting optimistic state)
+  const failedSteps = useMemo(() => {
+    if (!serverFailedSteps) return undefined;
+
+    // Start with server failed steps that are still failed
+    const fromServer = serverFailedSteps
+      .filter(step => !pendingDeletes.has(step._id) && isStepFailed(step))
+      .map(applyOptimisticToStep);
+
+    // Include steps that are now optimistically failed
+    const newlyFailed = allServerSteps
+      .filter(step => {
+        if (pendingDeletes.has(step._id)) return false;
+        const wasInFailed = serverFailedSteps.some(s => s._id === step._id);
+        if (wasInFailed) return false;
+        return isStepFailed(step);
+      })
+      .map(applyOptimisticToStep);
+
+    return [...fromServer, ...newlyFailed];
+  }, [serverFailedSteps, allServerSteps, pendingDeletes, isStepFailed, applyOptimisticToStep]);
+
+  // Completed steps today: completed=true (respecting optimistic state)
+  const completedStepsToday = useMemo(() => {
+    if (!serverCompletedStepsToday) return undefined;
+
+    // Start with server completed steps that are still completed
+    const fromServer = serverCompletedStepsToday
+      .filter(step => !pendingDeletes.has(step._id) && isStepCompleted(step))
+      .map(applyOptimisticToStep);
+
+    // Include steps that are now optimistically completed
+    const newlyCompleted = allServerSteps
+      .filter(step => {
+        if (pendingDeletes.has(step._id)) return false;
+        const wasInCompleted = serverCompletedStepsToday.some(s => s._id === step._id);
+        if (wasInCompleted) return false;
+        return isStepCompleted(step);
+      })
+      .map(applyOptimisticToStep);
+
+    return [...fromServer, ...newlyCompleted];
+  }, [serverCompletedStepsToday, allServerSteps, pendingDeletes, isStepCompleted, applyOptimisticToStep]);
 
   const isLoading =
     pathways === undefined ||
