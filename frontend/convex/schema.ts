@@ -18,6 +18,33 @@ export default defineSchema({
     updatedAt: v.number(),
   }),
 
+  // Routines are blueprints that spawn steps on a schedule
+  routines: defineTable({
+    title: v.string(),
+    description: v.optional(v.string()),
+    pathId: v.optional(v.id("paths")),
+    frequency: v.union(
+      v.literal("daily"),
+      v.literal("weekdays"),
+      v.literal("weekly"),
+      v.literal("monthly"),
+      v.literal("yearly")
+    ),
+    // For weekly: which days (0=Sun, 1=Mon, ..., 6=Sat)
+    daysOfWeek: v.optional(v.array(v.number())),
+    // For monthly: which day of month (1-31)
+    dayOfMonth: v.optional(v.number()),
+    // For yearly: which month (1-12) and day (1-31)
+    month: v.optional(v.number()),
+    dayOfYear: v.optional(v.number()),
+    // Next scheduled occurrence timestamp
+    nextOccurrence: v.number(),
+    // Whether to auto-prioritize spawned steps
+    autoPrioritize: v.optional(v.boolean()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }),
+
   steps: defineTable({
     title: v.string(),
     description: v.optional(v.string()),
@@ -27,43 +54,20 @@ export default defineSchema({
     failedAt: v.optional(v.number()),
     pathId: v.optional(v.id("paths")),
     parentId: v.optional(v.id("steps")),
+    // For steps spawned from a routine, track the source
     routineId: v.optional(v.id("routines")),
-    recurring: v.object({
-      enabled: v.boolean(),
-      frequency: v.optional(
-        v.union(
-          v.literal("daily"),
-          v.literal("weekly"),
-          v.literal("monthly"),
-          v.literal("yearly")
-        )
-      ),
-      interval: v.optional(v.number()),
-      nextOccurrence: v.optional(v.number()),
-    }),
     prioritizedToday: v.boolean(),
     sortOrder: v.optional(v.number()),
-    dueDate: v.optional(v.number()),    // Reminder deadline (timestamp)
-    startDate: v.optional(v.number()),  // Don't show until this date (timestamp)
+    dueDate: v.optional(v.number()),
+    startDate: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
+    // TEMPORARY: Legacy fields to be removed after migration
+    recurring: v.optional(v.any()),
+    recurringSourceId: v.optional(v.any()),
   }).index("by_path", ["pathId"])
-    .index("by_parent", ["parentId"]),
-
-  routines: defineTable({
-    title: v.string(),
-    description: v.optional(v.string()),
-    stepTemplates: v.array(
-      v.object({
-        title: v.string(),
-        description: v.optional(v.string()),
-        pathId: v.optional(v.id("paths")),
-        prioritizedToday: v.optional(v.boolean()),
-      })
-    ),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  }),
+    .index("by_parent", ["parentId"])
+    .index("by_routine", ["routineId"]),
 
   users: defineTable({
     email: v.string(),

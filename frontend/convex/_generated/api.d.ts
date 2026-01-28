@@ -9,8 +9,11 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as crons from "../crons.js";
+import type * as migrations from "../migrations.js";
 import type * as paths from "../paths.js";
 import type * as pathways from "../pathways.js";
+import type * as routineSpawner from "../routineSpawner.js";
 import type * as routines from "../routines.js";
 import type * as steps from "../steps.js";
 import type * as userSettings from "../userSettings.js";
@@ -23,8 +26,11 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  crons: typeof crons;
+  migrations: typeof migrations;
   paths: typeof paths;
   pathways: typeof pathways;
+  routineSpawner: typeof routineSpawner;
   routines: typeof routines;
   steps: typeof steps;
   userSettings: typeof userSettings;

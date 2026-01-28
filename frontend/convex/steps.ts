@@ -228,21 +228,7 @@ export const createStep = mutation({
     description: v.optional(v.string()),
     pathId: v.optional(v.id("paths")),
     parentId: v.optional(v.id("steps")),
-    recurring: v.optional(
-      v.object({
-        enabled: v.boolean(),
-        frequency: v.optional(
-          v.union(
-            v.literal("daily"),
-            v.literal("weekly"),
-            v.literal("monthly"),
-            v.literal("yearly")
-          )
-        ),
-        interval: v.optional(v.number()),
-        nextOccurrence: v.optional(v.number()),
-      })
-    ),
+    routineId: v.optional(v.id("routines")),
     prioritizedToday: v.optional(v.boolean()),
     dueDate: v.optional(v.number()),
     startDate: v.optional(v.number()),
@@ -291,12 +277,7 @@ export const createStep = mutation({
       failed: false,
       pathId: args.pathId,
       parentId: args.parentId,
-      recurring: args.recurring || {
-        enabled: false,
-        frequency: undefined,
-        interval: 1,
-        nextOccurrence: undefined,
-      },
+      routineId: args.routineId,
       prioritizedToday: args.prioritizedToday || false,
       sortOrder: newSortOrder,
       dueDate: args.dueDate,
@@ -325,21 +306,6 @@ export const updateStep = mutation({
     completed: v.optional(v.boolean()),
     failed: v.optional(v.boolean()),
     pathId: v.optional(v.union(v.id("paths"), v.null())),
-    recurring: v.optional(
-      v.object({
-        enabled: v.boolean(),
-        frequency: v.optional(
-          v.union(
-            v.literal("daily"),
-            v.literal("weekly"),
-            v.literal("monthly"),
-            v.literal("yearly")
-          )
-        ),
-        interval: v.optional(v.number()),
-        nextOccurrence: v.optional(v.number()),
-      })
-    ),
     prioritizedToday: v.optional(v.boolean()),
     dueDate: v.optional(v.union(v.number(), v.null())),
     startDate: v.optional(v.union(v.number(), v.null())),

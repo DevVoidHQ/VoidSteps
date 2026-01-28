@@ -19,7 +19,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { Step, Path, Routine } from "@/types/index";
+import type { Step, Path } from "@/types/index";
 import { StepCard } from "./StepCard";
 import type { StepCardProps } from "./StepCard";
 import { GripVertical, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
@@ -28,7 +28,7 @@ import { useStepHierarchy } from "@/hooks/useStepHierarchy";
 interface DraggableStepListProps {
   steps: Step[];
   paths: Path[];
-  routines?: Routine[];
+  routines?: unknown[]; // Kept for backward compat but not used
   onReorder: (stepIds: string[], parentId?: string) => void;
   onToggle: (id: string) => void;
   onToggleFailed?: (id: string) => void;

@@ -28,6 +28,8 @@ const transformPathway = (pathway: any): Pathway => ({
 const transformRoutine = (routine: any): Routine => ({
   ...routine,
   _id: routine._id.toString(),
+  pathId: routine.pathId?.toString() || null,
+  path: routine.path ? transformPath(routine.path) : null,
 });
 
 // Steps
@@ -129,18 +131,9 @@ export const useRoutines = () => {
   return routines?.map(transformRoutine);
 };
 
-export const useRoutine = (id: string | null) => {
-  const routine = useQuery(
-    api.routines.getRoutine,
-    id ? { id: id as Id<"routines"> } : "skip"
-  );
-  return routine ? transformRoutine(routine) : undefined;
-};
-
 export const useCreateRoutine = () => useMutation(api.routines.createRoutine);
 export const useUpdateRoutine = () => useMutation(api.routines.updateRoutine);
 export const useDeleteRoutine = () => useMutation(api.routines.deleteRoutine);
-export const useExecuteRoutine = () => useMutation(api.routines.executeRoutine);
 
 // Auth
 export const useLogin = () => useMutation(api.auth.login);

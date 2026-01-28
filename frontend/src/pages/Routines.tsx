@@ -1,96 +1,393 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import type { Path, Routine, StepTemplate } from "@/types/index";
-import { useDeleteRoutine } from "@/lib/convex-hooks";
+import { useState, useCallback } from "react";
+import type { Routine, Path } from "@/types/index";
+import { useCreateRoutine, useUpdateRoutine, useDeleteRoutine } from "@/lib/convex-hooks";
 import { useData } from "@/contexts/DataContext";
 import type { Id } from "../../convex/_generated/dataModel";
-import { Button, Card, CardContent } from "@devvoid/ui";
+import { Button, Card, CardContent, Input, Textarea } from "@devvoid/ui";
 import {
   Plus,
   X,
-  ChevronDown,
-  ChevronRight,
   Star,
   Target,
   Pencil,
-  Zap,
+  Repeat,
+  Calendar,
+  Check,
 } from "lucide-react";
 
+type Frequency = 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'yearly';
+
+const DAYS_OF_WEEK = [
+  { value: 0, label: 'Sun' },
+  { value: 1, label: 'Mon' },
+  { value: 2, label: 'Tue' },
+  { value: 3, label: 'Wed' },
+  { value: 4, label: 'Thu' },
+  { value: 5, label: 'Fri' },
+  { value: 6, label: 'Sat' },
+];
+
+function formatSchedule(routine: Routine): string {
+  switch (routine.frequency) {
+    case 'daily':
+      return 'Every day';
+    case 'weekdays':
+      return 'Weekdays (Mon-Fri)';
+    case 'weekly': {
+      if (!routine.daysOfWeek || routine.daysOfWeek.length === 0) {
+        return 'Weekly';
+      }
+      const days = routine.daysOfWeek
+        .sort((a, b) => a - b)
+        .map(d => DAYS_OF_WEEK.find(day => day.value === d)?.label)
+        .join(', ');
+      return `Every ${days}`;
+    }
+    case 'monthly': {
+      const day = routine.dayOfMonth || 1;
+      const suffix = day === 1 ? 'st' : day === 2 ? 'nd' : day === 3 ? 'rd' : 'th';
+      return `Monthly on the ${day}${suffix}`;
+    }
+    case 'yearly': {
+      const month = routine.month || 1;
+      const day = routine.dayOfYear || 1;
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `Yearly on ${monthNames[month - 1]} ${day}`;
+    }
+    default:
+      return '';
+  }
+}
+
+function formatNextOccurrence(timestamp: number | string | null | undefined): string {
+  if (!timestamp) return '';
+  const date = new Date(Number(timestamp));
+  const now = new Date();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(0, 0, 0, 0);
+
+  const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const todayOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const tomorrowOnly = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate());
+
+  if (dateOnly.getTime() === todayOnly.getTime()) {
+    return 'Today';
+  } else if (dateOnly.getTime() === tomorrowOnly.getTime()) {
+    return 'Tomorrow';
+  } else {
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+}
+
+interface RoutineFormData {
+  title: string;
+  description: string;
+  pathId: string;
+  frequency: Frequency;
+  daysOfWeek: number[];
+  dayOfMonth: number;
+  month: number;
+  dayOfYear: number;
+  autoPrioritize: boolean;
+}
+
+const defaultFormData: RoutineFormData = {
+  title: '',
+  description: '',
+  pathId: '',
+  frequency: 'daily',
+  daysOfWeek: [1], // Monday by default
+  dayOfMonth: 1,
+  month: 1,
+  dayOfYear: 1,
+  autoPrioritize: true,
+};
+
 export default function Routines() {
-  const navigate = useNavigate();
   const { paths, routines } = useData();
 
+  const createRoutineMutation = useCreateRoutine();
+  const updateRoutineMutation = useUpdateRoutine();
   const deleteRoutineMutation = useDeleteRoutine();
 
-  const [expandedRoutines, setExpandedRoutines] = useState<Set<string>>(
-    new Set()
-  );
+  const [isCreating, setIsCreating] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState<RoutineFormData>(defaultFormData);
 
-  const deleteRoutine = async (id: string) => {
+  const resetForm = useCallback(() => {
+    setFormData(defaultFormData);
+    setIsCreating(false);
+    setEditingId(null);
+  }, []);
+
+  const startEditing = useCallback((routine: Routine) => {
+    setEditingId(routine._id);
+    setIsCreating(false);
+    setFormData({
+      title: routine.title,
+      description: routine.description || '',
+      pathId: routine.path?._id || (typeof routine.pathId === 'string' ? routine.pathId : '') || '',
+      frequency: routine.frequency,
+      daysOfWeek: routine.daysOfWeek || [1],
+      dayOfMonth: routine.dayOfMonth || 1,
+      month: routine.month || 1,
+      dayOfYear: routine.dayOfYear || 1,
+      autoPrioritize: routine.autoPrioritize ?? true,
+    });
+  }, []);
+
+  const handleCreate = useCallback(async () => {
+    if (!formData.title.trim()) return;
+
+    await createRoutineMutation({
+      title: formData.title.trim(),
+      description: formData.description.trim() || undefined,
+      pathId: formData.pathId ? (formData.pathId as Id<"paths">) : undefined,
+      frequency: formData.frequency,
+      daysOfWeek: formData.frequency === 'weekly' ? formData.daysOfWeek : undefined,
+      dayOfMonth: formData.frequency === 'monthly' ? formData.dayOfMonth : undefined,
+      month: formData.frequency === 'yearly' ? formData.month : undefined,
+      dayOfYear: formData.frequency === 'yearly' ? formData.dayOfYear : undefined,
+      autoPrioritize: formData.autoPrioritize,
+    });
+
+    resetForm();
+  }, [formData, createRoutineMutation, resetForm]);
+
+  const handleUpdate = useCallback(async () => {
+    if (!editingId || !formData.title.trim()) return;
+
+    await updateRoutineMutation({
+      id: editingId as Id<"routines">,
+      title: formData.title.trim(),
+      description: formData.description.trim() || undefined,
+      pathId: formData.pathId ? (formData.pathId as Id<"paths">) : null,
+      frequency: formData.frequency,
+      daysOfWeek: formData.frequency === 'weekly' ? formData.daysOfWeek : null,
+      dayOfMonth: formData.frequency === 'monthly' ? formData.dayOfMonth : null,
+      month: formData.frequency === 'yearly' ? formData.month : null,
+      dayOfYear: formData.frequency === 'yearly' ? formData.dayOfYear : null,
+      autoPrioritize: formData.autoPrioritize,
+    });
+
+    resetForm();
+  }, [editingId, formData, updateRoutineMutation, resetForm]);
+
+  const handleDelete = useCallback(async (id: string) => {
     await deleteRoutineMutation({ id: id as Id<"routines"> });
-  };
+  }, [deleteRoutineMutation]);
 
-  const toggleRoutineExpanded = (routineId: string) => {
-    const newExpanded = new Set(expandedRoutines);
-    if (newExpanded.has(routineId)) {
-      newExpanded.delete(routineId);
-    } else {
-      newExpanded.add(routineId);
-    }
-    setExpandedRoutines(newExpanded);
-  };
+  const toggleDayOfWeek = useCallback((day: number) => {
+    setFormData(prev => {
+      const newDays = prev.daysOfWeek.includes(day)
+        ? prev.daysOfWeek.filter(d => d !== day)
+        : [...prev.daysOfWeek, day];
+      // Ensure at least one day is selected
+      return { ...prev, daysOfWeek: newDays.length > 0 ? newDays : prev.daysOfWeek };
+    });
+  }, []);
+
+  const renderForm = () => (
+    <Card className="border-primary">
+      <CardContent className="p-4 space-y-4">
+        <Input
+          placeholder="Routine title"
+          value={formData.title}
+          onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+          autoFocus
+        />
+        <Textarea
+          placeholder="Description (optional)"
+          value={formData.description}
+          onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+          rows={2}
+        />
+        <select
+          className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+          value={formData.pathId}
+          onChange={(e) => setFormData(prev => ({ ...prev, pathId: e.target.value }))}
+        >
+          <option value="">No Path</option>
+          {paths?.map((path: Path) => (
+            <option key={path._id} value={path._id}>
+              {path.title}
+            </option>
+          ))}
+        </select>
+
+        {/* Frequency selection */}
+        <div>
+          <label className="text-sm font-medium mb-2 block">Frequency</label>
+          <select
+            className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+            value={formData.frequency}
+            onChange={(e) => setFormData(prev => ({ ...prev, frequency: e.target.value as Frequency }))}
+          >
+            <option value="daily">Daily</option>
+            <option value="weekdays">Weekdays (Mon-Fri)</option>
+            <option value="weekly">Weekly (specific days)</option>
+            <option value="monthly">Monthly</option>
+            <option value="yearly">Yearly</option>
+          </select>
+        </div>
+
+        {/* Weekly: Day selection */}
+        {formData.frequency === 'weekly' && (
+          <div>
+            <label className="text-sm font-medium mb-2 block">Days of Week</label>
+            <div className="flex flex-wrap gap-2">
+              {DAYS_OF_WEEK.map(day => (
+                <button
+                  key={day.value}
+                  type="button"
+                  onClick={() => toggleDayOfWeek(day.value)}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium border transition-colors ${
+                    formData.daysOfWeek.includes(day.value)
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-background border-input hover:bg-accent'
+                  }`}
+                >
+                  {day.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Monthly: Day of month */}
+        {formData.frequency === 'monthly' && (
+          <div>
+            <label className="text-sm font-medium mb-2 block">Day of Month</label>
+            <select
+              className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={formData.dayOfMonth}
+              onChange={(e) => setFormData(prev => ({ ...prev, dayOfMonth: Number(e.target.value) }))}
+            >
+              {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                <option key={day} value={day}>{day}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Yearly: Month and day */}
+        {formData.frequency === 'yearly' && (
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <label className="text-sm font-medium mb-2 block">Month</label>
+              <select
+                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={formData.month}
+                onChange={(e) => setFormData(prev => ({ ...prev, month: Number(e.target.value) }))}
+              >
+                {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((name, i) => (
+                  <option key={i + 1} value={i + 1}>{name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1">
+              <label className="text-sm font-medium mb-2 block">Day</label>
+              <select
+                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={formData.dayOfYear}
+                onChange={(e) => setFormData(prev => ({ ...prev, dayOfYear: Number(e.target.value) }))}
+              >
+                {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                  <option key={day} value={day}>{day}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
+        {/* Priority toggle */}
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={formData.autoPrioritize}
+            onChange={(e) => setFormData(prev => ({ ...prev, autoPrioritize: e.target.checked }))}
+            className="rounded border-input"
+          />
+          <Star className={`w-4 h-4 ${formData.autoPrioritize ? 'fill-primary text-primary' : ''}`} />
+          <span className="text-sm">Add to Today's Focus when spawned</span>
+        </label>
+
+        {/* Actions */}
+        <div className="flex gap-2">
+          <Button onClick={editingId ? handleUpdate : handleCreate} disabled={!formData.title.trim()}>
+            <Check className="w-4 h-4 mr-2" />
+            {editingId ? 'Save' : 'Create'}
+          </Button>
+          <Button variant="outline" onClick={resetForm}>
+            Cancel
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Routines</h1>
-        <Button onClick={() => navigate("/routines/new")} className="flex items-center">
-          <Plus className="w-4 h-4 mr-2" />
-          New Routine
-        </Button>
+        {!isCreating && !editingId && (
+          <Button onClick={() => setIsCreating(true)} className="flex items-center">
+            <Plus className="w-4 h-4 mr-2" />
+            New Routine
+          </Button>
+        )}
       </div>
 
-      {/* Routines Grid */}
+      {/* Create/Edit Form */}
+      {(isCreating || editingId) && renderForm()}
+
+      {/* Routines List */}
       {routines && routines.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {routines?.map((routine: Routine) => (
+        <div className="space-y-3">
+          {routines.map((routine: Routine) => (
             <Card
               key={routine._id}
-              className="hover:border-primary/50 transition-colors"
+              className={`hover:border-primary/50 transition-colors ${editingId === routine._id ? 'hidden' : ''}`}
             >
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2">
-                      {routine.stepTemplates.length > 0 && (
-                        <button
-                          onClick={() => toggleRoutineExpanded(routine._id)}
-                          className="flex-shrink-0"
-                        >
-                          {expandedRoutines.has(routine._id) ? (
-                            <ChevronDown className="w-4 h-4" />
-                          ) : (
-                            <ChevronRight className="w-4 h-4" />
-                          )}
-                        </button>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Repeat className="w-4 h-4 text-primary flex-shrink-0" />
+                      <h3 className="font-medium truncate">{routine.title}</h3>
+                      {routine.autoPrioritize && (
+                        <Star className="w-4 h-4 fill-primary text-primary flex-shrink-0" />
                       )}
-                      <h3 className="font-medium">{routine.title}</h3>
                     </div>
                     {routine.description && (
-                      <p className="text-sm text-muted-foreground mt-1">
+                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
                         {routine.description}
                       </p>
                     )}
-                    <p className="text-xs text-muted-foreground mt-2">
-                      {routine.stepTemplates.length} step
-                      {routine.stepTemplates.length !== 1 ? "s" : ""}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {formatSchedule(routine)}
+                      </span>
+                      {routine.nextOccurrence && (
+                        <span>
+                          Next: {formatNextOccurrence(routine.nextOccurrence)}
+                        </span>
+                      )}
+                      {routine.path && (
+                        <span className="flex items-center gap-1 text-primary">
+                          <Target className="w-3 h-3" />
+                          {routine.path.title}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex space-x-1 flex-shrink-0">
+                  <div className="flex space-x-1 flex-shrink-0 ml-2">
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => navigate(`/routines/${routine._id}`)}
+                      onClick={() => startEditing(routine)}
                       className="h-7 w-7 p-0"
                     >
                       <Pencil className="w-4 h-4" />
@@ -98,62 +395,22 @@ export default function Routines() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => deleteRoutine(routine._id)}
+                      onClick={() => handleDelete(routine._id)}
                       className="h-7 w-7 p-0"
                     >
                       <X className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>
-                {expandedRoutines.has(routine._id) &&
-                  routine.stepTemplates.length > 0 && (
-                    <div className="mt-4 pt-3 border-t border-border space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground mb-2">
-                        Steps in Routine:
-                      </p>
-                      {routine.stepTemplates.map(
-                        (template: StepTemplate, index: number) => (
-                          <div key={index} className="space-y-1 pl-6">
-                            <div className="flex items-start space-x-2 text-sm">
-                              <span className="text-muted-foreground">
-                                {index + 1}.
-                              </span>
-                              <div className="flex-1">
-                                <div className="flex items-center space-x-2">
-                                  <p>{template.title}</p>
-                                  {template.prioritizedToday && (
-                                    <Star className="w-3 h-3 fill-primary text-primary" />
-                                  )}
-                                </div>
-                                {template.description && (
-                                  <p className="text-xs text-muted-foreground">
-                                    {template.description}
-                                  </p>
-                                )}
-                                {template.pathId && (
-                                  <p className="text-xs text-primary flex items-center mt-1">
-                                    <Target className="w-3 h-3 mr-1" />
-                                    {paths?.find(
-                                      (p: Path) => p._id === template.pathId
-                                    )?.title || "Unknown Path"}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      )}
-                    </div>
-                  )}
               </CardContent>
             </Card>
           ))}
         </div>
-      ) : (
+      ) : !isCreating && (
         <div className="text-center py-12 text-muted-foreground">
-          <Zap className="w-12 h-12 mx-auto mb-3 opacity-50" />
+          <Repeat className="w-12 h-12 mx-auto mb-3 opacity-50" />
           <p>No routines yet</p>
-          <p className="text-sm mt-1">Create a routine to get started</p>
+          <p className="text-sm mt-1">Create a recurring task to get started</p>
         </div>
       )}
     </div>

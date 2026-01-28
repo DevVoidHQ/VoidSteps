@@ -10,7 +10,7 @@ import {
   useUpcomingSteps
 } from '@/lib/convex-hooks';
 import { isUpcoming as isStepUpcomingUtil } from '@/lib/date-utils';
-import type { Path, Pathway, Routine, Step } from '@/types';
+import type { Path, Pathway, Step, Routine } from '@/types';
 
 interface OptimisticUpdate {
   id: string;

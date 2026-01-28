@@ -1,12 +1,11 @@
 import { useState, useCallback, useMemo } from "react";
-import type { Step, Path, Routine } from "@/types/index";
+import type { Step, Path } from "@/types/index";
 import {
   useCreateStep,
   useUpdateStep,
   useDeleteStep,
   useToggleStepCompletion,
   useToggleStepFailed,
-  useExecuteRoutine,
   useReorderSteps,
   useUpdateStepParent,
 } from "@/lib/convex-hooks";
@@ -27,7 +26,6 @@ import { DraggableStepList } from "@/components/DraggableStepList";
 export default function Steps() {
   const {
     paths,
-    routines,
     activeSteps,
     allSteps,
     failedSteps,
@@ -43,7 +41,6 @@ export default function Steps() {
   const deleteStepMutation = useDeleteStep();
   const toggleStepMutation = useToggleStepCompletion();
   const toggleFailedMutation = useToggleStepFailed();
-  const executeRoutineMutation = useExecuteRoutine();
   const reorderStepsMutation = useReorderSteps();
   const updateStepParentMutation = useUpdateStepParent();
 
@@ -238,7 +235,6 @@ export default function Steps() {
           : null;
       }
       if (updates.prioritizedToday !== undefined) updateData.prioritizedToday = updates.prioritizedToday;
-      if (updates.recurring !== undefined) updateData.recurring = updates.recurring;
       // Handle dueDate - allow undefined to clear
       if ('dueDate' in updates) {
         updateData.dueDate = updates.dueDate ?? null;
@@ -274,14 +270,6 @@ export default function Steps() {
       console.error("Error creating step:", error);
     }
   }, [createStepMutation]);
-
-  const instantiateRoutine = useCallback(async (routineId: string) => {
-    try {
-      await executeRoutineMutation({ id: routineId as Id<"routines"> });
-    } catch (error) {
-      console.error("Error instantiating routine:", error);
-    }
-  }, [executeRoutineMutation]);
 
   const handleQuickAdd = useCallback(() => {
     if (quickAddValue.trim()) {
@@ -382,24 +370,6 @@ export default function Steps() {
         </select>
       </div>
 
-      {/* Routine Chips */}
-      {routines && routines.length > 0 ? (
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground">Quick Actions</p>
-          <div className="flex flex-wrap gap-2">
-            {routines?.map((routine: Routine) => (
-              <button
-                key={routine._id}
-                onClick={() => instantiateRoutine(routine._id)}
-                className="px-4 py-2 rounded-md text-sm font-medium border border-border bg-card hover:bg-accent hover:text-accent-foreground transition-all shadow-sm hover:shadow"
-              >
-                {routine.title}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
       {/* Overdue Steps - Pinned at top with red background */}
       {overdueSteps.length > 0 && (
         <div className="space-y-3 p-4 -mx-4 bg-destructive/10 border-y border-destructive/20">
@@ -413,7 +383,7 @@ export default function Steps() {
                 key={step._id}
                 step={step}
                 paths={memoizedPaths}
-                routines={routines}
+                routines={undefined}
                 onToggle={toggleStep}
                 onToggleFailed={toggleFailed}
                 onDelete={deleteStep}
@@ -435,7 +405,7 @@ export default function Steps() {
           <DraggableStepList
             steps={prioritySteps}
             paths={memoizedPaths}
-            routines={routines}
+            routines={undefined}
             onReorder={handleReorder}
             onToggle={toggleStep}
             onToggleFailed={toggleFailed}
@@ -454,7 +424,7 @@ export default function Steps() {
           <DraggableStepList
             steps={regularSteps}
             paths={memoizedPaths}
-            routines={routines}
+            routines={undefined}
             onReorder={handleReorder}
             onToggle={toggleStep}
             onToggleFailed={toggleFailed}
@@ -484,7 +454,7 @@ export default function Steps() {
                   key={step._id}
                   step={step}
                   paths={memoizedPaths}
-                  routines={routines}
+                  routines={undefined}
                   onToggle={toggleStep}
                   onToggleFailed={toggleFailed}
                   onDelete={deleteStep}
@@ -530,7 +500,7 @@ export default function Steps() {
                 key={step._id}
                 step={step}
                 paths={memoizedPaths}
-                routines={routines}
+                routines={undefined}
                 onToggle={toggleStep}
                 onToggleFailed={toggleFailed}
                 onDelete={deleteStep}
@@ -554,7 +524,7 @@ export default function Steps() {
                 key={step._id}
                 step={step}
                 paths={memoizedPaths}
-                routines={routines}
+                routines={undefined}
                 onToggle={toggleStep}
                 onToggleFailed={toggleFailed}
                 onDelete={deleteStep}

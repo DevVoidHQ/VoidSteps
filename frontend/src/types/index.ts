@@ -28,33 +28,28 @@ export interface Step {
   pathId?: Path | string | null;
   path?: Path | null; // Populated path from Convex
   parentId?: string | null;
-  routineId?: string;
-  recurring: {
-    enabled: boolean;
-    frequency?: 'daily' | 'weekly' | 'monthly' | 'yearly' | null;
-    interval?: number;
-    nextOccurrence?: string | number | null;
-  };
+  routineId?: string; // If this step was spawned from a routine
   prioritizedToday: boolean;
   dueDate?: number;
   startDate?: number;
+  sortOrder?: number;
   createdAt: string | number;
   updatedAt: string | number;
-}
-
-export interface StepTemplate {
-  _id?: string;
-  title: string;
-  description?: string;
-  pathId?: string;
-  prioritizedToday?: boolean;
 }
 
 export interface Routine {
   _id: string;
   title: string;
   description?: string;
-  stepTemplates: StepTemplate[];
+  pathId?: string | null;
+  path?: Path | null; // Populated path from Convex
+  frequency: 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'yearly';
+  daysOfWeek?: number[]; // For weekly: 0=Sun, 1=Mon, ..., 6=Sat
+  dayOfMonth?: number; // For monthly: 1-31
+  month?: number; // For yearly: 1-12
+  dayOfYear?: number; // For yearly: day of the month (1-31)
+  nextOccurrence: number;
+  autoPrioritize?: boolean;
   createdAt: string | number;
   updatedAt: string | number;
 }

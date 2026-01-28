@@ -1,10 +1,9 @@
 import { useState, useCallback, memo } from "react";
-import type { Step, Path, Routine } from "@/types/index";
-import { Button, Input, Card, CardContent, Badge } from "@devvoid/ui";
+import type { Step, Path } from "@/types/index";
+import { Button, Input, Card, CardContent } from "@devvoid/ui";
 import {
   Check,
   X,
-  Repeat,
   Star,
   Target,
   Pencil,
@@ -25,7 +24,7 @@ import {
 export interface StepCardProps {
   step: Step;
   paths: Path[];
-  routines?: Routine[];
+  routines?: unknown[]; // Kept for backward compat but not used
   onToggle: (id: string) => void;
   onToggleFailed?: (id: string) => void;
   onDelete: (id: string) => void;
@@ -45,7 +44,6 @@ export interface StepCardProps {
 function StepCardComponent({
   step,
   paths,
-  routines,
   onToggle,
   onToggleFailed,
   onDelete,
@@ -221,7 +219,7 @@ function StepCardComponent({
 
           {/* Middle: Content area (title + description + path) */}
           <div className="flex-1 min-w-0">
-            {/* Row 1: Title + recurring + progress */}
+            {/* Row 1: Title + progress */}
             <div className="flex items-center space-x-2">
               <span
                 className={`font-medium ${
@@ -234,9 +232,6 @@ function StepCardComponent({
               >
                 {step.title}
               </span>
-              {step.recurring.enabled && (
-                <Repeat className="w-3 h-3 text-primary flex-shrink-0" />
-              )}
               {/* Progress indicator for collapsed parents */}
               {hasChildren && !isExpanded && childProgress && childProgress.total > 0 && (
                 <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
@@ -293,14 +288,8 @@ function StepCardComponent({
             )}
           </div>
 
-          {/* Right: Routine Badge + Action buttons - vertically centered */}
+          {/* Right: Action buttons - vertically centered */}
           <div className="flex items-center space-x-1 flex-shrink-0">
-            {/* Routine Badge */}
-            {step.routineId && (
-              <Badge variant="secondary" className="text-sm px-2 py-0.5 mr-1">
-                {routines?.find(r => r._id === step.routineId)?.title || "Routine"}
-              </Badge>
-            )}
             {onToggleFailed && (
               <Button
                 variant="ghost"
@@ -366,13 +355,10 @@ export const StepCard = memo(StepCardComponent, (prevProps, nextProps) => {
     prevProps.step.completed === nextProps.step.completed &&
     prevProps.step.failed === nextProps.step.failed &&
     prevProps.step.prioritizedToday === nextProps.step.prioritizedToday &&
-    prevProps.step.recurring?.enabled === nextProps.step.recurring?.enabled &&
     prevProps.step.path?._id === nextProps.step.path?._id &&
-    prevProps.step.routineId === nextProps.step.routineId &&
     prevProps.step.dueDate === nextProps.step.dueDate &&
     prevProps.step.startDate === nextProps.step.startDate &&
     prevProps.paths === nextProps.paths &&
-    prevProps.routines === nextProps.routines &&
     prevProps.onToggle === nextProps.onToggle &&
     prevProps.onToggleFailed === nextProps.onToggleFailed &&
     prevProps.onDelete === nextProps.onDelete &&

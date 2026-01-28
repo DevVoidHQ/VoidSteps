@@ -26,7 +26,6 @@ import { useStepHierarchy } from "@/hooks/useStepHierarchy";
 export default function Today() {
   const {
     paths,
-    routines,
     activeSteps,
     completedStepsToday,
     applyOptimisticUpdate,
@@ -217,7 +216,6 @@ export default function Today() {
           : null;
       }
       if (updates.prioritizedToday !== undefined) updateData.prioritizedToday = updates.prioritizedToday;
-      if (updates.recurring !== undefined) updateData.recurring = updates.recurring;
       // Handle dueDate - allow undefined to clear
       if ('dueDate' in updates) {
         updateData.dueDate = updates.dueDate ?? null;
@@ -291,7 +289,7 @@ export default function Today() {
                 key={step._id}
                 step={step}
                 paths={memoizedPaths}
-                routines={routines}
+                routines={undefined}
                 onToggle={toggleStep}
                 onToggleFailed={toggleFailed}
                 onDelete={deleteStep}
@@ -308,7 +306,7 @@ export default function Today() {
         <DraggableStepList
           steps={todayPrioritySteps}
           paths={memoizedPaths}
-          routines={routines}
+          routines={undefined}
           onReorder={handleReorder}
           onToggle={toggleStep}
           onToggleFailed={toggleFailed}
@@ -346,7 +344,7 @@ export default function Today() {
                 key={step._id}
                 step={step}
                 paths={memoizedPaths}
-                routines={routines}
+                routines={undefined}
                 onToggle={toggleStep}
                 onToggleFailed={toggleFailed}
                 onDelete={deleteStep}
