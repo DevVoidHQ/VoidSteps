@@ -36,6 +36,8 @@ export interface Step {
     nextOccurrence?: string | number | null;
   };
   prioritizedToday: boolean;
+  dueDate?: number;
+  startDate?: number;
   createdAt: string | number;
   updatedAt: string | number;
 }

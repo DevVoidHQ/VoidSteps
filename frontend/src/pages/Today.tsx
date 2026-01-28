@@ -16,7 +16,9 @@ import {
   Search,
   ChevronsDownUp,
   ChevronsUpDown,
+  AlertTriangle,
 } from "lucide-react";
+import { isOverdue } from "@/lib/date-utils";
 import { StepCard } from "@/components/StepCard";
 import { DraggableStepList } from "@/components/DraggableStepList";
 import { useStepHierarchy } from "@/hooks/useStepHierarchy";
@@ -90,14 +92,28 @@ export default function Today() {
   }, []);
 
   // Memoized filtered arrays
+  // Separate overdue priority steps from regular priority steps
+  const unfilteredOverduePrioritySteps = useMemo(
+    () => activeSteps?.filter((s: Step) => s.prioritizedToday && isOverdue(s.dueDate)).sort((a, b) => {
+      // Sort by most overdue first (earliest dueDate first)
+      return (a.dueDate ?? 0) - (b.dueDate ?? 0);
+    }) || [],
+    [activeSteps]
+  );
+
   const unfilteredTodayPrioritySteps = useMemo(
-    () => activeSteps?.filter((s: Step) => s.prioritizedToday) || [],
+    () => activeSteps?.filter((s: Step) => s.prioritizedToday && !isOverdue(s.dueDate)) || [],
     [activeSteps]
   );
 
   const unfilteredTodayCompletedSteps = useMemo(
     () => completedStepsToday?.filter((s: Step) => s.prioritizedToday) || [],
     [completedStepsToday]
+  );
+
+  const overduePrioritySteps = useMemo(
+    () => filterSteps(unfilteredOverduePrioritySteps, searchQueryToday, selectedPathFilterToday),
+    [filterSteps, unfilteredOverduePrioritySteps, searchQueryToday, selectedPathFilterToday]
   );
 
   const todayPrioritySteps = useMemo(
@@ -202,6 +218,14 @@ export default function Today() {
       }
       if (updates.prioritizedToday !== undefined) updateData.prioritizedToday = updates.prioritizedToday;
       if (updates.recurring !== undefined) updateData.recurring = updates.recurring;
+      // Handle dueDate - allow undefined to clear
+      if ('dueDate' in updates) {
+        updateData.dueDate = updates.dueDate ?? null;
+      }
+      // Handle startDate - allow undefined to clear
+      if ('startDate' in updates) {
+        updateData.startDate = updates.startDate ?? null;
+      }
 
       await updateStepMutation(updateData);
     } catch (error) {
@@ -254,6 +278,31 @@ export default function Today() {
         )}
       </div>
 
+      {/* Overdue Priority Steps - Pinned at top */}
+      {overduePrioritySteps.length > 0 && (
+        <div className="space-y-3 p-4 -mx-4 bg-destructive/10 border-y border-destructive/20">
+          <h2 className="text-lg font-semibold flex items-center space-x-2 text-destructive">
+            <AlertTriangle className="w-5 h-5" />
+            <span>Overdue ({overduePrioritySteps.length})</span>
+          </h2>
+          <div className="space-y-2">
+            {overduePrioritySteps.map((step: Step) => (
+              <StepCard
+                key={step._id}
+                step={step}
+                paths={memoizedPaths}
+                routines={routines}
+                onToggle={toggleStep}
+                onToggleFailed={toggleFailed}
+                onDelete={deleteStep}
+                onTogglePriority={togglePriority}
+                onSaveEdit={updateStep}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Priority Steps */}
       {todayPrioritySteps.length > 0 ? (
         <DraggableStepList
@@ -271,7 +320,7 @@ export default function Today() {
           onExpandedChange={setExpandedStepIds}
           hideExpandAllButton
         />
-      ) : (
+      ) : overduePrioritySteps.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <Star className="w-12 h-12 mx-auto mb-3 opacity-50" />
           <p>
@@ -283,7 +332,7 @@ export default function Today() {
             <p className="text-sm mt-1">Star a step to add it here</p>
           )}
         </div>
-      )}
+      ) : null}
 
       {/* Completed Today */}
       {todayCompletedSteps.length > 0 && (

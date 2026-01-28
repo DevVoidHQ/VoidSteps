@@ -56,6 +56,11 @@ export const useFailedSteps = () => {
   return steps?.map(transformStep);
 };
 
+export const useUpcomingSteps = () => {
+  const steps = useQuery(api.steps.getUpcomingSteps);
+  return steps?.map(transformStep);
+};
+
 export const useStep = (id: string | null) => {
   const step = useQuery(
     api.steps.getStep,

@@ -6,8 +6,10 @@ import {
   useSteps,
   useActiveSteps,
   useFailedSteps,
-  useCompletedStepsToday
+  useCompletedStepsToday,
+  useUpcomingSteps
 } from '@/lib/convex-hooks';
+import { isUpcoming as isStepUpcomingUtil } from '@/lib/date-utils';
 import type { Path, Pathway, Routine, Step } from '@/types';
 
 interface OptimisticUpdate {
@@ -24,12 +26,15 @@ interface DataContextType {
   activeSteps: Step[] | undefined;
   failedSteps: Step[] | undefined;
   completedStepsToday: Step[] | undefined;
+  upcomingSteps: Step[] | undefined;
   isLoading: boolean;
   // Optimistic update functions
   applyOptimisticUpdate: (id: string, updates: Partial<Step>) => void;
   applyOptimisticDelete: (id: string) => void;
   clearOptimisticUpdate: (id: string) => void;
   clearOptimisticDelete: (id: string) => void;
+  // Helpers
+  isStepUpcoming: (step: Step) => boolean;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -42,6 +47,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const serverActiveSteps = useActiveSteps();
   const serverFailedSteps = useFailedSteps();
   const serverCompletedStepsToday = useCompletedStepsToday();
+  const serverUpcomingSteps = useUpcomingSteps();
 
   // Optimistic state
   const [optimisticUpdates, setOptimisticUpdates] = useState<Map<string, OptimisticUpdate>>(new Map());
@@ -73,6 +79,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return optimistic?.updates.completed ?? step.completed ?? false;
   }, [optimisticUpdates]);
 
+  // Check if a step should be considered "upcoming" (startDate in the future)
+  const isStepUpcoming = useCallback((step: Step): boolean => {
+    const optimistic = optimisticUpdates.get(step._id);
+    const startDate = optimistic?.updates.startDate ?? step.startDate;
+    return isStepUpcomingUtil(startDate);
+  }, [optimisticUpdates]);
+
   // Build unified step pool from all server sources (deduplicated)
   const allServerSteps = useMemo(() => {
     const stepMap = new Map<string, Step>();
@@ -81,8 +94,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     serverActiveSteps?.forEach(s => stepMap.set(s._id, s));
     serverFailedSteps?.forEach(s => stepMap.set(s._id, s));
     serverCompletedStepsToday?.forEach(s => stepMap.set(s._id, s));
+    serverUpcomingSteps?.forEach(s => stepMap.set(s._id, s));
     return Array.from(stepMap.values());
-  }, [serverAllSteps, serverActiveSteps, serverFailedSteps, serverCompletedStepsToday]);
+  }, [serverAllSteps, serverActiveSteps, serverFailedSteps, serverCompletedStepsToday, serverUpcomingSteps]);
 
   // Apply optimistic state and filter into correct lists
   const allSteps = useMemo(() => {
@@ -159,6 +173,31 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return [...fromServer, ...newlyCompleted];
   }, [serverCompletedStepsToday, allServerSteps, pendingDeletes, isStepCompleted, applyOptimisticToStep]);
 
+  // Upcoming steps: have startDate in the future (respecting optimistic state)
+  const upcomingSteps = useMemo(() => {
+    if (!serverUpcomingSteps) return undefined;
+
+    // Start with server upcoming steps that are still upcoming
+    const fromServer = serverUpcomingSteps
+      .filter(step => !pendingDeletes.has(step._id) && isStepUpcoming(step))
+      .map(applyOptimisticToStep);
+
+    // Include steps that are now optimistically upcoming
+    const newlyUpcoming = allServerSteps
+      .filter(step => {
+        if (pendingDeletes.has(step._id)) return false;
+        const wasInUpcoming = serverUpcomingSteps.some(s => s._id === step._id);
+        if (wasInUpcoming) return false;
+        return isStepUpcoming(step);
+      })
+      .map(applyOptimisticToStep);
+
+    // Sort by startDate ascending
+    return [...fromServer, ...newlyUpcoming].sort((a, b) => {
+      return (a.startDate ?? 0) - (b.startDate ?? 0);
+    });
+  }, [serverUpcomingSteps, allServerSteps, pendingDeletes, isStepUpcoming, applyOptimisticToStep]);
+
   const isLoading =
     pathways === undefined ||
     paths === undefined ||
@@ -166,7 +205,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     serverAllSteps === undefined ||
     serverActiveSteps === undefined ||
     serverFailedSteps === undefined ||
-    serverCompletedStepsToday === undefined;
+    serverCompletedStepsToday === undefined ||
+    serverUpcomingSteps === undefined;
 
   // Optimistic update functions
   const applyOptimisticUpdate = useCallback((id: string, updates: Partial<Step>) => {
@@ -206,14 +246,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       activeSteps,
       failedSteps,
       completedStepsToday,
+      upcomingSteps,
       isLoading,
       applyOptimisticUpdate,
       applyOptimisticDelete,
       clearOptimisticUpdate,
       clearOptimisticDelete,
+      isStepUpcoming,
     }),
-    [pathways, paths, routines, allSteps, activeSteps, failedSteps, completedStepsToday, isLoading,
-     applyOptimisticUpdate, applyOptimisticDelete, clearOptimisticUpdate, clearOptimisticDelete]
+    [pathways, paths, routines, allSteps, activeSteps, failedSteps, completedStepsToday, upcomingSteps, isLoading,
+     applyOptimisticUpdate, applyOptimisticDelete, clearOptimisticUpdate, clearOptimisticDelete, isStepUpcoming]
   );
 
   return (

@@ -43,6 +43,8 @@ export default defineSchema({
     }),
     prioritizedToday: v.boolean(),
     sortOrder: v.optional(v.number()),
+    dueDate: v.optional(v.number()),    // Reminder deadline (timestamp)
+    startDate: v.optional(v.number()),  // Don't show until this date (timestamp)
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_path", ["pathId"])

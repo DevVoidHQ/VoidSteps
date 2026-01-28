@@ -38,20 +38,75 @@ export const getStep = query({
 
 export const getActiveSteps = query({
   handler: async (ctx) => {
+    const now = Date.now();
+    // Get start of today for startDate comparison
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+    const startOfToday = today.getTime();
+
     const allSteps = await ctx.db
       .query("steps")
       .filter((q) => q.eq(q.field("completed"), false))
       .order("desc")
       .collect();
 
-    // Filter out failed steps (handle undefined as false for backward compatibility)
-    const steps = allSteps.filter(step => !(step.failed ?? false));
+    // Filter out failed steps and steps with future startDate
+    const steps = allSteps.filter(step => {
+      // Filter out failed steps
+      if (step.failed ?? false) return false;
+      // Filter out steps with startDate in the future
+      if (step.startDate && step.startDate > startOfToday) return false;
+      return true;
+    });
 
     // Sort by sortOrder (ascending) with fallback to createdAt
     const sortedSteps = steps.sort((a, b) => {
       const orderA = a.sortOrder ?? a.createdAt;
       const orderB = b.sortOrder ?? b.createdAt;
       return orderA - orderB;
+    });
+
+    // Populate pathId references
+    const stepsWithPaths = await Promise.all(
+      sortedSteps.map(async (step) => {
+        if (step.pathId) {
+          const path = await ctx.db.get(step.pathId);
+          return { ...step, path };
+        }
+        return { ...step, path: null };
+      })
+    );
+
+    return stepsWithPaths;
+  },
+});
+
+export const getUpcomingSteps = query({
+  handler: async (ctx) => {
+    const now = Date.now();
+    // Get start of today for startDate comparison
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+    const startOfToday = today.getTime();
+
+    const allSteps = await ctx.db
+      .query("steps")
+      .filter((q) => q.eq(q.field("completed"), false))
+      .order("desc")
+      .collect();
+
+    // Filter for steps with future startDate
+    const steps = allSteps.filter(step => {
+      // Filter out failed steps
+      if (step.failed ?? false) return false;
+      // Only include steps with startDate in the future
+      if (!step.startDate || step.startDate <= startOfToday) return false;
+      return true;
+    });
+
+    // Sort by startDate ascending (soonest first)
+    const sortedSteps = steps.sort((a, b) => {
+      return (a.startDate ?? 0) - (b.startDate ?? 0);
     });
 
     // Populate pathId references
@@ -189,6 +244,8 @@ export const createStep = mutation({
       })
     ),
     prioritizedToday: v.optional(v.boolean()),
+    dueDate: v.optional(v.number()),
+    startDate: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -242,6 +299,8 @@ export const createStep = mutation({
       },
       prioritizedToday: args.prioritizedToday || false,
       sortOrder: newSortOrder,
+      dueDate: args.dueDate,
+      startDate: args.startDate,
       createdAt: now,
       updatedAt: now,
     });
@@ -282,6 +341,8 @@ export const updateStep = mutation({
       })
     ),
     prioritizedToday: v.optional(v.boolean()),
+    dueDate: v.optional(v.union(v.number(), v.null())),
+    startDate: v.optional(v.union(v.number(), v.null())),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
@@ -298,6 +359,16 @@ export const updateStep = mutation({
     // Only include pathId if it was explicitly provided in the updates
     if ('pathId' in updates) {
       patchData.pathId = updates.pathId === null ? undefined : updates.pathId;
+    }
+
+    // Handle dueDate (allow null to clear)
+    if ('dueDate' in updates) {
+      patchData.dueDate = updates.dueDate === null ? undefined : updates.dueDate;
+    }
+
+    // Handle startDate (allow null to clear)
+    if ('startDate' in updates) {
+      patchData.startDate = updates.startDate === null ? undefined : updates.startDate;
     }
 
     // Handle completedAt when completed status changes

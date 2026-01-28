@@ -11,7 +11,16 @@ import {
   XCircle,
   ChevronRight,
   ChevronDown,
+  Clock,
+  Calendar,
 } from "lucide-react";
+import {
+  getDueDateStatus,
+  formatRelativeDate,
+  formatDateForInput,
+  parseDateInput,
+  parseStartDateInput,
+} from "@/lib/date-utils";
 
 export interface StepCardProps {
   step: Step;
@@ -29,6 +38,8 @@ export interface StepCardProps {
   childProgress?: { completed: number; total: number };
   onToggleExpand?: (id: string) => void;
   isDropTarget?: boolean;
+  // Date display context
+  showStartDateBadge?: boolean;
 }
 
 function StepCardComponent({
@@ -46,6 +57,7 @@ function StepCardComponent({
   childProgress,
   onToggleExpand,
   isDropTarget = false,
+  showStartDateBadge = false,
 }: StepCardProps) {
   // Local edit state - changes here don't re-render other cards
   const [isEditing, setIsEditing] = useState(false);
@@ -53,6 +65,8 @@ function StepCardComponent({
     title: "",
     description: "",
     pathId: "",
+    dueDate: "",
+    startDate: "",
   });
 
   const handleStartEdit = useCallback(() => {
@@ -64,12 +78,14 @@ function StepCardComponent({
         typeof step.pathId === "object" && step.pathId
           ? step.pathId._id
           : (step.pathId as unknown as string) || "",
+      dueDate: formatDateForInput(step.dueDate),
+      startDate: formatDateForInput(step.startDate),
     });
-  }, [step.title, step.description, step.pathId]);
+  }, [step.title, step.description, step.pathId, step.dueDate, step.startDate]);
 
   const handleCancelEdit = useCallback(() => {
     setIsEditing(false);
-    setEditForm({ title: "", description: "", pathId: "" });
+    setEditForm({ title: "", description: "", pathId: "", dueDate: "", startDate: "" });
   }, []);
 
   const handleSave = useCallback(() => {
@@ -77,17 +93,22 @@ function StepCardComponent({
       title: editForm.title,
       description: editForm.description,
       pathId: editForm.pathId as unknown as Path | null,
+      dueDate: parseDateInput(editForm.dueDate),
+      startDate: parseStartDateInput(editForm.startDate),
     });
     setIsEditing(false);
-    setEditForm({ title: "", description: "", pathId: "" });
+    setEditForm({ title: "", description: "", pathId: "", dueDate: "", startDate: "" });
   }, [step._id, editForm, onSaveEdit]);
 
   const handleEditFormChange = useCallback(
-    (updates: Partial<{ title: string; description: string; pathId: string }>) => {
+    (updates: Partial<{ title: string; description: string; pathId: string; dueDate: string; startDate: string }>) => {
       setEditForm((prev) => ({ ...prev, ...updates }));
     },
     []
   );
+
+  // Compute date status for display
+  const dueDateStatus = getDueDateStatus(step.dueDate);
 
   if (isEditing) {
     return (
@@ -115,6 +136,26 @@ function StepCardComponent({
               </option>
             ))}
           </select>
+          <div className="flex space-x-2">
+            <div className="flex-1">
+              <label className="text-xs text-muted-foreground mb-1 block">Due Date</label>
+              <input
+                type="date"
+                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground [color-scheme:dark] cursor-pointer"
+                value={editForm.dueDate}
+                onChange={(e) => handleEditFormChange({ dueDate: e.target.value })}
+              />
+            </div>
+            <div className="flex-1">
+              <label className="text-xs text-muted-foreground mb-1 block">Start Date</label>
+              <input
+                type="date"
+                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground [color-scheme:dark] cursor-pointer"
+                value={editForm.startDate}
+                onChange={(e) => handleEditFormChange({ startDate: e.target.value })}
+              />
+            </div>
+          </div>
           <div className="flex space-x-2">
             <Button
               size="sm"
@@ -218,6 +259,38 @@ function StepCardComponent({
                 {step.path?.title || (typeof step.pathId === "object" && step.pathId ? step.pathId.title : "")}
               </div>
             )}
+
+            {/* Row 4: Date badges (only when not completed) */}
+            {!step.completed && (
+              <div className="flex items-center gap-2 mt-1">
+                {/* Due date badge */}
+                {step.dueDate && dueDateStatus === 'overdue' && (
+                  <span className="inline-flex items-center text-xs px-1.5 py-0.5 rounded bg-destructive/10 text-destructive">
+                    <Clock className="w-3 h-3 mr-1" />
+                    {formatRelativeDate(step.dueDate)}
+                  </span>
+                )}
+                {step.dueDate && dueDateStatus === 'due-soon' && (
+                  <span className="inline-flex items-center text-xs px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-600 dark:text-yellow-400">
+                    <Clock className="w-3 h-3 mr-1" />
+                    Due {formatRelativeDate(step.dueDate).toLowerCase()}
+                  </span>
+                )}
+                {step.dueDate && dueDateStatus === 'upcoming' && (
+                  <span className="inline-flex items-center text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                    <Clock className="w-3 h-3 mr-1" />
+                    Due {formatRelativeDate(step.dueDate).toLowerCase()}
+                  </span>
+                )}
+                {/* Start date badge (only shown in upcoming section) */}
+                {showStartDateBadge && step.startDate && (
+                  <span className="inline-flex items-center text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                    <Calendar className="w-3 h-3 mr-1" />
+                    {formatRelativeDate(step.startDate, true)}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Right: Routine Badge + Action buttons - vertically centered */}
@@ -296,6 +369,8 @@ export const StepCard = memo(StepCardComponent, (prevProps, nextProps) => {
     prevProps.step.recurring?.enabled === nextProps.step.recurring?.enabled &&
     prevProps.step.path?._id === nextProps.step.path?._id &&
     prevProps.step.routineId === nextProps.step.routineId &&
+    prevProps.step.dueDate === nextProps.step.dueDate &&
+    prevProps.step.startDate === nextProps.step.startDate &&
     prevProps.paths === nextProps.paths &&
     prevProps.routines === nextProps.routines &&
     prevProps.onToggle === nextProps.onToggle &&
@@ -310,6 +385,7 @@ export const StepCard = memo(StepCardComponent, (prevProps, nextProps) => {
     prevProps.childProgress?.completed === nextProps.childProgress?.completed &&
     prevProps.childProgress?.total === nextProps.childProgress?.total &&
     prevProps.onToggleExpand === nextProps.onToggleExpand &&
-    prevProps.isDropTarget === nextProps.isDropTarget
+    prevProps.isDropTarget === nextProps.isDropTarget &&
+    prevProps.showStartDateBadge === nextProps.showStartDateBadge
   );
 });

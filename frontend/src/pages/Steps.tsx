@@ -17,7 +17,10 @@ import {
   Plus,
   Star,
   Search,
+  AlertTriangle,
+  Clock,
 } from "lucide-react";
+import { isOverdue, parseDateInput, parseStartDateInput } from "@/lib/date-utils";
 import { StepCard } from "@/components/StepCard";
 import { DraggableStepList } from "@/components/DraggableStepList";
 
@@ -28,6 +31,7 @@ export default function Steps() {
     activeSteps,
     allSteps,
     failedSteps,
+    upcomingSteps,
     applyOptimisticUpdate,
     applyOptimisticDelete,
     clearOptimisticDelete,
@@ -47,10 +51,13 @@ export default function Steps() {
   const [quickAddValue, setQuickAddValue] = useState("");
   const [stepDescValue, setStepDescValue] = useState("");
   const [stepPathValue, setStepPathValue] = useState("");
+  const [stepDueDateValue, setStepDueDateValue] = useState("");
+  const [stepStartDateValue, setStepStartDateValue] = useState("");
 
   // UI state
   const [showCompletedSteps, setShowCompletedSteps] = useState(false);
   const [showFailedSteps, setShowFailedSteps] = useState(false);
+  const [showUpcomingSteps, setShowUpcomingSteps] = useState(true);
   const [searchQuerySteps, setSearchQuerySteps] = useState("");
   const [selectedPathFilterSteps, setSelectedPathFilterSteps] = useState("");
 
@@ -76,14 +83,28 @@ export default function Steps() {
   }, []);
 
   // Memoized filtered arrays
+  // Separate overdue steps from active steps
+  const unfilteredOverdueSteps = useMemo(
+    () => activeSteps?.filter((s: Step) => isOverdue(s.dueDate)).sort((a, b) => {
+      // Sort by most overdue first (earliest dueDate first)
+      return (a.dueDate ?? 0) - (b.dueDate ?? 0);
+    }) || [],
+    [activeSteps]
+  );
+
   const unfilteredPrioritySteps = useMemo(
-    () => activeSteps?.filter((s: Step) => s.prioritizedToday) || [],
+    () => activeSteps?.filter((s: Step) => s.prioritizedToday && !isOverdue(s.dueDate)) || [],
     [activeSteps]
   );
 
   const unfilteredRegularSteps = useMemo(
-    () => activeSteps?.filter((s: Step) => !s.prioritizedToday) || [],
+    () => activeSteps?.filter((s: Step) => !s.prioritizedToday && !isOverdue(s.dueDate)) || [],
     [activeSteps]
+  );
+
+  const unfilteredUpcomingSteps = useMemo(
+    () => upcomingSteps || [],
+    [upcomingSteps]
   );
 
   const unfilteredCompletedSteps = useMemo(
@@ -96,6 +117,11 @@ export default function Steps() {
     [failedSteps]
   );
 
+  const overdueSteps = useMemo(
+    () => filterSteps(unfilteredOverdueSteps, searchQuerySteps, selectedPathFilterSteps),
+    [filterSteps, unfilteredOverdueSteps, searchQuerySteps, selectedPathFilterSteps]
+  );
+
   const prioritySteps = useMemo(
     () => filterSteps(unfilteredPrioritySteps, searchQuerySteps, selectedPathFilterSteps),
     [filterSteps, unfilteredPrioritySteps, searchQuerySteps, selectedPathFilterSteps]
@@ -104,6 +130,11 @@ export default function Steps() {
   const regularSteps = useMemo(
     () => filterSteps(unfilteredRegularSteps, searchQuerySteps, selectedPathFilterSteps),
     [filterSteps, unfilteredRegularSteps, searchQuerySteps, selectedPathFilterSteps]
+  );
+
+  const filteredUpcomingSteps = useMemo(
+    () => filterSteps(unfilteredUpcomingSteps, searchQuerySteps, selectedPathFilterSteps),
+    [filterSteps, unfilteredUpcomingSteps, searchQuerySteps, selectedPathFilterSteps]
   );
 
   const completedSteps = useMemo(
@@ -208,6 +239,14 @@ export default function Steps() {
       }
       if (updates.prioritizedToday !== undefined) updateData.prioritizedToday = updates.prioritizedToday;
       if (updates.recurring !== undefined) updateData.recurring = updates.recurring;
+      // Handle dueDate - allow undefined to clear
+      if ('dueDate' in updates) {
+        updateData.dueDate = updates.dueDate ?? null;
+      }
+      // Handle startDate - allow undefined to clear
+      if ('startDate' in updates) {
+        updateData.startDate = updates.startDate ?? null;
+      }
 
       await updateStepMutation(updateData);
     } catch (error) {
@@ -218,7 +257,9 @@ export default function Steps() {
   const createStep = useCallback(async (
     title: string,
     description?: string,
-    pathId?: string
+    pathId?: string,
+    dueDate?: number,
+    startDate?: number
   ) => {
     try {
       await createStepMutation({
@@ -226,6 +267,8 @@ export default function Steps() {
         description: description || "",
         pathId: pathId ? (pathId as Id<"paths">) : undefined,
         prioritizedToday: true,
+        dueDate,
+        startDate,
       });
     } catch (error) {
       console.error("Error creating step:", error);
@@ -242,12 +285,20 @@ export default function Steps() {
 
   const handleQuickAdd = useCallback(() => {
     if (quickAddValue.trim()) {
-      createStep(quickAddValue.trim(), stepDescValue.trim(), stepPathValue);
+      createStep(
+        quickAddValue.trim(),
+        stepDescValue.trim(),
+        stepPathValue,
+        parseDateInput(stepDueDateValue),
+        parseStartDateInput(stepStartDateValue)
+      );
       setQuickAddValue("");
       setStepDescValue("");
       setStepPathValue("");
+      setStepDueDateValue("");
+      setStepStartDateValue("");
     }
-  }, [quickAddValue, stepDescValue, stepPathValue, createStep]);
+  }, [quickAddValue, stepDescValue, stepPathValue, stepDueDateValue, stepStartDateValue, createStep]);
 
   return (
     <div className="space-y-6">
@@ -283,6 +334,26 @@ export default function Steps() {
           <Button onClick={handleQuickAdd} disabled={!quickAddValue.trim()}>
             <Plus className="w-4 h-4" />
           </Button>
+        </div>
+        <div className="flex space-x-2">
+          <div className="flex-1">
+            <label className="text-xs text-muted-foreground mb-1 block">Due Date (optional)</label>
+            <input
+              type="date"
+              className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground [color-scheme:dark] cursor-pointer"
+              value={stepDueDateValue}
+              onChange={(e) => setStepDueDateValue(e.target.value)}
+            />
+          </div>
+          <div className="flex-1">
+            <label className="text-xs text-muted-foreground mb-1 block">Start Date (optional)</label>
+            <input
+              type="date"
+              className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground [color-scheme:dark] cursor-pointer"
+              value={stepStartDateValue}
+              onChange={(e) => setStepStartDateValue(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
@@ -329,6 +400,31 @@ export default function Steps() {
         </div>
       ) : null}
 
+      {/* Overdue Steps - Pinned at top with red background */}
+      {overdueSteps.length > 0 && (
+        <div className="space-y-3 p-4 -mx-4 bg-destructive/10 border-y border-destructive/20">
+          <h2 className="text-lg font-semibold flex items-center space-x-2 text-destructive">
+            <AlertTriangle className="w-5 h-5" />
+            <span>Overdue ({overdueSteps.length})</span>
+          </h2>
+          <div className="space-y-2">
+            {overdueSteps.map((step: Step) => (
+              <StepCard
+                key={step._id}
+                step={step}
+                paths={memoizedPaths}
+                routines={routines}
+                onToggle={toggleStep}
+                onToggleFailed={toggleFailed}
+                onDelete={deleteStep}
+                onTogglePriority={togglePriority}
+                onSaveEdit={updateStep}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Priority Steps */}
       {prioritySteps.length > 0 && (
         <div className="space-y-3">
@@ -367,6 +463,38 @@ export default function Steps() {
             onSaveEdit={updateStep}
             onUpdateParent={handleUpdateParent}
           />
+        </div>
+      )}
+
+      {/* Upcoming Steps - At bottom with muted styling */}
+      {filteredUpcomingSteps.length > 0 && (
+        <div className="space-y-3 pt-4 border-t border-border">
+          <button
+            onClick={() => setShowUpcomingSteps(!showUpcomingSteps)}
+            className="flex items-center space-x-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Clock className="w-5 h-5" />
+            <span className="text-lg font-semibold">Upcoming ({filteredUpcomingSteps.length})</span>
+            <span className="text-sm">({showUpcomingSteps ? "hide" : "show"})</span>
+          </button>
+          {showUpcomingSteps && (
+            <div className="space-y-2 opacity-70">
+              {filteredUpcomingSteps.map((step: Step) => (
+                <StepCard
+                  key={step._id}
+                  step={step}
+                  paths={memoizedPaths}
+                  routines={routines}
+                  onToggle={toggleStep}
+                  onToggleFailed={toggleFailed}
+                  onDelete={deleteStep}
+                  onTogglePriority={togglePriority}
+                  onSaveEdit={updateStep}
+                  showStartDateBadge
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 

@@ -41,10 +41,11 @@ interface DraggableStepListProps {
   onExpandedChange?: (ids: Set<string>) => void;
   // Hide the internal expand all button when parent wants to render it
   hideExpandAllButton?: boolean;
+  // Show start date badge on cards (for upcoming section)
+  showStartDateBadge?: boolean;
 }
 
-interface SortableStepItemProps extends Omit<StepCardProps, 'step'> {
-  step: Step;
+interface SortableStepItemProps extends StepCardProps {
   isDragging?: boolean;
   isOverlay?: boolean;
 }
@@ -149,6 +150,7 @@ export function DraggableStepList({
   expandedStepIds,
   onExpandedChange,
   hideExpandAllButton,
+  showStartDateBadge,
 }: DraggableStepListProps) {
   const [internalExpandedSteps, setInternalExpandedSteps] = useState<Set<string>>(new Set());
 
@@ -414,6 +416,7 @@ export function DraggableStepList({
                     childProgress={progress}
                     onToggleExpand={toggleExpand}
                     isDropTarget={isDropTarget}
+                    showStartDateBadge={showStartDateBadge}
                   />
                 </DroppableStepWrapper>
 
@@ -433,6 +436,7 @@ export function DraggableStepList({
                         onSaveEdit={onSaveEdit}
                         isDragging={activeId === child._id}
                         depth={1}
+                        showStartDateBadge={showStartDateBadge}
                       />
                     ))}
                   </div>
