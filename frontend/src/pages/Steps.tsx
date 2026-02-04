@@ -16,10 +16,10 @@ import {
   Plus,
   Star,
   Search,
-  AlertTriangle,
+  Calendar,
   Clock,
 } from "lucide-react";
-import { isOverdue, parseDateInput, parseStartDateInput } from "@/lib/date-utils";
+import { parseDateInput, parseStartDateInput } from "@/lib/date-utils";
 import { StepCard } from "@/components/StepCard";
 import { DraggableStepList } from "@/components/DraggableStepList";
 
@@ -80,22 +80,22 @@ export default function Steps() {
   }, []);
 
   // Memoized filtered arrays
-  // Separate overdue steps from active steps
-  const unfilteredOverdueSteps = useMemo(
-    () => activeSteps?.filter((s: Step) => isOverdue(s.dueDate)).sort((a, b) => {
-      // Sort by most overdue first (earliest dueDate first)
+  // Separate steps with due dates from active steps (shown at top)
+  const unfilteredDueSteps = useMemo(
+    () => activeSteps?.filter((s: Step) => s.dueDate !== undefined).sort((a, b) => {
+      // Sort by due date (soonest/most overdue first)
       return (a.dueDate ?? 0) - (b.dueDate ?? 0);
     }) || [],
     [activeSteps]
   );
 
   const unfilteredPrioritySteps = useMemo(
-    () => activeSteps?.filter((s: Step) => s.prioritizedToday && !isOverdue(s.dueDate)) || [],
+    () => activeSteps?.filter((s: Step) => s.prioritizedToday && !s.dueDate) || [],
     [activeSteps]
   );
 
   const unfilteredRegularSteps = useMemo(
-    () => activeSteps?.filter((s: Step) => !s.prioritizedToday && !isOverdue(s.dueDate)) || [],
+    () => activeSteps?.filter((s: Step) => !s.prioritizedToday && !s.dueDate) || [],
     [activeSteps]
   );
 
@@ -114,9 +114,9 @@ export default function Steps() {
     [failedSteps]
   );
 
-  const overdueSteps = useMemo(
-    () => filterSteps(unfilteredOverdueSteps, searchQuerySteps, selectedPathFilterSteps),
-    [filterSteps, unfilteredOverdueSteps, searchQuerySteps, selectedPathFilterSteps]
+  const dueSteps = useMemo(
+    () => filterSteps(unfilteredDueSteps, searchQuerySteps, selectedPathFilterSteps),
+    [filterSteps, unfilteredDueSteps, searchQuerySteps, selectedPathFilterSteps]
   );
 
   const prioritySteps = useMemo(
@@ -370,15 +370,15 @@ export default function Steps() {
         </select>
       </div>
 
-      {/* Overdue Steps - Pinned at top with red background */}
-      {overdueSteps.length > 0 && (
-        <div className="space-y-3 p-4 -mx-4 bg-destructive/10 border-y border-destructive/20">
-          <h2 className="text-lg font-semibold flex items-center space-x-2 text-destructive">
-            <AlertTriangle className="w-5 h-5" />
-            <span>Overdue ({overdueSteps.length})</span>
+      {/* Due Steps - Pinned at top */}
+      {dueSteps.length > 0 && (
+        <div className="space-y-3 p-4 -mx-4 bg-primary/5 border-y border-primary/20">
+          <h2 className="text-lg font-semibold flex items-center space-x-2 text-primary">
+            <Calendar className="w-5 h-5" />
+            <span>Due ({dueSteps.length})</span>
           </h2>
           <div className="space-y-2">
-            {overdueSteps.map((step: Step) => (
+            {dueSteps.map((step: Step) => (
               <StepCard
                 key={step._id}
                 step={step}

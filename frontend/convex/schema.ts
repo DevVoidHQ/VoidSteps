@@ -60,6 +60,9 @@ export default defineSchema({
     sortOrder: v.optional(v.number()),
     dueDate: v.optional(v.number()),
     startDate: v.optional(v.number()),
+    // Timer fields
+    timerStartedAt: v.optional(v.number()),   // Current session start (null = not timing)
+    totalTimeSpentMs: v.optional(v.number()), // Cumulative time across sessions
     createdAt: v.number(),
     updatedAt: v.number(),
     // TEMPORARY: Legacy fields to be removed after migration

@@ -33,6 +33,9 @@ export interface Step {
   dueDate?: number;
   startDate?: number;
   sortOrder?: number;
+  // Timer fields
+  timerStartedAt?: number;
+  totalTimeSpentMs?: number;
   createdAt: string | number;
   updatedAt: string | number;
 }

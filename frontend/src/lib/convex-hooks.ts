@@ -147,3 +147,7 @@ export const useUpdateUserSettings = () => useMutation(api.userSettings.updateUs
 
 // Step Reordering
 export const useReorderSteps = () => useMutation(api.steps.reorderSteps);
+
+// Timer
+export const useStartTimer = () => useMutation(api.steps.startTimer);
+export const useStopTimer = () => useMutation(api.steps.stopTimer);
