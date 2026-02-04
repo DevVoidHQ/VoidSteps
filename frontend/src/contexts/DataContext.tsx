@@ -21,6 +21,7 @@ interface OptimisticUpdate {
 interface DataContextType {
   pathways: Pathway[] | undefined;
   paths: Path[] | undefined;
+  rootPaths: Path[] | undefined;
   routines: Routine[] | undefined;
   allSteps: Step[] | undefined;
   activeSteps: Step[] | undefined;
@@ -210,6 +211,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, [serverUpcomingSteps, allServerSteps, pendingDeletes, isStepUpcoming, applyOptimisticToStep]);
 
+  // Derive rootPaths from paths (paths with no parentId)
+  const rootPaths = useMemo(() => {
+    if (!paths) return undefined;
+    return paths.filter(path => !path.parentId);
+  }, [paths]);
+
   const isLoading =
     pathways === undefined ||
     paths === undefined ||
@@ -259,6 +266,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     () => ({
       pathways,
       paths,
+      rootPaths,
       routines,
       allSteps,
       activeSteps,
@@ -273,7 +281,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isStepUpcoming,
       activeTimerStepId,
     }),
-    [pathways, paths, routines, allSteps, activeSteps, failedSteps, completedStepsToday, upcomingSteps, isLoading,
+    [pathways, paths, rootPaths, routines, allSteps, activeSteps, failedSteps, completedStepsToday, upcomingSteps, isLoading,
      applyOptimisticUpdate, applyOptimisticDelete, clearOptimisticUpdate, clearOptimisticDelete, isStepUpcoming, activeTimerStepId]
   );
 

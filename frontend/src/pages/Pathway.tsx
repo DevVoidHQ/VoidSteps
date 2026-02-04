@@ -13,10 +13,9 @@ import { Button, Tabs, TabsList, TabsTrigger, TabsContent } from '@devvoid/ui';
 import { RotateCcw, Hand, Edit3 } from 'lucide-react';
 
 import UserNode from '@/components/graph/UserNode';
-import PathwayNode from '@/components/graph/PathwayNode';
 import PathNode from '@/components/graph/PathNode';
 import StepNode from '@/components/graph/StepNode';
-import ManagePathways from '@/components/ManagePathways';
+import ManagePaths from '@/components/ManagePaths';
 import { useData } from '@/contexts/DataContext';
 
 // Define viewport type
@@ -78,14 +77,12 @@ const clearSavedState = () => {
 
 const nodeTypes = {
   userNode: UserNode,
-  pathwayNode: PathwayNode,
   pathNode: PathNode,
   stepNode: StepNode,
 };
 
 // Build nodes from real data
 const buildNodesFromData = (
-  pathways: any[],
   paths: any[],
   steps: any[],
   savedPositions: Record<string, { x: number; y: number }> | null
@@ -93,19 +90,11 @@ const buildNodesFromData = (
   const nodes: Node[] = [];
   const positions: Record<string, { x: number; y: number }> = {};
 
-  // Calculate which paths are assigned to pathways
-  const assignedPathIds = new Set<string>();
-  pathways.forEach(pw => {
-    if (pw.pathIds && pw.pathIds.length > 0) {
-      pw.pathIds.forEach((id: string) => assignedPathIds.add(id));
-    }
-  });
+  // Separate root paths (no parentId) from child paths
+  const rootPaths = paths.filter(p => !p.parentId);
+  const childPaths = paths.filter(p => p.parentId);
 
-  // Root pathways (no parentId)
-  const rootPathways = pathways.filter(pw => !pw.parentId);
-  const nestedPathways = pathways.filter(pw => pw.parentId);
-
-  // User node at center top (handles will be calculated after edges)
+  // User node at center top
   const youPosition = savedPositions?.['you'] || { x: 400, y: 50 };
   positions['you'] = youPosition;
   nodes.push({
@@ -117,47 +106,17 @@ const buildNodesFromData = (
     },
   });
 
-  // Root pathways (no parentId)
+  // Root paths (directly connected to user)
   const spacing = 250;
-  const startX = 400 - (rootPathways.length * spacing) / 2;
+  const startX = 400 - (rootPaths.length * spacing) / 2;
 
-  rootPathways.forEach((pathway, index) => {
-    const position = savedPositions?.[pathway._id] || { x: startX + index * spacing, y: 200 };
-    positions[pathway._id] = position;
-    nodes.push({
-      id: pathway._id,
-      type: 'pathwayNode',
-      position,
-      data: {
-        label: pathway.title,
-        description: pathway.description,
-      },
-    });
-  });
-
-  // Nested pathways
-  nestedPathways.forEach((pathway, index) => {
-    const position = savedPositions?.[pathway._id] || { x: 100 + index * 200, y: 350 };
-    positions[pathway._id] = position;
-    nodes.push({
-      id: pathway._id,
-      type: 'pathwayNode',
-      position,
-      data: {
-        label: pathway.title,
-        description: pathway.description,
-      },
-    });
-  });
-
-  // Paths with step statistics
-  paths.forEach((path, index) => {
+  rootPaths.forEach((path, index) => {
     const pathSteps = steps.filter(s => s.pathId === path._id);
     const completedCount = pathSteps.filter(s => s.completed).length;
     const failedCount = pathSteps.filter(s => s.failed).length;
     const inProgressCount = pathSteps.filter(s => !s.completed && !s.failed).length;
 
-    const position = savedPositions?.[path._id] || { x: 100 + index * 200, y: 500 };
+    const position = savedPositions?.[path._id] || { x: startX + index * spacing, y: 200 };
     positions[path._id] = position;
     nodes.push({
       id: path._id,
@@ -169,9 +128,62 @@ const buildNodesFromData = (
         completedCount,
         failedCount,
         inProgressCount,
+        isRoot: true,
       },
     });
   });
+
+  // Child paths (grouped by depth level)
+  // Build a map of parentId -> children for easier processing
+  const childMap = new Map<string, any[]>();
+  childPaths.forEach(path => {
+    const parentId = path.parentId;
+    if (!childMap.has(parentId)) {
+      childMap.set(parentId, []);
+    }
+    childMap.get(parentId)!.push(path);
+  });
+
+  // Process children level by level
+  let currentLevel = rootPaths.map(p => p._id);
+  let yOffset = 350;
+
+  while (currentLevel.length > 0) {
+    const nextLevel: string[] = [];
+    let xIndex = 0;
+
+    currentLevel.forEach(parentId => {
+      const children = childMap.get(parentId) || [];
+      children.forEach(path => {
+        const pathSteps = steps.filter(s => s.pathId === path._id);
+        const completedCount = pathSteps.filter(s => s.completed).length;
+        const failedCount = pathSteps.filter(s => s.failed).length;
+        const inProgressCount = pathSteps.filter(s => !s.completed && !s.failed).length;
+
+        const position = savedPositions?.[path._id] || { x: 100 + xIndex * 200, y: yOffset };
+        positions[path._id] = position;
+        nodes.push({
+          id: path._id,
+          type: 'pathNode',
+          position,
+          data: {
+            label: path.title,
+            description: path.description,
+            completedCount,
+            failedCount,
+            inProgressCount,
+            isRoot: false,
+          },
+        });
+
+        nextLevel.push(path._id);
+        xIndex++;
+      });
+    });
+
+    currentLevel = nextLevel;
+    yOffset += 150;
+  }
 
   return { nodes, positions };
 };
@@ -248,7 +260,6 @@ const applyNodeHandles = (
 
 // Build edges from relationships
 const buildEdgesFromData = (
-  pathways: any[],
   paths: any[],
   positions: Record<string, { x: number; y: number }>
 ): { edges: Edge[]; nodeHandles: Record<string, NodeHandles> } => {
@@ -256,7 +267,7 @@ const buildEdgesFromData = (
   const nodeHandles: Record<string, NodeHandles> = {};
 
   // Initialize node handles for all nodes
-  const allNodeIds = ['you', ...pathways.map(pw => pw._id), ...paths.map(p => p._id)];
+  const allNodeIds = ['you', ...paths.map(p => p._id)];
   allNodeIds.forEach(id => {
     nodeHandles[id] = {
       hasTopIn: false,
@@ -274,7 +285,7 @@ const buildEdgesFromData = (
   const createEdge = (
     sourceId: string,
     targetId: string,
-    isOrphan: boolean = false
+    isConnection: boolean = false
   ) => {
     const sourcePos = positions[sourceId];
     const targetPos = positions[targetId];
@@ -299,43 +310,29 @@ const buildEdgesFromData = (
       target: targetId,
       targetHandle: `${targetHandle}-in`,
       markerEnd: { type: MarkerType.ArrowClosed },
-      style: isOrphan ? { strokeDasharray: '5,5' } : undefined,
+      style: isConnection ? { strokeDasharray: '5,5' } : undefined,
     });
   };
 
-  // Collect all connections from 'you' node
-  const rootPathways = pathways.filter(pw => !pw.parentId);
-  const assignedPathIds = new Set<string>();
-  pathways.forEach(pathway => {
-    if (pathway.pathIds && pathway.pathIds.length > 0) {
-      pathway.pathIds.forEach((pathId: string) => {
-        assignedPathIds.add(pathId);
-      });
-    }
-  });
-  const orphanedPaths = paths.filter(p => !assignedPathIds.has(p._id));
-
-  // User to root pathways and orphaned paths
-  rootPathways.forEach(pathway => {
-    createEdge('you', pathway._id, false);
-  });
-  orphanedPaths.forEach(path => {
-    createEdge('you', path._id, true);
+  // Root paths (no parentId) connect to User node
+  const rootPaths = paths.filter(p => !p.parentId);
+  rootPaths.forEach(path => {
+    createEdge('you', path._id, false);
   });
 
-  // Pathway to nested pathways
-  const nestedPathways = pathways.filter(pw => pw.parentId);
-  nestedPathways.forEach(pathway => {
-    if (pathway.parentId) {
-      createEdge(pathway.parentId, pathway._id, false);
+  // Child paths connect to their parent paths
+  const childPaths = paths.filter(p => p.parentId);
+  childPaths.forEach(path => {
+    if (path.parentId) {
+      createEdge(path.parentId, path._id, false);
     }
   });
 
-  // Pathways to paths (using pathway.pathIds)
-  pathways.forEach(pathway => {
-    if (pathway.pathIds && pathway.pathIds.length > 0) {
-      pathway.pathIds.forEach((pathId: string) => {
-        createEdge(pathway._id, pathId, false);
+  // Path-to-Path connections (connectedPathIds) - dashed lines
+  paths.forEach(path => {
+    if (path.connectedPathIds && path.connectedPathIds.length > 0) {
+      path.connectedPathIds.forEach((connectedPathId: string) => {
+        createEdge(path._id, connectedPathId, true);
       });
     }
   });
@@ -344,48 +341,48 @@ const buildEdgesFromData = (
 };
 
 export default function Pathway() {
-  const { pathways, paths, allSteps, isLoading } = useData();
+  const { paths, allSteps, isLoading } = useData();
   const [mode, setMode] = useState<'pan' | 'edit'>('pan');
   const [activeTab, setActiveTab] = useState<'graph' | 'manage'>('graph');
 
   // Build initial nodes and edges from real data
   const savedPositions = useMemo(() => loadNodePositions(), []);
   const initialData = useMemo(() => {
-    if (!pathways || !paths || !allSteps) return { nodes: [], edges: [] };
+    if (!paths || !allSteps) return { nodes: [], edges: [] };
 
-    const { nodes, positions } = buildNodesFromData(pathways, paths, allSteps, savedPositions);
-    const { edges, nodeHandles } = buildEdgesFromData(pathways, paths, positions);
+    const { nodes, positions } = buildNodesFromData(paths, allSteps, savedPositions);
+    const { edges, nodeHandles } = buildEdgesFromData(paths, positions);
     const nodesWithHandles = applyNodeHandles(nodes, nodeHandles, 'pan');
 
     return { nodes: nodesWithHandles, edges };
-  }, [pathways, paths, allSteps, savedPositions]);
+  }, [paths, allSteps, savedPositions]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialData.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialData.edges);
 
   // Update nodes and edges when data changes or mode changes
   useEffect(() => {
-    if (pathways && paths && allSteps) {
-      const { nodes: newNodes, positions } = buildNodesFromData(pathways, paths, allSteps, loadNodePositions());
-      const { edges: newEdges, nodeHandles } = buildEdgesFromData(pathways, paths, positions);
+    if (paths && allSteps) {
+      const { nodes: newNodes, positions } = buildNodesFromData(paths, allSteps, loadNodePositions());
+      const { edges: newEdges, nodeHandles } = buildEdgesFromData(paths, positions);
       const nodesWithHandles = applyNodeHandles(newNodes, nodeHandles, mode);
 
       setNodes(nodesWithHandles);
       setEdges(newEdges);
     }
-  }, [pathways, paths, allSteps, mode, setNodes, setEdges]);
+  }, [paths, allSteps, mode, setNodes, setEdges]);
 
   // Recalculate edges and handles when node dragging stops
   const handleNodeDragStop = useCallback(() => {
-    if (pathways && paths && nodes.length > 0) {
+    if (paths && nodes.length > 0) {
       const currentPositions = extractPositionsFromNodes(nodes);
-      const { edges: newEdges, nodeHandles } = buildEdgesFromData(pathways, paths, currentPositions);
+      const { edges: newEdges, nodeHandles } = buildEdgesFromData(paths, currentPositions);
       const nodesWithHandles = applyNodeHandles(nodes, nodeHandles, mode);
 
       setNodes(nodesWithHandles);
       setEdges(newEdges);
     }
-  }, [nodes, pathways, paths, mode, setNodes, setEdges]);
+  }, [nodes, paths, mode, setNodes, setEdges]);
 
   // Load saved viewport
   const savedViewport = loadViewport();
@@ -416,16 +413,16 @@ export default function Pathway() {
   // Handle reset
   const handleReset = useCallback(() => {
     clearSavedState();
-    if (pathways && paths && allSteps) {
-      const { nodes: resetNodes, positions } = buildNodesFromData(pathways, paths, allSteps, null);
-      const { edges: resetEdges, nodeHandles } = buildEdgesFromData(pathways, paths, positions);
+    if (paths && allSteps) {
+      const { nodes: resetNodes, positions } = buildNodesFromData(paths, allSteps, null);
+      const { edges: resetEdges, nodeHandles } = buildEdgesFromData(paths, positions);
       const nodesWithHandles = applyNodeHandles(resetNodes, nodeHandles, mode);
 
       setNodes(nodesWithHandles);
       setEdges(resetEdges);
     }
     window.location.reload(); // Reload to reset viewport
-  }, [pathways, paths, allSteps, mode, setNodes, setEdges]);
+  }, [paths, allSteps, mode, setNodes, setEdges]);
 
   if (isLoading) {
     return (
@@ -484,7 +481,7 @@ export default function Pathway() {
 
         {/* Manage Tab */}
         <TabsContent value="manage">
-          <ManagePathways pathways={pathways || []} paths={paths || []} />
+          <ManagePaths paths={paths || []} steps={allSteps || []} />
         </TabsContent>
 
         {/* Graph Tab */}

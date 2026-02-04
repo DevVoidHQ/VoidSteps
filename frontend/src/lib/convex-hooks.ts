@@ -16,6 +16,9 @@ const transformStep = (step: any): Step => ({
 const transformPath = (path: any): Path => ({
   ...path,
   _id: path._id.toString(),
+  parentId: path.parentId?.toString() || null,
+  connectedPathIds: path.connectedPathIds?.map((id: any) => id.toString()) || [],
+  connectedStepIds: path.connectedStepIds?.map((id: any) => id.toString()) || [],
 });
 
 const transformPathway = (pathway: any): Pathway => ({
@@ -106,6 +109,20 @@ export const usePath = (id: string | null) => {
 export const useCreatePath = () => useMutation(api.paths.createPath);
 export const useUpdatePath = () => useMutation(api.paths.updatePath);
 export const useDeletePath = () => useMutation(api.paths.deletePath);
+
+// Root and child paths
+export const useRootPaths = () => {
+  const paths = useQuery(api.paths.getRootPaths);
+  return paths?.map(transformPath);
+};
+
+export const useChildPaths = (parentId: string | null) => {
+  const paths = useQuery(
+    api.paths.getChildPaths,
+    parentId ? { parentId: parentId as Id<"paths"> } : "skip"
+  );
+  return paths?.map(transformPath);
+};
 
 // Pathways
 export const usePathways = () => {

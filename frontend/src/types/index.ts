@@ -13,6 +13,9 @@ export interface Path {
   _id: string;
   title: string;
   description?: string;
+  parentId?: string | null;           // Self-ref for hierarchy
+  connectedPathIds?: string[];        // Path-to-Path connections
+  connectedStepIds?: string[];        // Path-to-Step connections
   createdAt: string | number;
   updatedAt: string | number;
 }

@@ -7,6 +7,7 @@ interface PathNodeData {
   completedCount: number;
   failedCount: number;
   inProgressCount: number;
+  isRoot?: boolean;
   hasTopIn?: boolean;
   hasBottomIn?: boolean;
   hasLeftIn?: boolean;
@@ -23,8 +24,13 @@ export default function PathNode({ data }: { data: PathNodeData }) {
     return text.substring(0, maxLength) + '...';
   };
 
+  // Root paths get thicker border styling (similar to old PathwayNode)
+  const borderClass = data.isRoot
+    ? "px-6 py-4 rounded-lg border-2 border-primary shadow-lg min-w-[180px]"
+    : "px-4 py-3 rounded-md border border-primary shadow-md min-w-[180px]";
+
   return (
-    <div className="px-4 py-3 rounded-md border border-primary shadow-md min-w-[180px]" style={{ backgroundColor: 'hsl(var(--background))' }}>
+    <div className={borderClass} style={{ backgroundColor: 'hsl(var(--background))' }}>
       {/* Incoming handles */}
       {data.hasTopIn && (
         <Handle

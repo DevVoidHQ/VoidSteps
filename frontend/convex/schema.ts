@@ -14,9 +14,12 @@ export default defineSchema({
   paths: defineTable({
     title: v.string(),
     description: v.optional(v.string()),
+    parentId: v.optional(v.id("paths")),           // Self-ref for hierarchy
+    connectedPathIds: v.optional(v.array(v.id("paths"))), // Path-to-Path connections
+    connectedStepIds: v.optional(v.array(v.id("steps"))), // Path-to-Step connections
     createdAt: v.number(),
     updatedAt: v.number(),
-  }),
+  }).index("by_parent", ["parentId"]),
 
   // Routines are blueprints that spawn steps on a schedule
   routines: defineTable({
