@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
-import type { Step, Path } from "@/types/index";
+import type { Step } from "@/types/index";
 import {
   useUpdateStep,
   useDeleteStep,
@@ -26,6 +26,7 @@ import { useElapsedTime } from "@/hooks/useTimer";
 import { StepCard } from "@/components/StepCard";
 import { DraggableStepList } from "@/components/DraggableStepList";
 import { useStepHierarchy } from "@/hooks/useStepHierarchy";
+import { HierarchicalPathSelector } from "@/components/HierarchicalPathSelector";
 
 export default function Today() {
   const {
@@ -299,18 +300,14 @@ export default function Today() {
             className="pl-9"
           />
         </div>
-        <select
-          className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm sm:w-48"
-          value={selectedPathFilterToday}
-          onChange={(e) => setSelectedPathFilterToday(e.target.value)}
-        >
-          <option value="">All Paths</option>
-          {paths?.map((path: Path) => (
-            <option key={path._id} value={path._id}>
-              {path.title}
-            </option>
-          ))}
-        </select>
+        <HierarchicalPathSelector
+          paths={paths || []}
+          selectedPathId={selectedPathFilterToday || null}
+          onChange={(id) => setSelectedPathFilterToday(id || "")}
+          placeholder="All Paths"
+          allowEmpty={true}
+          className="sm:w-48"
+        />
         {/* Expand All button */}
         {stepsWithChildren.length > 0 && (
           <Button

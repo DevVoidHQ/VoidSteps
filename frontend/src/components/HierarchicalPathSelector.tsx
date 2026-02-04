@@ -1,0 +1,341 @@
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import type { Path } from "@/types/index";
+import { ChevronRight, ChevronLeft, ChevronDown, Check, Search } from "lucide-react";
+
+export interface HierarchicalPathSelectorProps {
+  paths: Path[];
+  selectedPathId: string | null;
+  onChange: (pathId: string | null) => void;
+  placeholder?: string;
+  allowEmpty?: boolean;
+  excludeIds?: string[];
+  className?: string;
+}
+
+export function HierarchicalPathSelector({
+  paths,
+  selectedPathId,
+  onChange,
+  placeholder = "All Paths",
+  allowEmpty = true,
+  excludeIds = [],
+  className = "",
+}: HierarchicalPathSelectorProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [currentParentId, setCurrentParentId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+        setCurrentParentId(null);
+        setSearchQuery("");
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Focus input when dropdown opens
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isOpen]);
+
+  // Build hierarchy from flat paths
+  const { pathMap, childrenMap, filteredPaths } = useMemo(() => {
+    const pathMap = new Map<string, Path>();
+    const childrenMap = new Map<string | null, Path[]>();
+
+    // Filter out excluded IDs and their descendants
+    const excludeSet = new Set(excludeIds);
+
+    // First pass: identify all descendants of excluded paths
+    const findDescendants = (parentId: string): string[] => {
+      const descendants: string[] = [];
+      paths.forEach(p => {
+        if (p.parentId === parentId) {
+          descendants.push(p._id);
+          descendants.push(...findDescendants(p._id));
+        }
+      });
+      return descendants;
+    };
+
+    excludeIds.forEach(id => {
+      findDescendants(id).forEach(d => excludeSet.add(d));
+    });
+
+    // Filter paths
+    const filteredPaths = paths.filter(p => !excludeSet.has(p._id));
+
+    // Build maps
+    filteredPaths.forEach(path => {
+      pathMap.set(path._id, path);
+      const parentKey = path.parentId || null;
+      if (!childrenMap.has(parentKey)) {
+        childrenMap.set(parentKey, []);
+      }
+      childrenMap.get(parentKey)!.push(path);
+    });
+
+    // Sort children alphabetically
+    childrenMap.forEach((children) => {
+      children.sort((a, b) => a.title.localeCompare(b.title));
+    });
+
+    return {
+      pathMap,
+      childrenMap,
+      filteredPaths,
+    };
+  }, [paths, excludeIds]);
+
+  // Get full path string for a path (for search and display)
+  const getFullPathString = useCallback((pathId: string): string => {
+    const trail: string[] = [];
+    let current = pathMap.get(pathId);
+    while (current) {
+      trail.unshift(current.title);
+      current = current.parentId ? pathMap.get(current.parentId) : undefined;
+    }
+    return trail.join(" > ");
+  }, [pathMap]);
+
+  // Search results (flat list when searching)
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return null;
+
+    const query = searchQuery.toLowerCase();
+    return filteredPaths
+      .filter(path => {
+        const fullPath = getFullPathString(path._id).toLowerCase();
+        return fullPath.includes(query);
+      })
+      .sort((a, b) => a.title.localeCompare(b.title));
+  }, [searchQuery, filteredPaths, getFullPathString]);
+
+  // Get breadcrumb trail from root to current parent
+  const breadcrumbs = useMemo(() => {
+    if (!currentParentId) return [];
+
+    const trail: Path[] = [];
+    let current = pathMap.get(currentParentId);
+    while (current) {
+      trail.unshift(current);
+      current = current.parentId ? pathMap.get(current.parentId) : undefined;
+    }
+    return trail;
+  }, [currentParentId, pathMap]);
+
+  // Get currently displayed paths (children of current parent)
+  const currentPaths = useMemo(() => {
+    return childrenMap.get(currentParentId) || [];
+  }, [childrenMap, currentParentId]);
+
+  // Check if a path has children
+  const hasChildren = useCallback((pathId: string) => {
+    return (childrenMap.get(pathId) || []).length > 0;
+  }, [childrenMap]);
+
+  // Get display text for selected path
+  const selectedPathDisplay = useMemo(() => {
+    if (!selectedPathId) return placeholder;
+    const path = pathMap.get(selectedPathId);
+    if (!path) return placeholder;
+    return getFullPathString(selectedPathId);
+  }, [selectedPathId, pathMap, placeholder, getFullPathString]);
+
+  // Handle selecting a path
+  const handleSelect = useCallback((pathId: string | null) => {
+    onChange(pathId);
+    setIsOpen(false);
+    setCurrentParentId(null);
+    setSearchQuery("");
+  }, [onChange]);
+
+  // Handle drilling down into a path
+  const handleDrillDown = useCallback((pathId: string) => {
+    setCurrentParentId(pathId);
+    setSearchQuery("");
+  }, []);
+
+  // Handle going back
+  const handleBack = useCallback(() => {
+    if (breadcrumbs.length > 1) {
+      setCurrentParentId(breadcrumbs[breadcrumbs.length - 2]._id);
+    } else {
+      setCurrentParentId(null);
+    }
+  }, [breadcrumbs]);
+
+  // Handle breadcrumb click
+  const handleBreadcrumbClick = useCallback((pathId: string | null) => {
+    setCurrentParentId(pathId);
+  }, []);
+
+  const isSearching = searchQuery.trim().length > 0;
+
+  return (
+    <div ref={containerRef} className={`relative ${className}`}>
+      {/* Trigger button */}
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center justify-between w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-muted/50 transition-colors"
+      >
+        <span className={selectedPathId ? "" : "text-muted-foreground"}>
+          {selectedPathDisplay}
+        </span>
+        <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`} />
+      </button>
+
+      {/* Dropdown */}
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 rounded-md border border-input shadow-md" style={{ backgroundColor: 'hsl(var(--background))' }}>
+          {/* Search input */}
+          <div className="p-2 border-b border-input">
+            <div className="flex items-center gap-2 px-2 py-1.5 rounded-md border border-input bg-muted/30">
+              <Search className="w-4 h-4 text-muted-foreground" />
+              <input
+                ref={inputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search paths..."
+                className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              />
+            </div>
+          </div>
+
+          {/* Breadcrumb header (when drilled in and not searching) */}
+          {currentParentId && !isSearching && (
+            <div className="flex items-center px-2 py-2 border-b border-input bg-muted/30">
+              <button
+                type="button"
+                onClick={handleBack}
+                className="p-1 rounded hover:bg-muted"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <div className="flex items-center text-sm ml-1 overflow-x-auto">
+                <button
+                  type="button"
+                  onClick={() => handleBreadcrumbClick(null)}
+                  className="text-muted-foreground hover:text-foreground whitespace-nowrap"
+                >
+                  Root
+                </button>
+                {breadcrumbs.map((crumb, index) => (
+                  <span key={crumb._id} className="flex items-center">
+                    <ChevronRight className="w-3 h-3 mx-1 text-muted-foreground" />
+                    <button
+                      type="button"
+                      onClick={() => handleBreadcrumbClick(crumb._id)}
+                      className={index === breadcrumbs.length - 1 ? "font-medium whitespace-nowrap" : "text-muted-foreground hover:text-foreground whitespace-nowrap"}
+                    >
+                      {crumb.title}
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Options list */}
+          <div className="max-h-60 overflow-y-auto py-1">
+            {/* Search results mode */}
+            {isSearching ? (
+              <>
+                {searchResults && searchResults.length > 0 ? (
+                  searchResults.map(path => (
+                    <button
+                      key={path._id}
+                      type="button"
+                      onClick={() => handleSelect(path._id)}
+                      className="flex items-center justify-between w-full px-3 py-2 text-sm hover:bg-muted transition-colors text-left"
+                    >
+                      <span className="flex-1 truncate">{getFullPathString(path._id)}</span>
+                      {selectedPathId === path._id && <Check className="w-4 h-4 text-primary ml-2" />}
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-3 py-4 text-sm text-muted-foreground text-center">
+                    No paths match "{searchQuery}"
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                {/* Empty/placeholder option */}
+                {allowEmpty && !currentParentId && (
+                  <button
+                    type="button"
+                    onClick={() => handleSelect(null)}
+                    className="flex items-center justify-between w-full px-3 py-2 text-sm hover:bg-muted transition-colors"
+                  >
+                    <span className="text-muted-foreground">{placeholder}</span>
+                    {selectedPathId === null && <Check className="w-4 h-4 text-primary" />}
+                  </button>
+                )}
+
+                {/* "Select this level" option when drilled in */}
+                {currentParentId && (
+                  <button
+                    type="button"
+                    onClick={() => handleSelect(currentParentId)}
+                    className="flex items-center justify-between w-full px-3 py-2 text-sm hover:bg-muted transition-colors border-b border-input"
+                  >
+                    <span className="text-primary">Select "{pathMap.get(currentParentId)?.title}"</span>
+                    {selectedPathId === currentParentId && <Check className="w-4 h-4 text-primary" />}
+                  </button>
+                )}
+
+                {/* Path options */}
+                {currentPaths.map(path => (
+                  <div
+                    key={path._id}
+                    className="flex items-center hover:bg-muted transition-colors"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleSelect(path._id)}
+                      className="flex-1 flex items-center px-3 py-2 text-sm text-left"
+                    >
+                      <span className="flex-1">{path.title}</span>
+                      {selectedPathId === path._id && <Check className="w-4 h-4 text-primary mr-2" />}
+                    </button>
+                    {hasChildren(path._id) && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDrillDown(path._id);
+                        }}
+                        className="px-3 py-2 hover:bg-muted/80"
+                      >
+                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+
+                {/* Empty state */}
+                {currentPaths.length === 0 && (
+                  <div className="px-3 py-4 text-sm text-muted-foreground text-center">
+                    {currentParentId ? "No children" : "No paths available"}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -24,6 +24,7 @@ import {
   parseDateInput,
   parseStartDateInput,
 } from "@/lib/date-utils";
+import { HierarchicalPathSelector } from "@/components/HierarchicalPathSelector";
 
 export interface StepCardProps {
   step: Step;
@@ -138,18 +139,13 @@ function StepCardComponent({
             value={editForm.description}
             onChange={(e) => handleEditFormChange({ description: e.target.value })}
           />
-          <select
-            className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-            value={editForm.pathId}
-            onChange={(e) => handleEditFormChange({ pathId: e.target.value })}
-          >
-            <option value="">No Path</option>
-            {paths?.map((path: Path) => (
-              <option key={path._id} value={path._id}>
-                {path.title}
-              </option>
-            ))}
-          </select>
+          <HierarchicalPathSelector
+            paths={paths || []}
+            selectedPathId={editForm.pathId || null}
+            onChange={(id) => handleEditFormChange({ pathId: id || "" })}
+            placeholder="No Path"
+            allowEmpty={true}
+          />
           <div className="flex space-x-2">
             <div className="flex-1">
               <label className="text-xs text-muted-foreground mb-1 block">Due Date</label>

@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
-import type { Step, Path } from "@/types/index";
+import type { Step } from "@/types/index";
 import {
   useCreateStep,
   useUpdateStep,
@@ -22,6 +22,7 @@ import {
 import { parseDateInput, parseStartDateInput } from "@/lib/date-utils";
 import { StepCard } from "@/components/StepCard";
 import { DraggableStepList } from "@/components/DraggableStepList";
+import { HierarchicalPathSelector } from "@/components/HierarchicalPathSelector";
 
 export default function Steps() {
   const {
@@ -307,18 +308,14 @@ export default function Steps() {
           onKeyPress={(e) => e.key === "Enter" && handleQuickAdd()}
         />
         <div className="flex space-x-2">
-          <select
-            className="flex-1 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-            value={stepPathValue}
-            onChange={(e) => setStepPathValue(e.target.value)}
-          >
-            <option value="">No Path</option>
-            {paths?.map((path: Path) => (
-              <option key={path._id} value={path._id}>
-                {path.title}
-              </option>
-            ))}
-          </select>
+          <HierarchicalPathSelector
+            paths={paths || []}
+            selectedPathId={stepPathValue || null}
+            onChange={(id) => setStepPathValue(id || "")}
+            placeholder="No Path"
+            allowEmpty={true}
+            className="flex-1"
+          />
           <Button onClick={handleQuickAdd} disabled={!quickAddValue.trim()}>
             <Plus className="w-4 h-4" />
           </Button>
@@ -356,18 +353,14 @@ export default function Steps() {
             className="pl-9"
           />
         </div>
-        <select
-          className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm sm:w-48"
-          value={selectedPathFilterSteps}
-          onChange={(e) => setSelectedPathFilterSteps(e.target.value)}
-        >
-          <option value="">All Paths</option>
-          {paths?.map((path: Path) => (
-            <option key={path._id} value={path._id}>
-              {path.title}
-            </option>
-          ))}
-        </select>
+        <HierarchicalPathSelector
+          paths={paths || []}
+          selectedPathId={selectedPathFilterSteps || null}
+          onChange={(id) => setSelectedPathFilterSteps(id || "")}
+          placeholder="All Paths"
+          allowEmpty={true}
+          className="sm:w-48"
+        />
       </div>
 
       {/* Due Steps - Pinned at top */}
