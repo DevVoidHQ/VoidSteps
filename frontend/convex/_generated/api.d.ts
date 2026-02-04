@@ -11,6 +11,7 @@
 import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
 import type * as migrations from "../migrations.js";
+import type * as migrations_migratePathwaysToPaths from "../migrations/migratePathwaysToPaths.js";
 import type * as paths from "../paths.js";
 import type * as pathways from "../pathways.js";
 import type * as routineSpawner from "../routineSpawner.js";
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   crons: typeof crons;
   migrations: typeof migrations;
+  "migrations/migratePathwaysToPaths": typeof migrations_migratePathwaysToPaths;
   paths: typeof paths;
   pathways: typeof pathways;
   routineSpawner: typeof routineSpawner;
