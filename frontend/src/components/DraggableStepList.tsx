@@ -43,6 +43,9 @@ interface DraggableStepListProps {
   hideExpandAllButton?: boolean;
   // Show start date badge on cards (for upcoming section)
   showStartDateBadge?: boolean;
+  // Timer props
+  onToggleTimer?: (id: string) => void;
+  activeTimerStepId?: string | null;
 }
 
 interface SortableStepItemProps extends StepCardProps {
@@ -151,6 +154,8 @@ export function DraggableStepList({
   onExpandedChange,
   hideExpandAllButton,
   showStartDateBadge,
+  onToggleTimer,
+  activeTimerStepId,
 }: DraggableStepListProps) {
   const [internalExpandedSteps, setInternalExpandedSteps] = useState<Set<string>>(new Set());
 
@@ -417,6 +422,8 @@ export function DraggableStepList({
                     onToggleExpand={toggleExpand}
                     isDropTarget={isDropTarget}
                     showStartDateBadge={showStartDateBadge}
+                    onToggleTimer={onToggleTimer}
+                    activeTimerStepId={activeTimerStepId}
                   />
                 </DroppableStepWrapper>
 
@@ -437,6 +444,8 @@ export function DraggableStepList({
                         isDragging={activeId === child._id}
                         depth={1}
                         showStartDateBadge={showStartDateBadge}
+                        onToggleTimer={onToggleTimer}
+                        activeTimerStepId={activeTimerStepId}
                       />
                     ))}
                   </div>

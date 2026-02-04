@@ -35,6 +35,8 @@ interface DataContextType {
   clearOptimisticDelete: (id: string) => void;
   // Helpers
   isStepUpcoming: (step: Step) => boolean;
+  // Timer
+  activeTimerStepId: string | null;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -112,28 +114,31 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .map(applyOptimisticToStep);
   }, [serverAllSteps, pendingDeletes, applyOptimisticToStep]);
 
-  // Active steps: not completed, not failed (respecting optimistic state)
+  // Active steps: not completed, not failed, not upcoming (respecting optimistic state)
   const activeSteps = useMemo(() => {
     if (!serverActiveSteps) return undefined;
 
     // Start with server active steps, filter by optimistic state
+    // Also exclude any that have become upcoming due to optimistic startDate change
     const fromServer = serverActiveSteps
-      .filter(step => !pendingDeletes.has(step._id) && isStepActive(step))
+      .filter(step => !pendingDeletes.has(step._id) && isStepActive(step) && !isStepUpcoming(step))
       .map(applyOptimisticToStep);
 
     // Also include steps that were completed/failed but are now optimistically active
+    // But exclude upcoming steps - they should only appear in the upcoming section
     const reactivated = allServerSteps
       .filter(step => {
         if (pendingDeletes.has(step._id)) return false;
         // Step wasn't in active list but is now optimistically active
         const wasInActive = serverActiveSteps.some(s => s._id === step._id);
         if (wasInActive) return false;
-        return isStepActive(step);
+        // Must be active AND not upcoming
+        return isStepActive(step) && !isStepUpcoming(step);
       })
       .map(applyOptimisticToStep);
 
     return [...fromServer, ...reactivated];
-  }, [serverActiveSteps, allServerSteps, pendingDeletes, isStepActive, applyOptimisticToStep]);
+  }, [serverActiveSteps, allServerSteps, pendingDeletes, isStepActive, isStepUpcoming, applyOptimisticToStep]);
 
   // Failed steps: failed=true (respecting optimistic state)
   const failedSteps = useMemo(() => {
@@ -215,6 +220,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     serverCompletedStepsToday === undefined ||
     serverUpcomingSteps === undefined;
 
+  // Derive active timer step ID from all steps
+  const activeTimerStepId = useMemo(() => {
+    const stepWithTimer = allServerSteps.find(s => s.timerStartedAt !== undefined);
+    return stepWithTimer?._id ?? null;
+  }, [allServerSteps]);
+
   // Optimistic update functions
   const applyOptimisticUpdate = useCallback((id: string, updates: Partial<Step>) => {
     setOptimisticUpdates(prev => {
@@ -260,9 +271,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       clearOptimisticUpdate,
       clearOptimisticDelete,
       isStepUpcoming,
+      activeTimerStepId,
     }),
     [pathways, paths, routines, allSteps, activeSteps, failedSteps, completedStepsToday, upcomingSteps, isLoading,
-     applyOptimisticUpdate, applyOptimisticDelete, clearOptimisticUpdate, clearOptimisticDelete, isStepUpcoming]
+     applyOptimisticUpdate, applyOptimisticDelete, clearOptimisticUpdate, clearOptimisticDelete, isStepUpcoming, activeTimerStepId]
   );
 
   return (

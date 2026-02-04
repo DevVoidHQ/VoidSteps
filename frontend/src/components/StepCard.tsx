@@ -12,7 +12,11 @@ import {
   ChevronDown,
   Clock,
   Calendar,
+  Play,
+  Pause,
+  Timer,
 } from "lucide-react";
+import { useElapsedTime, formatDuration } from "@/hooks/useTimer";
 import {
   getDueDateStatus,
   formatRelativeDate,
@@ -39,6 +43,9 @@ export interface StepCardProps {
   isDropTarget?: boolean;
   // Date display context
   showStartDateBadge?: boolean;
+  // Timer props
+  onToggleTimer?: (id: string) => void;
+  activeTimerStepId?: string | null;
 }
 
 function StepCardComponent({
@@ -56,6 +63,8 @@ function StepCardComponent({
   onToggleExpand,
   isDropTarget = false,
   showStartDateBadge = false,
+  onToggleTimer,
+  activeTimerStepId,
 }: StepCardProps) {
   // Local edit state - changes here don't re-render other cards
   const [isEditing, setIsEditing] = useState(false);
@@ -107,6 +116,13 @@ function StepCardComponent({
 
   // Compute date status for display
   const dueDateStatus = getDueDateStatus(step.dueDate);
+
+  // Timer state
+  const isTimerActive = step._id === activeTimerStepId && step.timerStartedAt !== undefined;
+  const elapsedTime = useElapsedTime(
+    isTimerActive ? step.timerStartedAt : undefined,
+    step.totalTimeSpentMs || 0
+  );
 
   if (isEditing) {
     return (
@@ -284,12 +300,38 @@ function StepCardComponent({
                     {formatRelativeDate(step.startDate, true)}
                   </span>
                 )}
+                {/* Timer badge - show when active or has accumulated time */}
+                {onToggleTimer && (isTimerActive || (step.totalTimeSpentMs && step.totalTimeSpentMs > 0)) && (
+                  <span className={`inline-flex items-center text-xs px-1.5 py-0.5 rounded ${
+                    isTimerActive
+                      ? "bg-primary/10 text-primary"
+                      : "bg-muted text-muted-foreground"
+                  }`}>
+                    <Timer className="w-3 h-3 mr-1" />
+                    {isTimerActive ? elapsedTime : formatDuration(step.totalTimeSpentMs || 0)}
+                  </span>
+                )}
               </div>
             )}
           </div>
 
           {/* Right: Action buttons - vertically centered */}
           <div className="flex items-center space-x-1 flex-shrink-0">
+            {onToggleTimer && !step.completed && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onToggleTimer(step._id)}
+                className="h-7 w-7 p-0"
+                title={isTimerActive ? "Stop timer" : "Start timer"}
+              >
+                {isTimerActive ? (
+                  <Pause className="w-4 h-4 text-primary" />
+                ) : (
+                  <Play className="w-4 h-4 text-muted-foreground" />
+                )}
+              </Button>
+            )}
             {onToggleFailed && (
               <Button
                 variant="ghost"
@@ -358,6 +400,8 @@ export const StepCard = memo(StepCardComponent, (prevProps, nextProps) => {
     prevProps.step.path?._id === nextProps.step.path?._id &&
     prevProps.step.dueDate === nextProps.step.dueDate &&
     prevProps.step.startDate === nextProps.step.startDate &&
+    prevProps.step.timerStartedAt === nextProps.step.timerStartedAt &&
+    prevProps.step.totalTimeSpentMs === nextProps.step.totalTimeSpentMs &&
     prevProps.paths === nextProps.paths &&
     prevProps.onToggle === nextProps.onToggle &&
     prevProps.onToggleFailed === nextProps.onToggleFailed &&
@@ -372,6 +416,9 @@ export const StepCard = memo(StepCardComponent, (prevProps, nextProps) => {
     prevProps.childProgress?.total === nextProps.childProgress?.total &&
     prevProps.onToggleExpand === nextProps.onToggleExpand &&
     prevProps.isDropTarget === nextProps.isDropTarget &&
-    prevProps.showStartDateBadge === nextProps.showStartDateBadge
+    prevProps.showStartDateBadge === nextProps.showStartDateBadge &&
+    // Timer props
+    prevProps.onToggleTimer === nextProps.onToggleTimer &&
+    prevProps.activeTimerStepId === nextProps.activeTimerStepId
   );
 });

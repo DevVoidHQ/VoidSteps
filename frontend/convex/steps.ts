@@ -524,3 +524,58 @@ export const updateStepParent = mutation({
     return { ...updatedStep, path: null };
   },
 });
+
+// Timer mutations
+export const startTimer = mutation({
+  args: { id: v.id("steps") },
+  handler: async (ctx, args) => {
+    const step = await ctx.db.get(args.id);
+    if (!step) throw new Error("Step not found");
+
+    const now = Date.now();
+    await ctx.db.patch(args.id, {
+      timerStartedAt: now,
+      updatedAt: now,
+    });
+
+    const updatedStep = await ctx.db.get(args.id);
+    if (!updatedStep) throw new Error("Failed to start timer");
+
+    if (updatedStep.pathId) {
+      const path = await ctx.db.get(updatedStep.pathId);
+      return { ...updatedStep, path };
+    }
+
+    return { ...updatedStep, path: null };
+  },
+});
+
+export const stopTimer = mutation({
+  args: { id: v.id("steps") },
+  handler: async (ctx, args) => {
+    const step = await ctx.db.get(args.id);
+    if (!step) throw new Error("Step not found");
+
+    const now = Date.now();
+
+    // Calculate elapsed time from current session
+    const elapsed = step.timerStartedAt ? now - step.timerStartedAt : 0;
+    const newTotal = (step.totalTimeSpentMs || 0) + elapsed;
+
+    await ctx.db.patch(args.id, {
+      timerStartedAt: undefined,
+      totalTimeSpentMs: newTotal,
+      updatedAt: now,
+    });
+
+    const updatedStep = await ctx.db.get(args.id);
+    if (!updatedStep) throw new Error("Failed to stop timer");
+
+    if (updatedStep.pathId) {
+      const path = await ctx.db.get(updatedStep.pathId);
+      return { ...updatedStep, path };
+    }
+
+    return { ...updatedStep, path: null };
+  },
+});

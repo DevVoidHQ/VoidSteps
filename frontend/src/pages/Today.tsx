@@ -7,6 +7,8 @@ import {
   useToggleStepFailed,
   useReorderSteps,
   useUpdateStepParent,
+  useStartTimer,
+  useStopTimer,
 } from "@/lib/convex-hooks";
 import { useData } from "@/contexts/DataContext";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -16,9 +18,11 @@ import {
   Search,
   ChevronsDownUp,
   ChevronsUpDown,
-  AlertTriangle,
+  Calendar,
+  Timer,
+  Square,
 } from "lucide-react";
-import { isOverdue } from "@/lib/date-utils";
+import { useElapsedTime } from "@/hooks/useTimer";
 import { StepCard } from "@/components/StepCard";
 import { DraggableStepList } from "@/components/DraggableStepList";
 import { useStepHierarchy } from "@/hooks/useStepHierarchy";
@@ -31,6 +35,7 @@ export default function Today() {
     applyOptimisticUpdate,
     applyOptimisticDelete,
     clearOptimisticDelete,
+    activeTimerStepId,
   } = useData();
 
   // Mutations
@@ -40,6 +45,8 @@ export default function Today() {
   const toggleFailedMutation = useToggleStepFailed();
   const reorderStepsMutation = useReorderSteps();
   const updateStepParentMutation = useUpdateStepParent();
+  const startTimerMutation = useStartTimer();
+  const stopTimerMutation = useStopTimer();
 
   // UI state
   const [searchQueryToday, setSearchQueryToday] = useState("");
@@ -91,17 +98,17 @@ export default function Today() {
   }, []);
 
   // Memoized filtered arrays
-  // Separate overdue priority steps from regular priority steps
-  const unfilteredOverduePrioritySteps = useMemo(
-    () => activeSteps?.filter((s: Step) => s.prioritizedToday && isOverdue(s.dueDate)).sort((a, b) => {
-      // Sort by most overdue first (earliest dueDate first)
+  // Separate priority steps with due dates from those without
+  const unfilteredDuePrioritySteps = useMemo(
+    () => activeSteps?.filter((s: Step) => s.prioritizedToday && s.dueDate !== undefined).sort((a, b) => {
+      // Sort by due date (soonest/most overdue first)
       return (a.dueDate ?? 0) - (b.dueDate ?? 0);
     }) || [],
     [activeSteps]
   );
 
   const unfilteredTodayPrioritySteps = useMemo(
-    () => activeSteps?.filter((s: Step) => s.prioritizedToday && !isOverdue(s.dueDate)) || [],
+    () => activeSteps?.filter((s: Step) => s.prioritizedToday && !s.dueDate) || [],
     [activeSteps]
   );
 
@@ -110,9 +117,9 @@ export default function Today() {
     [completedStepsToday]
   );
 
-  const overduePrioritySteps = useMemo(
-    () => filterSteps(unfilteredOverduePrioritySteps, searchQueryToday, selectedPathFilterToday),
-    [filterSteps, unfilteredOverduePrioritySteps, searchQueryToday, selectedPathFilterToday]
+  const duePrioritySteps = useMemo(
+    () => filterSteps(unfilteredDuePrioritySteps, searchQueryToday, selectedPathFilterToday),
+    [filterSteps, unfilteredDuePrioritySteps, searchQueryToday, selectedPathFilterToday]
   );
 
   const todayPrioritySteps = useMemo(
@@ -231,9 +238,55 @@ export default function Today() {
     }
   }, [updateStepMutation]);
 
+  // Find the step with active timer for the banner
+  const activeTimerStep = useMemo(() => {
+    if (!activeTimerStepId) return null;
+    return activeSteps?.find(s => s._id === activeTimerStepId) ||
+           completedStepsToday?.find(s => s._id === activeTimerStepId) ||
+           null;
+  }, [activeTimerStepId, activeSteps, completedStepsToday]);
+
+  const globalTimerElapsed = useElapsedTime(
+    activeTimerStep?.timerStartedAt,
+    activeTimerStep?.totalTimeSpentMs || 0
+  );
+
+  // Timer callback - handles start/stop and switching between steps
+  const toggleTimer = useCallback(async (id: string) => {
+    try {
+      // If clicking on the currently active timer, stop it
+      if (activeTimerStepId === id) {
+        await stopTimerMutation({ id: id as Id<"steps"> });
+      } else {
+        // If there's a different timer running, stop it first
+        if (activeTimerStepId) {
+          await stopTimerMutation({ id: activeTimerStepId as Id<"steps"> });
+        }
+        // Start the new timer
+        await startTimerMutation({ id: id as Id<"steps"> });
+      }
+    } catch (error) {
+      console.error("Error toggling timer:", error);
+    }
+  }, [activeTimerStepId, startTimerMutation, stopTimerMutation]);
+
+
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Today's Focus</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Today's Focus</h1>
+        {activeTimerStep && (
+          <button
+            onClick={() => toggleTimer(activeTimerStep._id)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-muted-foreground hover:bg-muted transition-colors"
+          >
+            <Timer className="w-4 h-4 text-primary" />
+            <span className="text-foreground font-medium truncate max-w-[150px]">{activeTimerStep.title}</span>
+            <span className="font-mono text-primary">{globalTimerElapsed}</span>
+            <Square className="w-3 h-3 fill-current" />
+          </button>
+        )}
+      </div>
 
       {/* Search and Filter */}
       <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
@@ -276,15 +329,15 @@ export default function Today() {
         )}
       </div>
 
-      {/* Overdue Priority Steps - Pinned at top */}
-      {overduePrioritySteps.length > 0 && (
-        <div className="space-y-3 p-4 -mx-4 bg-destructive/10 border-y border-destructive/20">
-          <h2 className="text-lg font-semibold flex items-center space-x-2 text-destructive">
-            <AlertTriangle className="w-5 h-5" />
-            <span>Overdue ({overduePrioritySteps.length})</span>
+      {/* Due Priority Steps - Pinned at top */}
+      {duePrioritySteps.length > 0 && (
+        <div className="space-y-3 p-4 -mx-4 bg-primary/5 border-y border-primary/20">
+          <h2 className="text-lg font-semibold flex items-center space-x-2 text-primary">
+            <Calendar className="w-5 h-5" />
+            <span>Due ({duePrioritySteps.length})</span>
           </h2>
           <div className="space-y-2">
-            {overduePrioritySteps.map((step: Step) => (
+            {duePrioritySteps.map((step: Step) => (
               <StepCard
                 key={step._id}
                 step={step}
@@ -295,6 +348,8 @@ export default function Today() {
                 onDelete={deleteStep}
                 onTogglePriority={togglePriority}
                 onSaveEdit={updateStep}
+                onToggleTimer={toggleTimer}
+                activeTimerStepId={activeTimerStepId}
               />
             ))}
           </div>
@@ -317,8 +372,10 @@ export default function Today() {
           expandedStepIds={expandedStepIds}
           onExpandedChange={setExpandedStepIds}
           hideExpandAllButton
+          onToggleTimer={toggleTimer}
+          activeTimerStepId={activeTimerStepId}
         />
-      ) : overduePrioritySteps.length === 0 ? (
+      ) : duePrioritySteps.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <Star className="w-12 h-12 mx-auto mb-3 opacity-50" />
           <p>
