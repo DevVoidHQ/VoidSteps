@@ -12,6 +12,7 @@ import 'reactflow/dist/style.css';
 import { Button, Tabs, TabsList, TabsTrigger, TabsContent } from '@devvoid/ui';
 import { RotateCcw, Hand, Edit3 } from 'lucide-react';
 
+import LoadingScreen from '@/components/LoadingScreen';
 import UserNode from '@/components/graph/UserNode';
 import PathNode from '@/components/graph/PathNode';
 import StepNode from '@/components/graph/StepNode';
@@ -425,11 +426,7 @@ export default function Pathway() {
   }, [paths, allSteps, mode, setNodes, setEdges]);
 
   if (isLoading) {
-    return (
-      <div className="h-[calc(100vh-6rem)] w-full flex items-center justify-center">
-        <p className="text-muted-foreground">Loading pathway...</p>
-      </div>
-    );
+    return <LoadingScreen message="Loading pathway..." fullScreen={false} />;
   }
 
   return (

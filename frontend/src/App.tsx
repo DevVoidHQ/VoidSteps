@@ -4,6 +4,8 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 import { OfflineProvider } from '@/contexts/OfflineContext';
 import { DataProvider } from '@/contexts/DataContext';
 import Layout from '@/components/Layout';
+import LoadingScreen from '@/components/LoadingScreen';
+import Landing from '@/pages/Landing';
 import Login from '@/pages/Login';
 import Today from '@/pages/Today';
 import Steps from '@/pages/Steps';
@@ -11,20 +13,12 @@ import Paths from '@/pages/Paths';
 import Routines from '@/pages/Routines';
 import Pathway from '@/pages/Pathway';
 import Settings from '@/pages/Settings';
-import Landing from '@/pages/Landing';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-bg-dark">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   return user ? <>{children}</> : <Navigate to="/login" />;
@@ -35,14 +29,7 @@ function AppRoutes() {
   const location = useLocation();
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-bg-dark">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   return (
