@@ -82,8 +82,9 @@ export const spawnDueSteps = internalMutation({
 
     // Spawn a new step for each due routine
     for (const routine of dueRoutines) {
-      // Create the new step from routine blueprint
+      // Create the new step from routine blueprint, propagating userId
       await ctx.db.insert("steps", {
+        userId: routine.userId,
         title: routine.title,
         description: routine.description,
         completed: false,

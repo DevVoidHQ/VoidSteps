@@ -1,6 +1,12 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
+async function requireAuth(ctx: { auth: any }) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) throw new Error("Unauthenticated");
+  return identity.subject;
+}
+
 // Helper to calculate next occurrence based on frequency
 function calculateNextOccurrence(
   frequency: string,
@@ -74,7 +80,10 @@ function calculateNextOccurrence(
 
 export const getRoutines = query({
   handler: async (ctx) => {
-    const routines = await ctx.db.query("routines").collect();
+    const userId = await requireAuth(ctx);
+    const routines = await ctx.db.query("routines")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
 
     // Enrich with path info
     const enriched = await Promise.all(
@@ -110,6 +119,7 @@ export const createRoutine = mutation({
     autoPrioritize: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     const now = Date.now();
     const nextOccurrence = calculateNextOccurrence(
       args.frequency,
@@ -120,6 +130,7 @@ export const createRoutine = mutation({
     );
 
     return await ctx.db.insert("routines", {
+      userId,
       title: args.title,
       description: args.description,
       pathId: args.pathId,
@@ -158,9 +169,10 @@ export const updateRoutine = mutation({
     autoPrioritize: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     const { id, ...updates } = args;
     const existing = await ctx.db.get(id);
-    if (!existing) throw new Error("Routine not found");
+    if (!existing || existing.userId !== userId) throw new Error("Routine not found");
 
     const cleanUpdates: Record<string, any> = { updatedAt: Date.now() };
 
@@ -192,6 +204,9 @@ export const updateRoutine = mutation({
 export const deleteRoutine = mutation({
   args: { id: v.id("routines") },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+    const routine = await ctx.db.get(args.id);
+    if (!routine || routine.userId !== userId) throw new Error("Not found");
     await ctx.db.delete(args.id);
   },
 });

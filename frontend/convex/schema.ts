@@ -3,15 +3,18 @@ import { v } from "convex/values";
 
 export default defineSchema({
   pathways: defineTable({
+    userId: v.optional(v.string()),
     title: v.string(),
     description: v.optional(v.string()),
     parentId: v.optional(v.id("pathways")),
     pathIds: v.optional(v.array(v.id("paths"))),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_parent", ["parentId"]),
+  }).index("by_user", ["userId"])
+    .index("by_parent", ["parentId"]),
 
   paths: defineTable({
+    userId: v.optional(v.string()),
     title: v.string(),
     description: v.optional(v.string()),
     parentId: v.optional(v.id("paths")),           // Self-ref for hierarchy
@@ -19,10 +22,12 @@ export default defineSchema({
     connectedStepIds: v.optional(v.array(v.id("steps"))), // Path-to-Step connections
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_parent", ["parentId"]),
+  }).index("by_user", ["userId"])
+    .index("by_parent", ["parentId"]),
 
   // Routines are blueprints that spawn steps on a schedule
   routines: defineTable({
+    userId: v.optional(v.string()),
     title: v.string(),
     description: v.optional(v.string()),
     pathId: v.optional(v.id("paths")),
@@ -46,9 +51,10 @@ export default defineSchema({
     autoPrioritize: v.optional(v.boolean()),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }),
+  }).index("by_user", ["userId"]),
 
   steps: defineTable({
+    userId: v.optional(v.string()),
     title: v.string(),
     description: v.optional(v.string()),
     completed: v.boolean(),
@@ -71,17 +77,13 @@ export default defineSchema({
     // TEMPORARY: Legacy fields to be removed after migration
     recurring: v.optional(v.any()),
     recurringSourceId: v.optional(v.any()),
-  }).index("by_path", ["pathId"])
+  }).index("by_user", ["userId"])
+    .index("by_path", ["pathId"])
     .index("by_parent", ["parentId"])
     .index("by_routine", ["routineId"]),
 
-  users: defineTable({
-    email: v.string(),
-    passwordHash: v.string(),
-  }).index("by_email", ["email"]),
-
   userSettings: defineTable({
-    userId: v.id("users"),
+    userId: v.string(),
     theme: v.object({
       background: v.string(),
       foreground: v.string(),
