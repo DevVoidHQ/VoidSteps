@@ -331,7 +331,7 @@ export class SyncEngine {
     if (!resolvedUserId || this.isLocalId(resolvedUserId)) return;
 
     await this.client.mutation(api.userSettings.updateUserSettings, {
-      userId: resolvedUserId as Id<'users'>,
+      userId: resolvedUserId,
       theme: localSettings.theme as any,
     });
 
