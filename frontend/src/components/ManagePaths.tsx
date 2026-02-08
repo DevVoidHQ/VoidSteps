@@ -2,12 +2,11 @@ import { useState, useMemo } from "react";
 import { Button, Input, Card, CardContent } from "@devvoid/ui";
 import { Plus, Pencil, ChevronRight } from "lucide-react";
 import type { Path, Step } from "@/types";
-import type { Id } from "../../convex/_generated/dataModel";
 import {
   useCreatePath,
   useUpdatePath,
   useDeletePath,
-} from "@/lib/convex-hooks";
+} from "@/lib/local-mutations";
 
 interface ManagePathsProps {
   paths: Path[];
@@ -76,14 +75,14 @@ export default function ManagePaths({ paths, steps }: ManagePathsProps) {
       await createPathMutation({
         title: titleValue.trim(),
         description: descValue.trim() || undefined,
-        parentId: parentIdValue ? (parentIdValue as Id<"paths">) : undefined,
+        parentId: parentIdValue || undefined,
         connectedPathIds:
           selectedConnectedPathIds.length > 0
-            ? selectedConnectedPathIds.map((id) => id as Id<"paths">)
+            ? selectedConnectedPathIds
             : undefined,
         connectedStepIds:
           selectedConnectedStepIds.length > 0
-            ? selectedConnectedStepIds.map((id) => id as Id<"steps">)
+            ? selectedConnectedStepIds
             : undefined,
       });
       setTitleValue("");
@@ -102,19 +101,17 @@ export default function ManagePaths({ paths, steps }: ManagePathsProps) {
 
     try {
       await updatePathMutation({
-        id: id as Id<"paths">,
+        id,
         title: editForm.title.trim(),
         description: editForm.description.trim() || undefined,
-        parentId: editForm.parentId
-          ? (editForm.parentId as Id<"paths">)
-          : null,
+        parentId: editForm.parentId || null,
         connectedPathIds:
           editForm.connectedPathIds.length > 0
-            ? editForm.connectedPathIds.map((id) => id as Id<"paths">)
+            ? editForm.connectedPathIds
             : undefined,
         connectedStepIds:
           editForm.connectedStepIds.length > 0
-            ? editForm.connectedStepIds.map((id) => id as Id<"steps">)
+            ? editForm.connectedStepIds
             : undefined,
       });
       setEditingPath(null);
@@ -126,7 +123,7 @@ export default function ManagePaths({ paths, steps }: ManagePathsProps) {
   // Delete path
   const deletePath = async (id: string) => {
     try {
-      await deletePathMutation({ id: id as Id<"paths"> });
+      await deletePathMutation({ id });
     } catch (error) {
       console.error("Error deleting path:", error);
     }

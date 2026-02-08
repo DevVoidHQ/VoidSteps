@@ -4,9 +4,8 @@ import {
   useCreatePath,
   useUpdatePath,
   useDeletePath,
-} from "@/lib/convex-hooks";
+} from "@/lib/local-mutations";
 import { useData } from "@/contexts/DataContext";
-import type { Id } from "../../convex/_generated/dataModel";
 import { Button, Input, Card, CardContent } from "@devvoid/ui";
 import {
   Plus,
@@ -68,7 +67,7 @@ export default function Paths() {
       await createPathMutation({
         title,
         description: description || undefined,
-        parentId: parentId ? (parentId as Id<"paths">) : undefined,
+        parentId: parentId || undefined,
       });
     } catch (error) {
       console.error("Error creating path:", error);
@@ -78,10 +77,10 @@ export default function Paths() {
   const updatePath = async (id: string, title: string, description: string, parentId: string) => {
     try {
       await updatePathMutation({
-        id: id as Id<"paths">,
+        id,
         title,
         description: description || undefined,
-        parentId: parentId ? (parentId as Id<"paths">) : null,
+        parentId: parentId || null,
       });
       setEditingPath(null);
     } catch (error) {
@@ -104,7 +103,7 @@ export default function Paths() {
   };
 
   const deletePath = async (id: string) => {
-    await deletePathMutation({ id: id as Id<"paths"> });
+    await deletePathMutation({ id });
   };
 
   const getPathStats = (pathId: string) => {

@@ -1,8 +1,7 @@
 import { useState, useCallback } from "react";
 import type { Routine, Path } from "@/types/index";
-import { useCreateRoutine, useUpdateRoutine, useDeleteRoutine } from "@/lib/convex-hooks";
+import { useCreateRoutine, useUpdateRoutine, useDeleteRoutine } from "@/lib/local-mutations";
 import { useData } from "@/contexts/DataContext";
-import type { Id } from "../../convex/_generated/dataModel";
 import { Button, Card, CardContent, Input, Textarea } from "@devvoid/ui";
 import {
   Plus,
@@ -143,7 +142,7 @@ export default function Routines() {
     await createRoutineMutation({
       title: formData.title.trim(),
       description: formData.description.trim() || undefined,
-      pathId: formData.pathId ? (formData.pathId as Id<"paths">) : undefined,
+      pathId: formData.pathId || undefined,
       frequency: formData.frequency,
       daysOfWeek: formData.frequency === 'weekly' ? formData.daysOfWeek : undefined,
       dayOfMonth: formData.frequency === 'monthly' ? formData.dayOfMonth : undefined,
@@ -159,10 +158,10 @@ export default function Routines() {
     if (!editingId || !formData.title.trim()) return;
 
     await updateRoutineMutation({
-      id: editingId as Id<"routines">,
+      id: editingId,
       title: formData.title.trim(),
       description: formData.description.trim() || undefined,
-      pathId: formData.pathId ? (formData.pathId as Id<"paths">) : null,
+      pathId: formData.pathId || null,
       frequency: formData.frequency,
       daysOfWeek: formData.frequency === 'weekly' ? formData.daysOfWeek : null,
       dayOfMonth: formData.frequency === 'monthly' ? formData.dayOfMonth : null,
@@ -175,7 +174,7 @@ export default function Routines() {
   }, [editingId, formData, updateRoutineMutation, resetForm]);
 
   const handleDelete = useCallback(async (id: string) => {
-    await deleteRoutineMutation({ id: id as Id<"routines"> });
+    await deleteRoutineMutation({ id });
   }, [deleteRoutineMutation]);
 
   const toggleDayOfWeek = useCallback((day: number) => {

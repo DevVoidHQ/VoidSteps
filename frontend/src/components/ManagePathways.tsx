@@ -2,12 +2,11 @@ import { useState } from "react";
 import { Button, Input, Card, CardContent } from "@devvoid/ui";
 import { Plus, Pencil } from "lucide-react";
 import type { Pathway, Path } from "@/types";
-import type { Id } from "../../convex/_generated/dataModel";
 import {
   useCreatePathway,
   useUpdatePathway,
   useDeletePathway,
-} from "@/lib/convex-hooks";
+} from "@/lib/local-mutations";
 import PathSelector from "./PathSelector";
 
 interface ManagePathwaysProps {
@@ -46,10 +45,10 @@ export default function ManagePathways({
       await createPathwayMutation({
         title: titleValue.trim(),
         description: descValue.trim() || undefined,
-        parentId: parentIdValue ? (parentIdValue as Id<"pathways">) : undefined,
+        parentId: parentIdValue || undefined,
         pathIds:
           selectedPathIds.length > 0
-            ? selectedPathIds.map((id) => id as Id<"paths">)
+            ? selectedPathIds
             : undefined,
       });
       setTitleValue("");
@@ -67,15 +66,13 @@ export default function ManagePathways({
 
     try {
       await updatePathwayMutation({
-        id: id as Id<"pathways">,
+        id,
         title: editForm.title.trim(),
         description: editForm.description.trim() || undefined,
-        parentId: editForm.parentId
-          ? (editForm.parentId as Id<"pathways">)
-          : undefined,
+        parentId: editForm.parentId || undefined,
         pathIds:
           editForm.pathIds.length > 0
-            ? editForm.pathIds.map((id) => id as Id<"paths">)
+            ? editForm.pathIds
             : undefined,
       });
       setEditingPathway(null);
@@ -87,7 +84,7 @@ export default function ManagePathways({
   // Delete pathway
   const deletePathway = async (id: string) => {
     try {
-      await deletePathwayMutation({ id: id as Id<"pathways"> });
+      await deletePathwayMutation({ id });
     } catch (error) {
       console.error("Error deleting pathway:", error);
     }
