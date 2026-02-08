@@ -11,6 +11,7 @@ import Paths from '@/pages/Paths';
 import Routines from '@/pages/Routines';
 import Pathway from '@/pages/Pathway';
 import Settings from '@/pages/Settings';
+import Landing from '@/pages/Landing';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -53,11 +54,13 @@ function AppRoutes() {
       <Route
         path="/"
         element={
-          <PrivateRoute>
+          user ? (
             <Layout key={location.pathname}>
               <Today />
             </Layout>
-          </PrivateRoute>
+          ) : (
+            <Landing />
+          )
         }
       />
       <Route
