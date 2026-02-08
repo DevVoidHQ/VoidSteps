@@ -7,6 +7,7 @@ import { SyncEngine } from '@/lib/sync-engine';
 import { performInitialSync } from '@/lib/initial-sync';
 import { startRoutineSpawner } from '@/lib/routine-spawner';
 import { useOnlineStatus } from '@/lib/online-status';
+import LoadingScreen from '@/components/LoadingScreen';
 
 interface OfflineContextType {
   isOnline: boolean;
@@ -134,14 +135,7 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Show loading during first-ever sync
   if (isInitialSyncing) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Syncing data...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Syncing data..." />;
   }
 
   return (
