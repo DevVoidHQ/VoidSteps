@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
+import { OfflineProvider } from '@/contexts/OfflineContext';
 import { DataProvider } from '@/contexts/DataContext';
 import Layout from '@/components/Layout';
 import Login from '@/pages/Login';
@@ -118,9 +119,11 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <ThemeProvider>
-          <DataProvider>
-            <AppRoutes />
-          </DataProvider>
+          <OfflineProvider>
+            <DataProvider>
+              <AppRoutes />
+            </DataProvider>
+          </OfflineProvider>
         </ThemeProvider>
       </AuthProvider>
     </BrowserRouter>

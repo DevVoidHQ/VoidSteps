@@ -9,9 +9,8 @@ import {
   useUpdateStepParent,
   useStartTimer,
   useStopTimer,
-} from "@/lib/convex-hooks";
+} from "@/lib/local-mutations";
 import { useData } from "@/contexts/DataContext";
-import type { Id } from "../../convex/_generated/dataModel";
 import { Input, Button } from "@devvoid/ui";
 import {
   Star,
@@ -33,9 +32,6 @@ export default function Today() {
     paths,
     activeSteps,
     completedStepsToday,
-    applyOptimisticUpdate,
-    applyOptimisticDelete,
-    clearOptimisticDelete,
     activeTimerStepId,
   } = useData();
 
@@ -133,68 +129,47 @@ export default function Today() {
     [filterSteps, unfilteredTodayCompletedSteps, searchQueryToday, selectedPathFilterToday]
   );
 
-  // Stable callbacks with optimistic updates
+  // Stable callbacks
   const toggleStep = useCallback(async (id: string) => {
-    const step = activeSteps?.find(s => s._id === id) || completedStepsToday?.find(s => s._id === id);
-    if (step) {
-      applyOptimisticUpdate(id, {
-        completed: !step.completed,
-        failed: false,
-        completedAt: !step.completed ? Date.now() : undefined,
-      });
-    }
     try {
-      await toggleStepMutation({ id: id as Id<"steps"> });
+      await toggleStepMutation({ id });
     } catch (error) {
       console.error("Error toggling step:", error);
     }
-  }, [activeSteps, completedStepsToday, toggleStepMutation, applyOptimisticUpdate]);
+  }, [toggleStepMutation]);
 
   const toggleFailed = useCallback(async (id: string) => {
-    const step = activeSteps?.find(s => s._id === id);
-    if (step) {
-      const currentFailed = step.failed ?? false;
-      applyOptimisticUpdate(id, {
-        failed: !currentFailed,
-        completed: false,
-        failedAt: !currentFailed ? Date.now() : undefined,
-        completedAt: undefined,
-      });
-    }
     try {
-      await toggleFailedMutation({ id: id as Id<"steps"> });
+      await toggleFailedMutation({ id });
     } catch (error) {
       console.error("Error toggling failed:", error);
     }
-  }, [activeSteps, toggleFailedMutation, applyOptimisticUpdate]);
+  }, [toggleFailedMutation]);
 
   const togglePriority = useCallback(async (id: string, currentValue: boolean) => {
-    applyOptimisticUpdate(id, { prioritizedToday: !currentValue });
     try {
       await updateStepMutation({
-        id: id as Id<"steps">,
+        id,
         prioritizedToday: !currentValue,
       });
     } catch (error) {
       console.error("Error toggling priority:", error);
     }
-  }, [updateStepMutation, applyOptimisticUpdate]);
+  }, [updateStepMutation]);
 
   const deleteStep = useCallback(async (id: string) => {
-    applyOptimisticDelete(id);
     try {
-      await deleteStepMutation({ id: id as Id<"steps"> });
+      await deleteStepMutation({ id });
     } catch (error) {
-      clearOptimisticDelete(id);
       console.error("Error deleting step:", error);
     }
-  }, [deleteStepMutation, applyOptimisticDelete, clearOptimisticDelete]);
+  }, [deleteStepMutation]);
 
   const handleReorder = useCallback(async (stepIds: string[], parentId?: string) => {
     try {
       await reorderStepsMutation({
-        stepIds: stepIds as Id<"steps">[],
-        parentId: parentId as Id<"steps"> | undefined,
+        stepIds,
+        parentId,
       });
     } catch (error) {
       console.error("Error reordering steps:", error);
@@ -204,8 +179,8 @@ export default function Today() {
   const handleUpdateParent = useCallback(async (stepId: string, newParentId: string | undefined) => {
     try {
       await updateStepParentMutation({
-        id: stepId as Id<"steps">,
-        parentId: newParentId as Id<"steps"> | undefined,
+        id: stepId,
+        parentId: newParentId,
       });
     } catch (error) {
       console.error("Error updating step parent:", error);
@@ -214,13 +189,13 @@ export default function Today() {
 
   const updateStep = useCallback(async (id: string, updates: Partial<Step>) => {
     try {
-      const updateData: any = { id: id as Id<"steps"> };
+      const updateData: any = { id };
       if (updates.title !== undefined) updateData.title = updates.title;
       if (updates.description !== undefined) updateData.description = updates.description;
       if (updates.completed !== undefined) updateData.completed = updates.completed;
       if (updates.pathId !== undefined) {
         updateData.pathId = updates.pathId
-          ? (typeof updates.pathId === 'string' ? updates.pathId as Id<"paths"> : null)
+          ? (typeof updates.pathId === 'string' ? updates.pathId : null)
           : null;
       }
       if (updates.prioritizedToday !== undefined) updateData.prioritizedToday = updates.prioritizedToday;
@@ -257,14 +232,14 @@ export default function Today() {
     try {
       // If clicking on the currently active timer, stop it
       if (activeTimerStepId === id) {
-        await stopTimerMutation({ id: id as Id<"steps"> });
+        await stopTimerMutation({ id });
       } else {
         // If there's a different timer running, stop it first
         if (activeTimerStepId) {
-          await stopTimerMutation({ id: activeTimerStepId as Id<"steps"> });
+          await stopTimerMutation({ id: activeTimerStepId });
         }
         // Start the new timer
-        await startTimerMutation({ id: id as Id<"steps"> });
+        await startTimerMutation({ id });
       }
     } catch (error) {
       console.error("Error toggling timer:", error);

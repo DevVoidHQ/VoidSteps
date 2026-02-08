@@ -1,6 +1,14 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
+// Get all user settings (for sync)
+export const getAllUserSettings = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("userSettings").collect();
+  },
+});
+
 // Get user settings
 export const getUserSettings = query({
   args: { userId: v.id("users") },
