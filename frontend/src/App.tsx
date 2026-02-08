@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@clerk/clerk-react';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { OfflineProvider } from '@/contexts/OfflineContext';
 import { DataProvider } from '@/contexts/DataContext';
@@ -14,108 +14,49 @@ import Routines from '@/pages/Routines';
 import Pathway from '@/pages/Pathway';
 import Settings from '@/pages/Settings';
 
-function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
-
-  if (isLoading) {
-    return <LoadingScreen />;
-  }
-
-  return user ? <>{children}</> : <Navigate to="/login" />;
-}
-
 function AppRoutes() {
-  const { user, isLoading } = useAuth();
+  const { isSignedIn, isLoaded } = useUser();
   const location = useLocation();
 
-  if (isLoading) {
+  if (!isLoaded) {
     return <LoadingScreen />;
   }
 
+  // Unauthenticated routes
+  if (!isSignedIn) {
+    return (
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/login/*" element={<Login />} />
+        <Route path="*" element={<Navigate to="/login" />} />
+      </Routes>
+    );
+  }
+
+  // Authenticated routes — wrapped in sync providers
   return (
-    <Routes>
-      <Route
-        path="/login"
-        element={user ? <Navigate to="/" /> : <Login />}
-      />
-      <Route
-        path="/"
-        element={
-          user ? (
-            <Layout key={location.pathname}>
-              <Today />
-            </Layout>
-          ) : (
-            <Landing />
-          )
-        }
-      />
-      <Route
-        path="/steps"
-        element={
-          <PrivateRoute>
-            <Layout key={location.pathname}>
-              <Steps />
-            </Layout>
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/paths"
-        element={
-          <PrivateRoute>
-            <Layout key={location.pathname}>
-              <Paths />
-            </Layout>
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/routines"
-        element={
-          <PrivateRoute>
-            <Layout key={location.pathname}>
-              <Routines />
-            </Layout>
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/pathway"
-        element={
-          <PrivateRoute>
-            <Layout key={location.pathname}>
-              <Pathway />
-            </Layout>
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/settings"
-        element={
-          <PrivateRoute>
-            <Layout key={location.pathname}>
-              <Settings />
-            </Layout>
-          </PrivateRoute>
-        }
-      />
-    </Routes>
+    <OfflineProvider>
+      <DataProvider>
+        <Routes>
+          <Route path="/login" element={<Navigate to="/" />} />
+          <Route path="/" element={<Layout key={location.pathname}><Today /></Layout>} />
+          <Route path="/steps" element={<Layout key={location.pathname}><Steps /></Layout>} />
+          <Route path="/paths" element={<Layout key={location.pathname}><Paths /></Layout>} />
+          <Route path="/routines" element={<Layout key={location.pathname}><Routines /></Layout>} />
+          <Route path="/pathway" element={<Layout key={location.pathname}><Pathway /></Layout>} />
+          <Route path="/settings" element={<Layout key={location.pathname}><Settings /></Layout>} />
+        </Routes>
+      </DataProvider>
+    </OfflineProvider>
   );
 }
 
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <ThemeProvider>
-          <OfflineProvider>
-            <DataProvider>
-              <AppRoutes />
-            </DataProvider>
-          </OfflineProvider>
-        </ThemeProvider>
-      </AuthProvider>
+      <ThemeProvider>
+        <AppRoutes />
+      </ThemeProvider>
     </BrowserRouter>
   );
 }

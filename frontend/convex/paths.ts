@@ -1,24 +1,39 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 
+async function requireAuth(ctx: { auth: any }) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) throw new Error("Unauthenticated");
+  return identity.subject;
+}
+
 // Queries
 export const getPaths = query({
   handler: async (ctx) => {
-    return await ctx.db.query("paths").order("desc").collect();
+    const userId = await requireAuth(ctx);
+    return await ctx.db.query("paths")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .order("desc").collect();
   },
 });
 
 export const getPath = query({
   args: { id: v.id("paths") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    const userId = await requireAuth(ctx);
+    const path = await ctx.db.get(args.id);
+    if (!path || path.userId !== userId) return null;
+    return path;
   },
 });
 
 // Get root paths (paths with no parent)
 export const getRootPaths = query({
   handler: async (ctx) => {
-    const allPaths = await ctx.db.query("paths").collect();
+    const userId = await requireAuth(ctx);
+    const allPaths = await ctx.db.query("paths")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
     return allPaths.filter((path) => !path.parentId);
   },
 });
@@ -27,10 +42,12 @@ export const getRootPaths = query({
 export const getChildPaths = query({
   args: { parentId: v.id("paths") },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const userId = await requireAuth(ctx);
+    const children = await ctx.db
       .query("paths")
       .withIndex("by_parent", (q) => q.eq("parentId", args.parentId))
       .collect();
+    return children.filter(c => c.userId === userId);
   },
 });
 
@@ -44,8 +61,10 @@ export const createPath = mutation({
     connectedStepIds: v.optional(v.array(v.id("steps"))),
   },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     const now = Date.now();
     const pathId = await ctx.db.insert("paths", {
+      userId,
       title: args.title,
       description: args.description,
       parentId: args.parentId,
@@ -91,10 +110,11 @@ export const updatePath = mutation({
     connectedStepIds: v.optional(v.array(v.id("steps"))),
   },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     const { id, parentId, ...otherUpdates } = args;
 
     const existing = await ctx.db.get(id);
-    if (!existing) throw new Error("Path not found");
+    if (!existing || existing.userId !== userId) throw new Error("Path not found");
 
     // Check for circular reference if parentId is being updated
     if (parentId !== undefined && parentId !== null) {
@@ -118,6 +138,10 @@ export const updatePath = mutation({
 export const deletePath = mutation({
   args: { id: v.id("paths") },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+    const path = await ctx.db.get(args.id);
+    if (!path || path.userId !== userId) throw new Error("Not found");
+
     // Orphan children (set their parentId to null)
     const children = await ctx.db
       .query("paths")

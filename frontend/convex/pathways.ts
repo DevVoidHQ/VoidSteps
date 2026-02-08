@@ -1,17 +1,29 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 
+async function requireAuth(ctx: { auth: any }) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) throw new Error("Unauthenticated");
+  return identity.subject;
+}
+
 // Queries
 export const getPathways = query({
   handler: async (ctx) => {
-    return await ctx.db.query("pathways").order("desc").collect();
+    const userId = await requireAuth(ctx);
+    return await ctx.db.query("pathways")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .order("desc").collect();
   },
 });
 
 export const getPathway = query({
   args: { id: v.id("pathways") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    const userId = await requireAuth(ctx);
+    const pathway = await ctx.db.get(args.id);
+    if (!pathway || pathway.userId !== userId) return null;
+    return pathway;
   },
 });
 
@@ -24,8 +36,10 @@ export const createPathway = mutation({
     pathIds: v.optional(v.array(v.id("paths"))),
   },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     const now = Date.now();
     const pathwayId = await ctx.db.insert("pathways", {
+      userId,
       title: args.title,
       description: args.description,
       parentId: args.parentId,
@@ -47,10 +61,11 @@ export const updatePathway = mutation({
     pathIds: v.optional(v.array(v.id("paths"))),
   },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     const { id, ...updates } = args;
 
     const existing = await ctx.db.get(id);
-    if (!existing) throw new Error("Pathway not found");
+    if (!existing || existing.userId !== userId) throw new Error("Pathway not found");
 
     await ctx.db.patch(id, {
       ...updates,
@@ -64,6 +79,9 @@ export const updatePathway = mutation({
 export const deletePathway = mutation({
   args: { id: v.id("pathways") },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+    const pathway = await ctx.db.get(args.id);
+    if (!pathway || pathway.userId !== userId) throw new Error("Not found");
     await ctx.db.delete(args.id);
     return { success: true, message: "Pathway deleted successfully" };
   },

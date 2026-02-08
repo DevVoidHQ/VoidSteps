@@ -1,10 +1,19 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 
+async function requireAuth(ctx: { auth: any }) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) throw new Error("Unauthenticated");
+  return identity.subject;
+}
+
 // Queries
 export const getSteps = query({
   handler: async (ctx) => {
-    const steps = await ctx.db.query("steps").order("desc").collect();
+    const userId = await requireAuth(ctx);
+    const steps = await ctx.db.query("steps")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .order("desc").collect();
 
     // Populate pathId references
     const stepsWithPaths = await Promise.all(
@@ -24,8 +33,9 @@ export const getSteps = query({
 export const getStep = query({
   args: { id: v.id("steps") },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     const step = await ctx.db.get(args.id);
-    if (!step) return null;
+    if (!step || step.userId !== userId) return null;
 
     if (step.pathId) {
       const path = await ctx.db.get(step.pathId);
@@ -38,6 +48,7 @@ export const getStep = query({
 
 export const getActiveSteps = query({
   handler: async (ctx) => {
+    const userId = await requireAuth(ctx);
     const now = Date.now();
     // Get start of today for startDate comparison
     const today = new Date(now);
@@ -46,6 +57,7 @@ export const getActiveSteps = query({
 
     const allSteps = await ctx.db
       .query("steps")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .filter((q) => q.eq(q.field("completed"), false))
       .order("desc")
       .collect();
@@ -83,6 +95,7 @@ export const getActiveSteps = query({
 
 export const getUpcomingSteps = query({
   handler: async (ctx) => {
+    const userId = await requireAuth(ctx);
     const now = Date.now();
     // Get start of today for startDate comparison
     const today = new Date(now);
@@ -91,6 +104,7 @@ export const getUpcomingSteps = query({
 
     const allSteps = await ctx.db
       .query("steps")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .filter((q) => q.eq(q.field("completed"), false))
       .order("desc")
       .collect();
@@ -129,6 +143,7 @@ export const getCompletedStepsToday = query({
     startOfDayTimestamp: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     // Use provided timestamp (from user's timezone) or calculate in server timezone as fallback
     let startOfTodayTimestamp: number;
     if (args.startOfDayTimestamp !== undefined) {
@@ -142,6 +157,7 @@ export const getCompletedStepsToday = query({
 
     const steps = await ctx.db
       .query("steps")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .filter((q) =>
         q.and(
           q.eq(q.field("completed"), true),
@@ -168,8 +184,10 @@ export const getCompletedStepsToday = query({
 
 export const getFailedSteps = query({
   handler: async (ctx) => {
+    const userId = await requireAuth(ctx);
     const allSteps = await ctx.db
       .query("steps")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .order("desc")
       .collect();
 
@@ -194,13 +212,17 @@ export const getFailedSteps = query({
 export const getChildSteps = query({
   args: { parentId: v.id("steps") },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     const children = await ctx.db
       .query("steps")
       .withIndex("by_parent", (q) => q.eq("parentId", args.parentId))
       .collect();
 
+    // Filter to only this user's children
+    const ownedChildren = children.filter(c => c.userId === userId);
+
     // Sort by sortOrder (ascending) with fallback to createdAt
-    const sortedChildren = children.sort((a, b) => {
+    const sortedChildren = ownedChildren.sort((a, b) => {
       const orderA = a.sortOrder ?? a.createdAt;
       const orderB = b.sortOrder ?? b.createdAt;
       return orderA - orderB;
@@ -234,12 +256,13 @@ export const createStep = mutation({
     startDate: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     const now = Date.now();
 
     // If parentId is provided, validate it exists and is not itself a child (enforce 1 level)
     if (args.parentId) {
       const parent = await ctx.db.get(args.parentId);
-      if (!parent) throw new Error("Parent step not found");
+      if (!parent || parent.userId !== userId) throw new Error("Parent step not found");
       if (parent.parentId) throw new Error("Cannot nest more than 1 level deep");
     }
 
@@ -256,6 +279,7 @@ export const createStep = mutation({
       // Get root-level active steps (no parent)
       const allActiveSteps = await ctx.db
         .query("steps")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
         .filter((q) => q.eq(q.field("completed"), false))
         .collect();
       siblingSteps = allActiveSteps.filter((s) => !s.parentId);
@@ -271,6 +295,7 @@ export const createStep = mutation({
     const newSortOrder = minSortOrder - 1;
 
     const stepId = await ctx.db.insert("steps", {
+      userId,
       title: args.title,
       description: args.description,
       completed: false,
@@ -311,10 +336,11 @@ export const updateStep = mutation({
     startDate: v.optional(v.union(v.number(), v.null())),
   },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     const { id, ...updates } = args;
 
     const existing = await ctx.db.get(id);
-    if (!existing) throw new Error("Step not found");
+    if (!existing || existing.userId !== userId) throw new Error("Step not found");
 
     const now = Date.now();
     const patchData: any = {
@@ -379,6 +405,10 @@ export const updateStep = mutation({
 export const deleteStep = mutation({
   args: { id: v.id("steps") },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+    const step = await ctx.db.get(args.id);
+    if (!step || step.userId !== userId) throw new Error("Not found");
+
     // Cascade delete: delete all children first
     const children = await ctx.db
       .query("steps")
@@ -397,8 +427,9 @@ export const deleteStep = mutation({
 export const toggleStepCompletion = mutation({
   args: { id: v.id("steps") },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     const step = await ctx.db.get(args.id);
-    if (!step) throw new Error("Step not found");
+    if (!step || step.userId !== userId) throw new Error("Step not found");
 
     const now = Date.now();
     const newCompletedState = !step.completed;
@@ -426,8 +457,9 @@ export const toggleStepCompletion = mutation({
 export const toggleStepFailed = mutation({
   args: { id: v.id("steps") },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     const step = await ctx.db.get(args.id);
-    if (!step) throw new Error("Step not found");
+    if (!step || step.userId !== userId) throw new Error("Step not found");
 
     const now = Date.now();
     // Handle undefined as false for backward compatibility
@@ -460,18 +492,21 @@ export const reorderSteps = mutation({
     parentId: v.optional(v.id("steps")),
   },
   handler: async (ctx, { stepIds, parentId }) => {
+    const userId = await requireAuth(ctx);
     const now = Date.now();
 
     // Update sortOrder for each step based on position in array
     // Also ensure they all have the correct parentId
     await Promise.all(
-      stepIds.map((stepId, index) =>
-        ctx.db.patch(stepId, {
+      stepIds.map(async (stepId, index) => {
+        const step = await ctx.db.get(stepId);
+        if (!step || step.userId !== userId) throw new Error("Not found");
+        return ctx.db.patch(stepId, {
           sortOrder: index,
           parentId: parentId,
           updatedAt: now,
-        })
-      )
+        });
+      })
     );
 
     return { success: true };
@@ -484,13 +519,14 @@ export const updateStepParent = mutation({
     parentId: v.optional(v.id("steps")),
   },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     const step = await ctx.db.get(args.id);
-    if (!step) throw new Error("Step not found");
+    if (!step || step.userId !== userId) throw new Error("Step not found");
 
     // Validate new parent if provided
     if (args.parentId) {
       const parent = await ctx.db.get(args.parentId);
-      if (!parent) throw new Error("Parent step not found");
+      if (!parent || parent.userId !== userId) throw new Error("Parent step not found");
       if (parent.parentId) throw new Error("Cannot nest more than 1 level deep");
       // Prevent circular reference
       if (args.parentId === args.id) throw new Error("Step cannot be its own parent");
@@ -529,8 +565,9 @@ export const updateStepParent = mutation({
 export const startTimer = mutation({
   args: { id: v.id("steps") },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     const step = await ctx.db.get(args.id);
-    if (!step) throw new Error("Step not found");
+    if (!step || step.userId !== userId) throw new Error("Step not found");
 
     const now = Date.now();
     await ctx.db.patch(args.id, {
@@ -553,8 +590,9 @@ export const startTimer = mutation({
 export const stopTimer = mutation({
   args: { id: v.id("steps") },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     const step = await ctx.db.get(args.id);
-    if (!step) throw new Error("Step not found");
+    if (!step || step.userId !== userId) throw new Error("Step not found");
 
     const now = Date.now();
 

@@ -1,4 +1,4 @@
-import { useAuth } from '@/contexts/AuthContext';
+import { useClerk, useUser } from '@clerk/clerk-react';
 import { Button } from '@devvoid/ui';
 import { LogOut, Settings, Calendar, ListTodo, Target, Zap, Network, X } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -9,7 +9,8 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
-  const { logout } = useAuth();
+  const { signOut } = useClerk();
+  const { user } = useUser();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -58,7 +59,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       <div className="p-6 border-b border-border">
         <div className="flex items-center justify-between mb-2">
           <div className="flex-1">
-            <p className="text-sm text-muted-foreground">Welcome, Aneesh</p>
+            <p className="text-sm text-muted-foreground">Welcome, {user?.firstName || 'User'}</p>
             <h2 className="text-2xl font-bold mt-1">Today</h2>
           </div>
           {/* Close button for mobile */}
@@ -115,7 +116,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         </button>
         <Button
           variant="ghost"
-          onClick={logout}
+          onClick={() => signOut({ redirectUrl: '/' })}
           className="w-full justify-start text-muted-foreground hover:text-foreground"
         >
           <LogOut className="w-5 h-5 mr-3" />

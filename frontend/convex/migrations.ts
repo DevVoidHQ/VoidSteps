@@ -1,4 +1,24 @@
+import { v } from "convex/values";
 import { mutation } from "./_generated/server";
+
+// Backfill userId on all existing records (run once after first Clerk sign-in)
+export const backfillUserId = mutation({
+  args: { userId: v.string() },
+  handler: async (ctx, { userId }) => {
+    const tables = ["steps", "paths", "routines", "pathways"] as const;
+    let total = 0;
+    for (const table of tables) {
+      const records = await ctx.db.query(table).collect();
+      for (const record of records) {
+        if (!record.userId) {
+          await ctx.db.patch(record._id, { userId } as any);
+          total++;
+        }
+      }
+    }
+    return { backfilled: total };
+  },
+});
 
 // One-time migration to clean up interval field from recurring object
 export const cleanupLegacyFields = mutation({

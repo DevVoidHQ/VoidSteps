@@ -152,14 +152,9 @@ export const useCreateRoutine = () => useMutation(api.routines.createRoutine);
 export const useUpdateRoutine = () => useMutation(api.routines.updateRoutine);
 export const useDeleteRoutine = () => useMutation(api.routines.deleteRoutine);
 
-// Auth
-export const useLogin = () => useMutation(api.auth.login);
-export const useVerify = (token: string | null) =>
-  useQuery(api.auth.verify, token ? { token } : "skip");
-
 // User Settings
 export const useUserSettings = (userId: string | null) =>
-  useQuery(api.userSettings.getUserSettings, userId ? { userId: userId as Id<"users"> } : "skip");
+  useQuery(api.userSettings.getUserSettings, userId ? { userId } : "skip");
 export const useUpdateUserSettings = () => useMutation(api.userSettings.updateUserSettings);
 
 // Step Reordering

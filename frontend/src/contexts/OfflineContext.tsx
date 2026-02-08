@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
-import { useConvex } from 'convex/react';
+import { useAuth, useUser } from '@clerk/clerk-react';
+import { convexClient } from '@/lib/convex-client';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
 import { SyncEngine } from '@/lib/sync-engine';
@@ -17,12 +18,27 @@ interface OfflineContextType {
 
 const OfflineContext = createContext<OfflineContextType | undefined>(undefined);
 
+async function clearLocalData() {
+  await db.transaction('rw', [db.steps, db.paths, db.routines, db.pathways, db.userSettings, db.syncQueue, db.syncMeta], async () => {
+    await db.steps.clear();
+    await db.paths.clear();
+    await db.routines.clear();
+    await db.pathways.clear();
+    await db.userSettings.clear();
+    await db.syncQueue.clear();
+    await db.syncMeta.clear();
+  });
+}
+
 export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const convexClient = useConvex();
+  const { isSignedIn } = useAuth();
+  const { user } = useUser();
   const isOnline = useOnlineStatus();
   const [isInitialSyncing, setIsInitialSyncing] = useState(true);
   const syncEngineRef = useRef<SyncEngine | null>(null);
   const routineCleanupRef = useRef<(() => void) | null>(null);
+
+  const userId = user?.id;
 
   // Reactive pending sync count
   const pendingSyncCount = useLiveQuery(
@@ -38,17 +54,26 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   );
   const lastSyncTime = (lastSyncMeta?.value as number) ?? null;
 
-  // Initialize on mount
+  // Initialize on mount — wait for Convex auth, check if user changed
   useEffect(() => {
+    if (!userId || !isSignedIn) return;
     let mounted = true;
 
     async function init() {
       try {
+        // Check if the local cache belongs to a different user
+        const cachedUser = await db.syncMeta.get('currentUserId');
+        if (cachedUser && cachedUser.value !== userId) {
+          await clearLocalData();
+        }
+
+        // Store current user
+        await db.syncMeta.put({ key: 'currentUserId', value: userId! });
+
         // Check if we need initial sync
         const lastPull = await db.syncMeta.get('lastPullTimestamp');
 
         if (!lastPull && isOnline) {
-          // First-ever load: populate IndexedDB from Convex
           await performInitialSync(convexClient);
         }
 
@@ -57,7 +82,6 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
       } catch (error) {
         console.error('Initial sync error:', error);
-        // Even if sync fails, let the app proceed (may have stale local data)
         if (mounted) {
           setIsInitialSyncing(false);
         }
@@ -69,11 +93,11 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => {
       mounted = false;
     };
-  }, [convexClient, isOnline]);
+  }, [isOnline, userId, isSignedIn]);
 
   // Start sync engine when online
   useEffect(() => {
-    if (isInitialSyncing) return;
+    if (isInitialSyncing || !isSignedIn) return;
 
     const engine = new SyncEngine(convexClient);
     syncEngineRef.current = engine;
@@ -86,7 +110,7 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       engine.stop();
       syncEngineRef.current = null;
     };
-  }, [convexClient, isOnline, isInitialSyncing]);
+  }, [isOnline, isInitialSyncing, isSignedIn]);
 
   // Start routine spawner
   useEffect(() => {
