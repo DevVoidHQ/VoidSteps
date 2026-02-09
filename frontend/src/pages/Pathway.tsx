@@ -342,7 +342,7 @@ const buildEdgesFromData = (
 };
 
 export default function Pathway() {
-  const { paths, allSteps, isLoading } = useData();
+  const { activePaths: paths, allSteps, isLoading } = useData();
   const [mode, setMode] = useState<'pan' | 'edit'>('pan');
   const [activeTab, setActiveTab] = useState<'graph' | 'manage'>('graph');
 
