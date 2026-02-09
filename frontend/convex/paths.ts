@@ -108,10 +108,12 @@ export const updatePath = mutation({
     parentId: v.optional(v.union(v.id("paths"), v.null())),
     connectedPathIds: v.optional(v.array(v.id("paths"))),
     connectedStepIds: v.optional(v.array(v.id("steps"))),
+    archived: v.optional(v.boolean()),
+    archivedAt: v.optional(v.union(v.number(), v.null())),
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
-    const { id, parentId, ...otherUpdates } = args;
+    const { id, parentId, archived, archivedAt, ...otherUpdates } = args;
 
     const existing = await ctx.db.get(id);
     if (!existing || existing.userId !== userId) throw new Error("Path not found");
@@ -127,6 +129,12 @@ export const updatePath = mutation({
     const updates: any = { ...otherUpdates, updatedAt: Date.now() };
     if (parentId !== undefined) {
       updates.parentId = parentId;
+    }
+    if (archived !== undefined) {
+      updates.archived = archived;
+    }
+    if (archivedAt !== undefined) {
+      updates.archivedAt = archivedAt === null ? undefined : archivedAt;
     }
 
     await ctx.db.patch(id, updates);
@@ -154,5 +162,51 @@ export const deletePath = mutation({
 
     await ctx.db.delete(args.id);
     return { success: true, message: "Path deleted successfully" };
+  },
+});
+
+export const deletePathWithMigration = mutation({
+  args: {
+    id: v.id("paths"),
+    destinationPathId: v.optional(v.union(v.id("paths"), v.null())),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+    const path = await ctx.db.get(args.id);
+    if (!path || path.userId !== userId) throw new Error("Not found");
+
+    const now = Date.now();
+
+    // Migrate all steps from this path to destination (or clear pathId)
+    const steps = await ctx.db
+      .query("steps")
+      .withIndex("by_path", (q) => q.eq("pathId", args.id))
+      .collect();
+
+    for (const step of steps) {
+      if (step.userId === userId) {
+        await ctx.db.patch(step._id, {
+          pathId: args.destinationPathId ?? undefined,
+          updatedAt: now,
+        });
+      }
+    }
+
+    // Orphan child paths to the deleted path's parent
+    const children = await ctx.db
+      .query("paths")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.id))
+      .collect();
+
+    for (const child of children) {
+      await ctx.db.patch(child._id, {
+        parentId: path.parentId ?? undefined,
+        updatedAt: now,
+      });
+    }
+
+    // Hard-delete the path
+    await ctx.db.delete(args.id);
+    return { success: true, message: "Path deleted with migration" };
   },
 });

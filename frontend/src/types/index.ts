@@ -16,6 +16,8 @@ export interface Path {
   parentId?: string | null;           // Self-ref for hierarchy
   connectedPathIds?: string[];        // Path-to-Path connections
   connectedStepIds?: string[];        // Path-to-Step connections
+  archived?: boolean;
+  archivedAt?: number;
   createdAt: string | number;
   updatedAt: string | number;
 }
@@ -39,6 +41,8 @@ export interface Step {
   // Timer fields
   timerStartedAt?: number;
   totalTimeSpentMs?: number;
+  archived?: boolean;
+  archivedAt?: number;
   createdAt: string | number;
   updatedAt: string | number;
 }

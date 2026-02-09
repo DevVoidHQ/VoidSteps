@@ -400,6 +400,118 @@ export function useDeletePath() {
   }, []);
 }
 
+export function useArchivePath() {
+  return useCallback(async (args: { id: string }) => {
+    const now = Date.now();
+
+    // Recursively collect all descendant paths
+    const allPathIds: string[] = [args.id];
+    const collectDescendants = async (parentId: string) => {
+      const children = await db.paths
+        .where('parentId')
+        .equals(parentId)
+        .filter(p => !p._deleted)
+        .toArray();
+      for (const child of children) {
+        allPathIds.push(child._id);
+        await collectDescendants(child._id);
+      }
+    };
+    await collectDescendants(args.id);
+
+    // Archive each path and its steps
+    for (const pathId of allPathIds) {
+      await db.paths.update(pathId, { archived: true, archivedAt: now, updatedAt: now });
+      await enqueue('paths', pathId, 'update', { archived: true, archivedAt: now, updatedAt: now });
+
+      const steps = await db.steps
+        .where('pathId')
+        .equals(pathId)
+        .filter(s => !s._deleted)
+        .toArray();
+      for (const step of steps) {
+        await db.steps.update(step._id, { archived: true, archivedAt: now, updatedAt: now });
+        await enqueue('steps', step._id, 'update', { archived: true, archivedAt: now, updatedAt: now });
+      }
+    }
+  }, []);
+}
+
+export function useUnarchivePath() {
+  return useCallback(async (args: { id: string }) => {
+    const now = Date.now();
+
+    // Recursively collect all descendant paths
+    const allPathIds: string[] = [args.id];
+    const collectDescendants = async (parentId: string) => {
+      const children = await db.paths
+        .where('parentId')
+        .equals(parentId)
+        .filter(p => !p._deleted)
+        .toArray();
+      for (const child of children) {
+        allPathIds.push(child._id);
+        await collectDescendants(child._id);
+      }
+    };
+    await collectDescendants(args.id);
+
+    // Unarchive each path and its archived steps
+    for (const pathId of allPathIds) {
+      await db.paths.update(pathId, { archived: false, archivedAt: undefined, updatedAt: now });
+      await enqueue('paths', pathId, 'update', { archived: false, archivedAt: undefined, updatedAt: now });
+
+      const steps = await db.steps
+        .where('pathId')
+        .equals(pathId)
+        .filter(s => !s._deleted && s.archived === true)
+        .toArray();
+      for (const step of steps) {
+        await db.steps.update(step._id, { archived: false, archivedAt: undefined, updatedAt: now });
+        await enqueue('steps', step._id, 'update', { archived: false, archivedAt: undefined, updatedAt: now });
+      }
+    }
+  }, []);
+}
+
+export function useDeletePathWithMigration() {
+  return useCallback(async (args: { id: string; destinationPathId?: string | null }) => {
+    const existing = await db.paths.get(args.id);
+    if (!existing) throw new Error('Path not found');
+
+    const now = Date.now();
+
+    // Migrate all steps from this path to destination
+    const steps = await db.steps
+      .where('pathId')
+      .equals(args.id)
+      .filter(s => !s._deleted)
+      .toArray();
+
+    for (const step of steps) {
+      const newPathId = args.destinationPathId || undefined;
+      await db.steps.update(step._id, { pathId: newPathId, updatedAt: now });
+      await enqueue('steps', step._id, 'update', { pathId: newPathId ?? null, updatedAt: now });
+    }
+
+    // Orphan child paths to deleted path's parent
+    const children = await db.paths
+      .where('parentId')
+      .equals(args.id)
+      .toArray();
+
+    for (const child of children) {
+      const newParentId = existing.parentId || undefined;
+      await db.paths.update(child._id, { parentId: newParentId, updatedAt: now });
+      await enqueue('paths', child._id, 'update', { parentId: newParentId, updatedAt: now });
+    }
+
+    // Soft-delete the path
+    await db.paths.update(args.id, { _deleted: true, updatedAt: now });
+    await enqueue('paths', args.id, 'delete');
+  }, []);
+}
+
 // ============================================================
 // ROUTINES
 // ============================================================

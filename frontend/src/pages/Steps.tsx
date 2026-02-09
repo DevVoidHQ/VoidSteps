@@ -25,7 +25,7 @@ import { HierarchicalPathSelector } from "@/components/HierarchicalPathSelector"
 
 export default function Steps() {
   const {
-    paths,
+    activePaths,
     activeSteps,
     allSteps,
     failedSteps,
@@ -56,7 +56,7 @@ export default function Steps() {
   const [selectedPathFilterSteps, setSelectedPathFilterSteps] = useState("");
 
   // Memoize paths for stable reference
-  const memoizedPaths = useMemo(() => paths || [], [paths]);
+  const memoizedPaths = useMemo(() => activePaths || [], [activePaths]);
 
   // Stable filter function
   const filterSteps = useCallback((
@@ -284,7 +284,7 @@ export default function Steps() {
         />
         <div className="flex space-x-2">
           <HierarchicalPathSelector
-            paths={paths || []}
+            paths={activePaths || []}
             selectedPathId={stepPathValue || null}
             onChange={(id) => setStepPathValue(id || "")}
             placeholder="No Path"
@@ -329,7 +329,7 @@ export default function Steps() {
           />
         </div>
         <HierarchicalPathSelector
-          paths={paths || []}
+          paths={activePaths || []}
           selectedPathId={selectedPathFilterSteps || null}
           onChange={(id) => setSelectedPathFilterSteps(id || "")}
           placeholder="All Paths"

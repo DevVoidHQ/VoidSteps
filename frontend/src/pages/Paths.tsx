@@ -3,7 +3,9 @@ import type { Step, Path } from "@/types/index";
 import {
   useCreatePath,
   useUpdatePath,
-  useDeletePath,
+  useArchivePath,
+  useUnarchivePath,
+  useDeletePathWithMigration,
 } from "@/lib/local-mutations";
 import { useData } from "@/contexts/DataContext";
 import { Button, Input, Card, CardContent } from "@devvoid/ui";
@@ -13,14 +15,19 @@ import {
   Target,
   Pencil,
   ChevronRight,
+  Archive,
+  ArchiveRestore,
 } from "lucide-react";
+import { PathDeleteDialog } from "@/components/PathDeleteDialog";
 
 export default function Paths() {
-  const { paths, allSteps } = useData();
+  const { activePaths, archivedPaths, allSteps } = useData();
 
   const createPathMutation = useCreatePath();
   const updatePathMutation = useUpdatePath();
-  const deletePathMutation = useDeletePath();
+  const archivePathMutation = useArchivePath();
+  const unarchivePathMutation = useUnarchivePath();
+  const deletePathWithMigrationMutation = useDeletePathWithMigration();
 
   const [pathAddValue, setPathAddValue] = useState("");
   const [pathDescValue, setPathDescValue] = useState("");
@@ -31,20 +38,27 @@ export default function Paths() {
     description: "",
     parentId: "",
   });
+  const [showArchived, setShowArchived] = useState(false);
+  const [deleteDialogPath, setDeleteDialogPath] = useState<Path | null>(null);
+
+  // Source paths based on active/archived toggle
+  const sourcePaths = showArchived ? archivedPaths : activePaths;
 
   // Build hierarchical structure
   const { flattenedPaths, childMap } = useMemo(() => {
-    if (!paths) return { flattenedPaths: [], childMap: new Map() };
+    if (!sourcePaths) return { flattenedPaths: [], childMap: new Map() };
 
     const childMap = new Map<string | null, Path[]>();
 
     // Group paths by parentId
-    paths.forEach((path) => {
+    sourcePaths.forEach((path) => {
       const parentId = path.parentId || null;
-      if (!childMap.has(parentId)) {
-        childMap.set(parentId, []);
+      // If parent is not in current set, treat as root
+      const effectiveParentId = sourcePaths.some(p => p._id === parentId) ? parentId : null;
+      if (!childMap.has(effectiveParentId)) {
+        childMap.set(effectiveParentId, []);
       }
-      childMap.get(parentId)!.push(path);
+      childMap.get(effectiveParentId)!.push(path);
     });
 
     // Flatten with depth info
@@ -60,7 +74,7 @@ export default function Paths() {
     rootPaths.forEach((path) => addPathWithChildren(path, 0));
 
     return { flattenedPaths: result, childMap };
-  }, [paths]);
+  }, [sourcePaths]);
 
   const createPath = async (title: string, description?: string, parentId?: string) => {
     try {
@@ -102,8 +116,33 @@ export default function Paths() {
     setEditPathForm({ title: "", description: "", parentId: "" });
   };
 
-  const deletePath = async (id: string) => {
-    await deletePathMutation({ id });
+  const handleArchive = async (id: string) => {
+    try {
+      await archivePathMutation({ id });
+    } catch (error) {
+      console.error("Error archiving path:", error);
+    }
+  };
+
+  const handleUnarchive = async (id: string) => {
+    try {
+      await unarchivePathMutation({ id });
+    } catch (error) {
+      console.error("Error unarchiving path:", error);
+    }
+  };
+
+  const handleDeleteConfirm = async (destinationPathId: string | null) => {
+    if (!deleteDialogPath) return;
+    try {
+      await deletePathWithMigrationMutation({
+        id: deleteDialogPath._id,
+        destinationPathId,
+      });
+    } catch (error) {
+      console.error("Error deleting path:", error);
+    }
+    setDeleteDialogPath(null);
   };
 
   const getPathStats = (pathId: string) => {
@@ -119,6 +158,18 @@ export default function Paths() {
       failed: pathSteps.filter((s: Step) => s.failed === true).length,
       incomplete: pathSteps.filter((s: Step) => !s.completed && s.failed !== true).length,
     };
+  };
+
+  const getStepsInPath = (pathId: string): Step[] => {
+    if (!allSteps) return [];
+    return allSteps.filter((step: Step) => {
+      const stepPathId = step.path?._id || (typeof step.pathId === 'string' ? step.pathId : null);
+      return stepPathId === pathId;
+    });
+  };
+
+  const getChildPaths = (pathId: string): Path[] => {
+    return childMap.get(pathId) || [];
   };
 
   const getChildPathsCount = (pathId: string) => {
@@ -152,59 +203,75 @@ export default function Paths() {
     }
   };
 
+  const archivedCount = archivedPaths?.length ?? 0;
+
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Paths</h1>
-
-      {/* Quick Add Path */}
-      <div className="space-y-2">
-        <Input
-          placeholder="Path title..."
-          value={pathAddValue}
-          onChange={(e) => setPathAddValue(e.target.value)}
-          onKeyPress={(e) =>
-            e.key === "Enter" && !e.shiftKey && handlePathAdd()
-          }
-        />
-        <div className="flex space-x-2">
-          <Input
-            placeholder="Description (optional)..."
-            value={pathDescValue}
-            onChange={(e) => setPathDescValue(e.target.value)}
-            onKeyPress={(e) => e.key === "Enter" && handlePathAdd()}
-            className="flex-1 min-w-0"
-          />
-          <select
-            value={pathParentIdValue}
-            onChange={(e) => setPathParentIdValue(e.target.value)}
-            className="px-3 py-2 bg-background border border-input rounded-md text-sm"
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Paths</h1>
+        {archivedCount > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowArchived(!showArchived)}
           >
-            <option value="">Root (no parent)</option>
-            {flattenedPaths.map(({ path, depth }) => (
-              <option key={path._id} value={path._id}>
-                {"  ".repeat(depth)}
-                {depth > 0 && "└ "}
-                {path.title}
-              </option>
-            ))}
-          </select>
-          <Button onClick={handlePathAdd} disabled={!pathAddValue.trim()} className="flex-shrink-0">
-            <Plus className="w-4 h-4" />
+            {showArchived ? "Hide Archived" : `Show Archived (${archivedCount})`}
           </Button>
-        </div>
+        )}
       </div>
 
+      {/* Quick Add Path (hidden in archived view) */}
+      {!showArchived && (
+        <div className="space-y-2">
+          <Input
+            placeholder="Path title..."
+            value={pathAddValue}
+            onChange={(e) => setPathAddValue(e.target.value)}
+            onKeyPress={(e) =>
+              e.key === "Enter" && !e.shiftKey && handlePathAdd()
+            }
+          />
+          <div className="flex space-x-2">
+            <Input
+              placeholder="Description (optional)..."
+              value={pathDescValue}
+              onChange={(e) => setPathDescValue(e.target.value)}
+              onKeyPress={(e) => e.key === "Enter" && handlePathAdd()}
+              className="flex-1 min-w-0"
+            />
+            <select
+              value={pathParentIdValue}
+              onChange={(e) => setPathParentIdValue(e.target.value)}
+              className="px-3 py-2 bg-background border border-input rounded-md text-sm"
+            >
+              <option value="">Root (no parent)</option>
+              {flattenedPaths.map(({ path, depth }) => (
+                <option key={path._id} value={path._id}>
+                  {"  ".repeat(depth)}
+                  {depth > 0 && "└ "}
+                  {path.title}
+                </option>
+              ))}
+            </select>
+            <Button onClick={handlePathAdd} disabled={!pathAddValue.trim()} className="flex-shrink-0">
+              <Plus className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Paths Grid */}
-      {paths && paths.length > 0 ? (
+      {flattenedPaths.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {flattenedPaths.map(({ path, depth }) => {
             const stats = getPathStats(path._id);
             const childCount = getChildPathsCount(path._id);
+            const isArchived = showArchived;
 
             return (
               <Card
                 key={path._id}
-                className="hover:border-primary/50 transition-colors"
+                className={`transition-colors ${isArchived ? "opacity-60" : "hover:border-primary/50"}`}
                 style={{ marginLeft: `${depth * 16}px` }}
               >
                 <CardContent className="p-4">
@@ -282,6 +349,11 @@ export default function Paths() {
                               <ChevronRight className="w-4 h-4 text-muted-foreground" />
                             )}
                             <h3 className="font-medium">{path.title}</h3>
+                            {isArchived && (
+                              <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                Archived
+                              </span>
+                            )}
                           </div>
                           {path.description && (
                             <p className="text-sm text-muted-foreground mt-1">
@@ -303,22 +375,47 @@ export default function Paths() {
                           </div>
                         </div>
                         <div className="flex space-x-1 flex-shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => startEditPath(path)}
-                            className="h-7 w-7 p-0"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => deletePath(path._id)}
-                            className="h-7 w-7 p-0"
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
+                          {isArchived ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleUnarchive(path._id)}
+                              className="h-7 w-7 p-0"
+                              title="Unarchive"
+                            >
+                              <ArchiveRestore className="w-4 h-4" />
+                            </Button>
+                          ) : (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => startEditPath(path)}
+                                className="h-7 w-7 p-0"
+                                title="Edit"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleArchive(path._id)}
+                                className="h-7 w-7 p-0"
+                                title="Archive"
+                              >
+                                <Archive className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setDeleteDialogPath(path)}
+                                className="h-7 w-7 p-0"
+                                title="Delete"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </div>
                     </>
@@ -331,9 +428,24 @@ export default function Paths() {
       ) : (
         <div className="text-center py-12 text-muted-foreground">
           <Target className="w-12 h-12 mx-auto mb-3 opacity-50" />
-          <p>No paths yet</p>
-          <p className="text-sm mt-1">Create a path to get started</p>
+          <p>{showArchived ? "No archived paths" : "No paths yet"}</p>
+          {!showArchived && (
+            <p className="text-sm mt-1">Create a path to get started</p>
+          )}
         </div>
+      )}
+
+      {/* Delete Dialog */}
+      {deleteDialogPath && (
+        <PathDeleteDialog
+          open={!!deleteDialogPath}
+          onOpenChange={(open) => { if (!open) setDeleteDialogPath(null); }}
+          path={deleteDialogPath}
+          stepsInPath={getStepsInPath(deleteDialogPath._id)}
+          childPaths={getChildPaths(deleteDialogPath._id)}
+          allPaths={activePaths || []}
+          onConfirm={handleDeleteConfirm}
+        />
       )}
     </div>
   );

@@ -334,6 +334,8 @@ export const updateStep = mutation({
     prioritizedToday: v.optional(v.boolean()),
     dueDate: v.optional(v.union(v.number(), v.null())),
     startDate: v.optional(v.union(v.number(), v.null())),
+    archived: v.optional(v.boolean()),
+    archivedAt: v.optional(v.union(v.number(), v.null())),
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
@@ -386,6 +388,14 @@ export const updateStep = mutation({
         // Marking as not failed
         patchData.failedAt = undefined;
       }
+    }
+
+    // Handle archived fields
+    if ('archived' in updates && updates.archived !== undefined) {
+      patchData.archived = updates.archived;
+    }
+    if ('archivedAt' in updates) {
+      patchData.archivedAt = updates.archivedAt === null ? undefined : updates.archivedAt;
     }
 
     await ctx.db.patch(id, patchData);
