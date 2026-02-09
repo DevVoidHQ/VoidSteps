@@ -8,6 +8,8 @@ import type { LocalUserSettings } from '@/lib/db';
 interface DataContextType {
   pathways: Pathway[] | undefined;
   paths: Path[] | undefined;
+  activePaths: Path[] | undefined;
+  archivedPaths: Path[] | undefined;
   rootPaths: Path[] | undefined;
   routines: Routine[] | undefined;
   allSteps: Step[] | undefined;
@@ -114,6 +116,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     })) as Path[];
   }, [localPaths]);
 
+  // Active paths (non-archived)
+  const activePaths = useMemo(() => {
+    if (!paths) return undefined;
+    return paths.filter(p => !p.archived);
+  }, [paths]);
+
+  // Archived paths
+  const archivedPaths = useMemo(() => {
+    if (!paths) return undefined;
+    return paths.filter(p => p.archived);
+  }, [paths]);
+
   // Root paths
   const rootPaths = useMemo(() => {
     if (!paths) return undefined;
@@ -149,10 +163,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return today.getTime();
   }, []);
 
-  // Active steps: not completed, not failed, startDate <= startOfToday or no startDate
+  // Active steps: not completed, not failed, not archived, startDate <= startOfToday or no startDate
   const activeSteps = useMemo(() => {
     if (!allSteps) return undefined;
     const active = allSteps.filter(step => {
+      if (step.archived) return false;
       if (step.completed) return false;
       if (step.failed) return false;
       if (step.startDate && step.startDate > startOfToday) return false;
@@ -166,27 +181,29 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, [allSteps, startOfToday]);
 
-  // Failed steps
+  // Failed steps (exclude archived)
   const failedSteps = useMemo(() => {
     if (!allSteps) return undefined;
-    return allSteps.filter(step => step.failed === true);
+    return allSteps.filter(step => step.failed === true && !step.archived);
   }, [allSteps]);
 
-  // Completed steps today
+  // Completed steps today (exclude archived)
   const completedStepsToday = useMemo(() => {
     if (!allSteps) return undefined;
     return allSteps.filter(step =>
+      !step.archived &&
       step.completed &&
       step.completedAt !== undefined &&
       (typeof step.completedAt === 'number' ? step.completedAt : 0) >= startOfToday
     );
   }, [allSteps, startOfToday]);
 
-  // Upcoming steps: not completed, not failed, startDate > startOfToday
+  // Upcoming steps: not completed, not failed, not archived, startDate > startOfToday
   const upcomingSteps = useMemo(() => {
     if (!allSteps) return undefined;
     return allSteps
       .filter(step => {
+        if (step.archived) return false;
         if (step.completed) return false;
         if (step.failed) return false;
         if (!step.startDate || step.startDate <= startOfToday) return false;
@@ -223,6 +240,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     () => ({
       pathways,
       paths,
+      activePaths,
+      archivedPaths,
       rootPaths,
       routines,
       allSteps,
@@ -239,7 +258,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isStepUpcoming,
       activeTimerStepId,
     }),
-    [pathways, paths, rootPaths, routines, allSteps, activeSteps, failedSteps, completedStepsToday, upcomingSteps, userSettings, isLoading,
+    [pathways, paths, activePaths, archivedPaths, rootPaths, routines, allSteps, activeSteps, failedSteps, completedStepsToday, upcomingSteps, userSettings, isLoading,
      applyOptimisticUpdate, applyOptimisticDelete, clearOptimisticUpdate, clearOptimisticDelete, isStepUpcoming, activeTimerStepId]
   );
 

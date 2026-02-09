@@ -140,6 +140,8 @@ export class SyncEngine {
         if ('dueDate' in data) updateData.dueDate = data.dueDate ?? null;
         if ('startDate' in data) updateData.startDate = data.startDate ?? null;
         if ('failed' in data) updateData.failed = data.failed;
+        if (data.archived !== undefined) updateData.archived = data.archived;
+        if ('archivedAt' in data) updateData.archivedAt = data.archivedAt ?? null;
         // Timer fields — handle via dedicated mutations, don't pass to updateStep
         if ('timerStartedAt' in data && data.timerStartedAt !== undefined) {
           // Start timer
@@ -207,6 +209,8 @@ export class SyncEngine {
       if (data.connectedStepIds !== undefined) {
         updateData.connectedStepIds = (data.connectedStepIds as string[]).map(id => this.resolveId(id) as Id<'steps'>);
       }
+      if (data.archived !== undefined) updateData.archived = data.archived;
+      if ('archivedAt' in data) updateData.archivedAt = data.archivedAt ?? null;
 
       const keys = Object.keys(updateData).filter(k => k !== 'id');
       if (keys.length > 0) {

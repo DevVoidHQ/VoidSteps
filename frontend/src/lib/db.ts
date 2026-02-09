@@ -19,6 +19,8 @@ export interface LocalStep {
   startDate?: number;
   timerStartedAt?: number;
   totalTimeSpentMs?: number;
+  archived?: boolean;
+  archivedAt?: number;
   createdAt: number;
   updatedAt: number;
   // Local metadata
@@ -33,6 +35,8 @@ export interface LocalPath {
   parentId?: string;
   connectedPathIds?: string[];
   connectedStepIds?: string[];
+  archived?: boolean;
+  archivedAt?: number;
   createdAt: number;
   updatedAt: number;
   _localOnly?: boolean;

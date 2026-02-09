@@ -20,6 +20,8 @@ export default defineSchema({
     parentId: v.optional(v.id("paths")),           // Self-ref for hierarchy
     connectedPathIds: v.optional(v.array(v.id("paths"))), // Path-to-Path connections
     connectedStepIds: v.optional(v.array(v.id("steps"))), // Path-to-Step connections
+    archived: v.optional(v.boolean()),
+    archivedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_user", ["userId"])
@@ -72,6 +74,8 @@ export default defineSchema({
     // Timer fields
     timerStartedAt: v.optional(v.number()),   // Current session start (null = not timing)
     totalTimeSpentMs: v.optional(v.number()), // Cumulative time across sessions
+    archived: v.optional(v.boolean()),
+    archivedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
     // TEMPORARY: Legacy fields to be removed after migration

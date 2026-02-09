@@ -29,7 +29,7 @@ import { HierarchicalPathSelector } from "@/components/HierarchicalPathSelector"
 
 export default function Today() {
   const {
-    paths,
+    activePaths,
     activeSteps,
     completedStepsToday,
     activeTimerStepId,
@@ -51,7 +51,7 @@ export default function Today() {
   const [expandedStepIds, setExpandedStepIds] = useState<Set<string>>(new Set());
 
   // Memoize paths for stable reference
-  const memoizedPaths = useMemo(() => paths || [], [paths]);
+  const memoizedPaths = useMemo(() => activePaths || [], [activePaths]);
 
   // Get hierarchy info for expand all button
   const { rootSteps, hasChildren } = useStepHierarchy(
@@ -276,7 +276,7 @@ export default function Today() {
           />
         </div>
         <HierarchicalPathSelector
-          paths={paths || []}
+          paths={activePaths || []}
           selectedPathId={selectedPathFilterToday || null}
           onChange={(id) => setSelectedPathFilterToday(id || "")}
           placeholder="All Paths"
