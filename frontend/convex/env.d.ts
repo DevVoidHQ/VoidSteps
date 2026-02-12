@@ -1,5 +1,10 @@
 // Convex runtime globals
 declare global {
+  // Vite import.meta.glob support (used by convex-test)
+  interface ImportMeta {
+    glob(pattern: string): Record<string, () => Promise<unknown>>;
+  }
+
   namespace NodeJS {
     interface ProcessEnv {
       USER_EMAIL?: string;

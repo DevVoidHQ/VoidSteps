@@ -1,5 +1,6 @@
 import { convexTest } from "convex-test";
 import { api } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
 
 const modules = import.meta.glob("./**/*.*s");
@@ -24,7 +25,7 @@ describe("paths", () => {
       const asUser = t.withIdentity(testUser);
       const now = Date.now();
 
-      let parentId: any;
+      let parentId!: Id<"paths">;
       await t.run(async (ctx) => {
         parentId = await ctx.db.insert("paths", {
           userId: "user-123",
@@ -54,7 +55,7 @@ describe("paths", () => {
       const asUser = t.withIdentity(testUser);
       const now = Date.now();
 
-      let parentId: any;
+      let parentId!: Id<"paths">;
       await t.run(async (ctx) => {
         parentId = await ctx.db.insert("paths", {
           userId: "user-123",
@@ -122,8 +123,8 @@ describe("paths", () => {
       const asUser = t.withIdentity(testUser);
       const now = Date.now();
 
-      let pathAId: any;
-      let pathBId: any;
+      let pathAId!: Id<"paths">;
+      let pathBId!: Id<"paths">;
       await t.run(async (ctx) => {
         pathAId = await ctx.db.insert("paths", {
           userId: "user-123",
@@ -155,9 +156,9 @@ describe("paths", () => {
       const asUser = t.withIdentity(testUser);
       const now = Date.now();
 
-      let pathAId: any;
-      let pathBId: any;
-      let pathCId: any;
+      let pathAId!: Id<"paths">;
+      let pathBId!: Id<"paths">;
+      let pathCId!: Id<"paths">;
       await t.run(async (ctx) => {
         pathAId = await ctx.db.insert("paths", {
           userId: "user-123",
@@ -196,8 +197,8 @@ describe("paths", () => {
       const asUser = t.withIdentity(testUser);
       const now = Date.now();
 
-      let pathAId: any;
-      let pathBId: any;
+      let pathAId!: Id<"paths">;
+      let pathBId!: Id<"paths">;
       await t.run(async (ctx) => {
         pathAId = await ctx.db.insert("paths", {
           userId: "user-123",
@@ -227,7 +228,7 @@ describe("paths", () => {
       const asUser = t.withIdentity(testUser);
       const now = Date.now();
 
-      let pathId: any;
+      let pathId!: Id<"paths">;
       await t.run(async (ctx) => {
         pathId = await ctx.db.insert("paths", {
           userId: "user-123",
@@ -255,8 +256,8 @@ describe("paths", () => {
       const asUser = t.withIdentity(testUser);
       const now = Date.now();
 
-      let parentId: any;
-      let childId: any;
+      let parentId!: Id<"paths">;
+      let childId!: Id<"paths">;
       await t.run(async (ctx) => {
         parentId = await ctx.db.insert("paths", {
           userId: "user-123",
@@ -293,11 +294,11 @@ describe("paths", () => {
       const asUser = t.withIdentity(testUser);
       const now = Date.now();
 
-      let grandparentId: any;
-      let pathToDeleteId: any;
-      let childPathId: any;
-      let destinationPathId: any;
-      let stepId: any;
+      let grandparentId: Id<"paths">;
+      let pathToDeleteId!: Id<"paths">;
+      let childPathId!: Id<"paths">;
+      let destinationPathId!: Id<"paths">;
+      let stepId!: Id<"steps">;
       await t.run(async (ctx) => {
         grandparentId = await ctx.db.insert("paths", {
           userId: "user-123",
@@ -364,8 +365,8 @@ describe("paths", () => {
       const asUser = t.withIdentity(testUser);
       const now = Date.now();
 
-      let pathId: any;
-      let stepId: any;
+      let pathId!: Id<"paths">;
+      let stepId!: Id<"steps">;
       await t.run(async (ctx) => {
         pathId = await ctx.db.insert("paths", {
           userId: "user-123",

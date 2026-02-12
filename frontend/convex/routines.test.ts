@@ -1,5 +1,6 @@
 import { convexTest } from "convex-test";
 import { api } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
 
 const modules = import.meta.glob("./**/*.*s");
@@ -48,7 +49,7 @@ describe("routines", () => {
       const asUser = t.withIdentity(testUser);
       const now = Date.now();
 
-      let routineId: any;
+      let routineId!: Id<"routines">;
       await t.run(async (ctx) => {
         routineId = await ctx.db.insert("routines", {
           userId: "user-123",
@@ -81,7 +82,7 @@ describe("routines", () => {
       const now = Date.now();
       const fixedNextOccurrence = now + 86400000;
 
-      let routineId: any;
+      let routineId!: Id<"routines">;
       await t.run(async (ctx) => {
         routineId = await ctx.db.insert("routines", {
           userId: "user-123",
@@ -113,7 +114,7 @@ describe("routines", () => {
       const asUser = t.withIdentity(testUser);
       const now = Date.now();
 
-      let routineId: any;
+      let routineId!: Id<"routines">;
       await t.run(async (ctx) => {
         routineId = await ctx.db.insert("routines", {
           userId: "user-123",
