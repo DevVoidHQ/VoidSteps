@@ -9,21 +9,30 @@
     "preview": "vite preview",
     "serve": "serve dist -s -p 4173",
     "convex:dev": "convex dev",
-    "convex:deploy": "convex deploy"
+    "convex:deploy": "convex deploy",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
+    "@edge-runtime/vm": "^5.0.0",
     "@tailwindcss/postcss": "^4.1.17",
+    "@testing-library/jest-dom": "^6.9.1",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.4",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
+    "@vitest/coverage-v8": "^4.0.18",
     "autoprefixer": "^10.4.22",
+    "convex-test": "^0.0.41",
+    "jsdom": "^28.0.0",
     "postcss": "^8.5.6",
     "serve": "^14.2.5",
     "tailwindcss": "^4.1.17",
     "typescript": "~5.9.3",
     "vite": "^7.2.2",
-    "vite-plugin-pwa": "^1.1.0"
+    "vite-plugin-pwa": "^1.1.0",
+    "vitest": "^4.0.18"
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.60.0",
