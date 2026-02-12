@@ -12,6 +12,7 @@ import Steps from '@/pages/Steps';
 import Paths from '@/pages/Paths';
 import Routines from '@/pages/Routines';
 import Pathway from '@/pages/Pathway';
+import Analytics from '@/pages/Analytics';
 import Settings from '@/pages/Settings';
 
 function AppRoutes() {
@@ -44,6 +45,7 @@ function AppRoutes() {
           <Route path="/paths" element={<Layout key={location.pathname}><Paths /></Layout>} />
           <Route path="/routines" element={<Layout key={location.pathname}><Routines /></Layout>} />
           <Route path="/pathway" element={<Layout key={location.pathname}><Pathway /></Layout>} />
+          <Route path="/analytics" element={<Layout key={location.pathname}><Analytics /></Layout>} />
           <Route path="/settings" element={<Layout key={location.pathname}><Settings /></Layout>} />
         </Routes>
       </DataProvider>

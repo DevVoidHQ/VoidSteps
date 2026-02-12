@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useTheme, PRESET_THEMES } from "@/contexts/ThemeContext";
 import type { ThemeColors } from "@/contexts/ThemeContext";
 import { Button, Input, Card, CardContent } from "@devvoid/ui";
-import { Download, Upload, RotateCcw, Palette } from "lucide-react";
+import { Download, Upload, RotateCcw, Palette, Shuffle, Dices, Check } from "lucide-react";
 
 const COLOR_LABELS: Record<keyof ThemeColors, string> = {
   background: "Background",
@@ -108,6 +108,61 @@ export default function Settings() {
     setTheme({ ...theme, [key]: hslValue });
   };
 
+  const presetNames = Object.keys(PRESET_THEMES) as Array<keyof typeof PRESET_THEMES>;
+
+  const activePresetName = presetNames.find((name) => {
+    const preset = PRESET_THEMES[name];
+    return (Object.keys(preset) as Array<keyof ThemeColors>).every(
+      (k) => preset[k] === theme[k],
+    );
+  });
+
+  const applyRandomPreset = useCallback(() => {
+    const candidates = presetNames.filter((n) => n !== activePresetName);
+    const pick = candidates[Math.floor(Math.random() * candidates.length)];
+    applyPreset(pick);
+  }, [presetNames, activePresetName, applyPreset]);
+
+  const generateRandomTheme = useCallback(() => {
+    const hue = Math.floor(Math.random() * 360);
+    // Offset hues for secondary & accent to keep things harmonious
+    const hue2 = (hue + 30 + Math.floor(Math.random() * 60)) % 360;
+    const hue3 = (hue + 150 + Math.floor(Math.random() * 60)) % 360;
+    const isDark = Math.random() > 0.3; // 70% chance dark theme
+
+    const bgL = isDark ? 3 + Math.floor(Math.random() * 8) : 95 + Math.floor(Math.random() * 5);
+    const fgL = isDark ? 90 + Math.floor(Math.random() * 8) : 3 + Math.floor(Math.random() * 8);
+    const cardL = isDark ? bgL + 3 + Math.floor(Math.random() * 4) : bgL - 2 - Math.floor(Math.random() * 3);
+    const mutedL = isDark ? 15 + Math.floor(Math.random() * 8) : 90 + Math.floor(Math.random() * 6);
+    const mutedFgL = isDark ? 55 + Math.floor(Math.random() * 15) : 35 + Math.floor(Math.random() * 15);
+    const borderL = isDark ? 18 + Math.floor(Math.random() * 10) : 82 + Math.floor(Math.random() * 10);
+    const primaryS = 60 + Math.floor(Math.random() * 40);
+    const primaryL = isDark ? 55 + Math.floor(Math.random() * 20) : 40 + Math.floor(Math.random() * 15);
+
+    const generated: ThemeColors = {
+      background: `${hue} ${isDark ? 10 + Math.floor(Math.random() * 20) : 0}% ${bgL}%`,
+      foreground: `${hue} ${Math.floor(Math.random() * 15)}% ${fgL}%`,
+      card: `${hue} ${isDark ? 10 + Math.floor(Math.random() * 15) : 0}% ${cardL}%`,
+      cardForeground: `${hue} ${Math.floor(Math.random() * 15)}% ${fgL}%`,
+      popover: `${hue} ${isDark ? 10 + Math.floor(Math.random() * 15) : 0}% ${cardL}%`,
+      popoverForeground: `${hue} ${Math.floor(Math.random() * 15)}% ${fgL}%`,
+      primary: `${hue} ${primaryS}% ${primaryL}%`,
+      primaryForeground: `${hue} ${Math.floor(Math.random() * 10)}% ${isDark ? bgL : 98}%`,
+      secondary: `${hue2} ${50 + Math.floor(Math.random() * 40)}% ${isDark ? 45 + Math.floor(Math.random() * 15) : 35 + Math.floor(Math.random() * 15)}%`,
+      secondaryForeground: `${hue} ${Math.floor(Math.random() * 10)}% ${isDark ? fgL : 98}%`,
+      muted: `${hue} ${Math.floor(Math.random() * 15)}% ${mutedL}%`,
+      mutedForeground: `${hue} ${Math.floor(Math.random() * 15)}% ${mutedFgL}%`,
+      accent: `${hue3} ${50 + Math.floor(Math.random() * 40)}% ${isDark ? 50 + Math.floor(Math.random() * 20) : 40 + Math.floor(Math.random() * 15)}%`,
+      accentForeground: `${hue} ${Math.floor(Math.random() * 10)}% ${isDark ? bgL : 98}%`,
+      destructive: `${350 + Math.floor(Math.random() * 20)} ${70 + Math.floor(Math.random() * 25)}% ${55 + Math.floor(Math.random() * 15)}%`,
+      destructiveForeground: `${hue} ${Math.floor(Math.random() * 10)}% ${fgL}%`,
+      border: `${hue} ${Math.floor(Math.random() * 15)}% ${borderL}%`,
+      input: `${hue} ${Math.floor(Math.random() * 15)}% ${borderL}%`,
+      ring: `${hue} ${primaryS}% ${primaryL}%`,
+    };
+    setTheme(generated);
+  }, [setTheme]);
+
   const handleExport = () => {
     const json = exportTheme();
     const blob = new Blob([json], { type: 'application/json' });
@@ -145,18 +200,64 @@ export default function Settings() {
       {/* Preset Themes */}
       <Card>
         <CardContent className="p-6 space-y-4">
-          <h2 className="text-xl font-semibold">Preset Themes</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {Object.keys(PRESET_THEMES).map((presetName) => (
-              <Button
-                key={presetName}
-                variant="outline"
-                onClick={() => applyPreset(presetName)}
-                className="capitalize"
-              >
-                {presetName}
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Preset Themes</h2>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={generateRandomTheme}>
+                <Dices className="w-4 h-4 mr-2" />
+                Random Colors
               </Button>
-            ))}
+              <Button variant="outline" size="sm" onClick={applyRandomPreset}>
+                <Shuffle className="w-4 h-4 mr-2" />
+                Shuffle
+              </Button>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            {presetNames.map((presetName) => {
+              const preset = PRESET_THEMES[presetName];
+              const isActive = presetName === activePresetName;
+              return (
+                <button
+                  key={presetName}
+                  onClick={() => applyPreset(presetName)}
+                  className={`group relative rounded-lg border-2 p-3 text-left transition-all hover:scale-[1.02] ${
+                    isActive
+                      ? "border-primary ring-2 ring-primary/30"
+                      : "border-border hover:border-muted-foreground/40"
+                  }`}
+                  style={{ backgroundColor: `hsl(${preset.background})` }}
+                >
+                  {/* Color swatch row */}
+                  <div className="flex gap-1 mb-2">
+                    {(["primary", "secondary", "accent", "destructive"] as const).map((token) => (
+                      <div
+                        key={token}
+                        className="h-4 flex-1 rounded-sm"
+                        style={{ backgroundColor: `hsl(${preset[token]})` }}
+                      />
+                    ))}
+                  </div>
+                  {/* Muted bar to show card/muted tones */}
+                  <div className="flex gap-1 mb-2">
+                    <div className="h-1.5 flex-[2] rounded-sm" style={{ backgroundColor: `hsl(${preset.muted})` }} />
+                    <div className="h-1.5 flex-1 rounded-sm" style={{ backgroundColor: `hsl(${preset.border})` }} />
+                  </div>
+                  {/* Label */}
+                  <div className="flex items-center justify-between">
+                    <span
+                      className="text-xs font-medium capitalize truncate"
+                      style={{ color: `hsl(${preset.foreground})` }}
+                    >
+                      {presetName.replace(/([A-Z])/g, " $1").trim()}
+                    </span>
+                    {isActive && (
+                      <Check className="w-3.5 h-3.5 shrink-0" style={{ color: `hsl(${preset.primary})` }} />
+                    )}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </CardContent>
       </Card>

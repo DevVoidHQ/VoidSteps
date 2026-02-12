@@ -1,5 +1,6 @@
 import { convexTest } from "convex-test";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
 
 const modules = import.meta.glob("./**/*.*s");
@@ -69,7 +70,7 @@ describe("routineSpawner", () => {
     const now = Date.now();
     const oldNextOccurrence = now - 1000;
 
-    let routineId: any;
+    let routineId!: Id<"routines">;
     await t.run(async (ctx) => {
       routineId = await ctx.db.insert("routines", {
         userId: "user-123",
@@ -94,7 +95,7 @@ describe("routineSpawner", () => {
     const t = convexTest(schema, modules);
     const now = Date.now();
 
-    let pathId: any;
+    let pathId!: Id<"paths">;
     await t.run(async (ctx) => {
       pathId = await ctx.db.insert("paths", {
         userId: "user-123",

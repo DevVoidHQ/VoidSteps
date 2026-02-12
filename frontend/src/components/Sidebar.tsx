@@ -1,6 +1,6 @@
 import { useClerk, useUser } from '@clerk/clerk-react';
 import { Button } from '@devvoid/ui';
-import { LogOut, Settings, Calendar, ListTodo, Target, Zap, Network, X } from 'lucide-react';
+import { LogOut, Settings, Calendar, ListTodo, Target, Zap, BarChart3, Network, X } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 interface SidebarProps {
@@ -19,6 +19,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { path: '/steps', label: 'Steps', icon: ListTodo },
     { path: '/paths', label: 'Paths', icon: Target },
     { path: '/routines', label: 'Routines', icon: Zap },
+    { path: '/analytics', label: 'Analytics', icon: BarChart3 },
     { path: '/pathway', label: 'Pathway', icon: Network },
   ];
 

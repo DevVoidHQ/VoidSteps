@@ -1,5 +1,6 @@
 import { convexTest } from "convex-test";
 import { api } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
 
 const modules = import.meta.glob("./**/*.*s");
@@ -275,7 +276,7 @@ describe("steps", () => {
       const asUser = t.withIdentity(testUser);
       const now = Date.now();
 
-      let parentId: any;
+      let parentId!: Id<"steps">;
       await t.run(async (ctx) => {
         parentId = await ctx.db.insert("steps", {
           userId: "user-123",
@@ -337,7 +338,7 @@ describe("steps", () => {
       const asUser = t.withIdentity(testUser);
       const now = Date.now();
 
-      let pathId: any;
+      let pathId!: Id<"paths">;
       await t.run(async (ctx) => {
         pathId = await ctx.db.insert("paths", {
           userId: "user-123",
@@ -364,8 +365,8 @@ describe("steps", () => {
       const asUser = t.withIdentity(testUser);
       const now = Date.now();
 
-      let grandparentId: any;
-      let parentId: any;
+      let grandparentId!: Id<"steps">;
+      let parentId!: Id<"steps">;
       await t.run(async (ctx) => {
         grandparentId = await ctx.db.insert("steps", {
           userId: "user-123",
@@ -434,7 +435,7 @@ describe("steps", () => {
       const asUser = t.withIdentity(testUser);
       const now = Date.now();
 
-      let stepId: any;
+      let stepId!: Id<"steps">;
       await t.run(async (ctx) => {
         stepId = await ctx.db.insert("steps", {
           userId: "user-123",
@@ -466,7 +467,7 @@ describe("steps", () => {
       const asUser = t.withIdentity(testUser);
       const now = Date.now();
 
-      let stepId: any;
+      let stepId!: Id<"steps">;
       await t.run(async (ctx) => {
         stepId = await ctx.db.insert("steps", {
           userId: "user-123",
@@ -496,7 +497,7 @@ describe("steps", () => {
       const asUser = t.withIdentity(testUser);
       const now = Date.now();
 
-      let stepId: any;
+      let stepId!: Id<"steps">;
       await t.run(async (ctx) => {
         stepId = await ctx.db.insert("steps", {
           userId: "user-123",
@@ -525,7 +526,7 @@ describe("steps", () => {
       const asUser = t.withIdentity(testUser);
       const now = Date.now();
 
-      let stepId: any;
+      let stepId!: Id<"steps">;
       await t.run(async (ctx) => {
         stepId = await ctx.db.insert("steps", {
           userId: "user-123",
@@ -555,7 +556,7 @@ describe("steps", () => {
       const asUser = t.withIdentity(testUser);
       const now = Date.now();
 
-      let stepId: any;
+      let stepId!: Id<"steps">;
       await t.run(async (ctx) => {
         const pathId = await ctx.db.insert("paths", {
           userId: "user-123",
@@ -593,8 +594,8 @@ describe("steps", () => {
       const asUser = t.withIdentity(testUser);
       const now = Date.now();
 
-      let parentId: any;
-      let childId: any;
+      let parentId!: Id<"steps">;
+      let childId!: Id<"steps">;
       await t.run(async (ctx) => {
         parentId = await ctx.db.insert("steps", {
           userId: "user-123",
@@ -638,7 +639,7 @@ describe("steps", () => {
       const asUser = t.withIdentity(testUser);
       const now = Date.now();
 
-      let stepId: any;
+      let stepId!: Id<"steps">;
       await t.run(async (ctx) => {
         stepId = await ctx.db.insert("steps", {
           userId: "user-123",
@@ -678,7 +679,7 @@ describe("steps", () => {
       const asUser = t.withIdentity(testUser);
       const now = Date.now();
 
-      let stepId: any;
+      let stepId!: Id<"steps">;
       await t.run(async (ctx) => {
         stepId = await ctx.db.insert("steps", {
           userId: "user-123",
@@ -718,7 +719,7 @@ describe("steps", () => {
       const asUser = t.withIdentity(testUser);
       const now = Date.now();
 
-      let stepId: any;
+      let stepId!: Id<"steps">;
       await t.run(async (ctx) => {
         stepId = await ctx.db.insert("steps", {
           userId: "user-123",
@@ -746,9 +747,9 @@ describe("steps", () => {
       const asUser = t.withIdentity(testUser);
       const now = Date.now();
 
-      let grandparentId: any;
-      let parentId: any;
-      let stepId: any;
+      let grandparentId!: Id<"steps">;
+      let parentId!: Id<"steps">;
+      let stepId!: Id<"steps">;
       await t.run(async (ctx) => {
         grandparentId = await ctx.db.insert("steps", {
           userId: "user-123",
@@ -797,8 +798,8 @@ describe("steps", () => {
       const asUser = t.withIdentity(testUser);
       const now = Date.now();
 
-      let parentWithChildrenId: any;
-      let targetParentId: any;
+      let parentWithChildrenId!: Id<"steps">;
+      let targetParentId!: Id<"steps">;
       await t.run(async (ctx) => {
         parentWithChildrenId = await ctx.db.insert("steps", {
           userId: "user-123",
@@ -849,7 +850,7 @@ describe("steps", () => {
       const asUser = t.withIdentity(testUser);
       const now = Date.now();
 
-      let stepId: any;
+      let stepId!: Id<"steps">;
       await t.run(async (ctx) => {
         stepId = await ctx.db.insert("steps", {
           userId: "user-123",
@@ -875,7 +876,7 @@ describe("steps", () => {
       const asUser = t.withIdentity(testUser);
       const now = Date.now();
 
-      let stepId: any;
+      let stepId!: Id<"steps">;
       await t.run(async (ctx) => {
         stepId = await ctx.db.insert("steps", {
           userId: "user-123",
