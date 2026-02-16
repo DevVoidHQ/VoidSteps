@@ -1,7 +1,10 @@
 import { useState, useCallback } from "react";
 import { useTheme, PRESET_THEMES } from "@/contexts/ThemeContext";
 import type { ThemeColors } from "@/contexts/ThemeContext";
-import { Button, Input, Card, CardContent } from "@devvoid/ui";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Card, CardContent } from "@/components/ui/Card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
 import { Download, Upload, RotateCcw, Palette, Shuffle, Dices, Check } from "lucide-react";
 
 const COLOR_LABELS: Record<keyof ThemeColors, string> = {
@@ -188,11 +191,11 @@ export default function Settings() {
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Header */}
       <div className="text-center space-y-2">
-        <h1 className="text-4xl font-bold flex items-center justify-center space-x-3">
-          <Palette className="w-8 h-8" />
+        <h1 className="text-2xl font-bold tracking-tight flex items-center justify-center space-x-3">
+          <Palette className="w-6 h-6" />
           <span>Theme Settings</span>
         </h1>
-        <p className="text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           Customize your color scheme
         </p>
       </div>
@@ -262,38 +265,51 @@ export default function Settings() {
         </CardContent>
       </Card>
 
-      {/* Custom Colors */}
+      {/* Custom Colors — Tab-grouped */}
       <Card>
-        <CardContent className="p-6 space-y-4">
+        <CardContent className="p-4 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Custom Colors</h2>
+            <h2 className="text-base font-semibold">Custom Colors</h2>
             <Button variant="outline" size="sm" onClick={resetToDefault}>
               <RotateCcw className="w-4 h-4 mr-2" />
-              Reset to Default
+              Reset
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {(Object.keys(theme) as Array<keyof ThemeColors>).map((key) => (
-              <div key={String(key)} className="space-y-2">
-                <label className="text-sm font-medium">{COLOR_LABELS[key]}</label>
-                <div className="flex space-x-2">
-                  <input
-                    type="color"
-                    value={hslToHex(theme[key])}
-                    onChange={(e) => handleColorChange(key, e.target.value)}
-                    className="w-12 h-10 rounded border border-input cursor-pointer"
-                  />
-                  <Input
-                    value={theme[key]}
-                    onChange={(e) => setTheme({ ...theme, [key]: e.target.value })}
-                    placeholder="H S% L%"
-                    className="flex-1"
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+          <Tabs defaultValue="core">
+            <TabsList>
+              <TabsTrigger value="core">Core</TabsTrigger>
+              <TabsTrigger value="brand">Brand</TabsTrigger>
+              <TabsTrigger value="ui">UI</TabsTrigger>
+            </TabsList>
+            <TabsContent value="core">
+              <ColorGroup
+                keys={["background", "foreground", "card", "cardForeground", "popover", "popoverForeground"]}
+                theme={theme}
+                labels={COLOR_LABELS}
+                onColorChange={handleColorChange}
+                onHslChange={(key, val) => setTheme({ ...theme, [key]: val })}
+              />
+            </TabsContent>
+            <TabsContent value="brand">
+              <ColorGroup
+                keys={["primary", "primaryForeground", "secondary", "secondaryForeground", "accent", "accentForeground", "destructive", "destructiveForeground"]}
+                theme={theme}
+                labels={COLOR_LABELS}
+                onColorChange={handleColorChange}
+                onHslChange={(key, val) => setTheme({ ...theme, [key]: val })}
+              />
+            </TabsContent>
+            <TabsContent value="ui">
+              <ColorGroup
+                keys={["muted", "mutedForeground", "border", "input", "ring"]}
+                theme={theme}
+                labels={COLOR_LABELS}
+                onColorChange={handleColorChange}
+                onHslChange={(key, val) => setTheme({ ...theme, [key]: val })}
+              />
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
@@ -359,6 +375,44 @@ export default function Settings() {
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function ColorGroup({
+  keys,
+  theme,
+  labels,
+  onColorChange,
+  onHslChange,
+}: {
+  keys: (keyof ThemeColors)[];
+  theme: ThemeColors;
+  labels: Record<keyof ThemeColors, string>;
+  onColorChange: (key: keyof ThemeColors, hex: string) => void;
+  onHslChange: (key: keyof ThemeColors, val: string) => void;
+}) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {keys.map((key) => (
+        <div key={String(key)} className="space-y-2">
+          <label className="text-sm font-medium">{labels[key]}</label>
+          <div className="flex space-x-2">
+            <input
+              type="color"
+              value={hslToHex(theme[key])}
+              onChange={(e) => onColorChange(key, e.target.value)}
+              className="w-12 h-10 rounded border border-input cursor-pointer"
+            />
+            <input
+              value={theme[key]}
+              onChange={(e) => onHslChange(key, e.target.value)}
+              placeholder="H S% L%"
+              className="flex-1 h-11 rounded-md border border-input bg-background px-3 py-2 text-sm"
+            />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

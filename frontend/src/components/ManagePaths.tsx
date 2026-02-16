@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
-import { Button, Input, Card, CardContent } from "@devvoid/ui";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Card, CardContent } from "@/components/ui/Card";
 import { Plus, Pencil, ChevronRight } from "lucide-react";
 import type { Path, Step } from "@/types";
 import {

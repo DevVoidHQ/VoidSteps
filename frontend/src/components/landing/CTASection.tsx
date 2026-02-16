@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Button } from "@devvoid/ui";
+import { Button } from "@/components/ui/Button";
 
 export default function CTASection() {
   const ref = useRef<HTMLElement>(null);

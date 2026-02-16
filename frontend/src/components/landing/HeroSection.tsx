@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, type ReactNode } from "react";
 import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Button } from "@devvoid/ui";
+import { Button } from "@/components/ui/Button";
 
 const container = {
   hidden: {},

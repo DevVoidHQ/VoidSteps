@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { Card, CardContent, Tabs, TabsList, TabsTrigger } from '@devvoid/ui';
+import { Card, CardContent } from '@/components/ui/Card';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { CheckCircle2, Clock, TrendingUp, Flame } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -249,7 +250,7 @@ export default function Analytics() {
     <div className="space-y-8 pb-12">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-3xl font-bold">Analytics</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
         <Tabs defaultValue="30d" value={selectedRange} onValueChange={(v) => setSelectedRange(v as RangeKey)}>
           <TabsList>
             <TabsTrigger value="7d">7d</TabsTrigger>
@@ -415,7 +416,7 @@ export default function Analytics() {
               </thead>
               <tbody>
                 {timeLogData.map((row, i) => (
-                  <tr key={i} className="border-b border-border/50">
+                  <tr key={i} className="border-b border-border/50 even:bg-muted/20">
                     <td className="py-2 pr-4 truncate max-w-[200px]">{row.title}</td>
                     <td className="py-2 pr-4 text-muted-foreground">{row.path}</td>
                     <td className={`py-2 pr-4 ${row.tracked ? '' : 'text-muted-foreground'}`}>
@@ -461,9 +462,9 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
 function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
     <Card>
-      <CardContent className="p-6 space-y-4">
+      <CardContent className="p-4 space-y-4">
         <div>
-          <h2 className="text-lg font-semibold">{title}</h2>
+          <h2 className="text-base font-semibold">{title}</h2>
           {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
         </div>
         {children}

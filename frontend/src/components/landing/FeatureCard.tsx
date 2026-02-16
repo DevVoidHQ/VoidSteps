@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { Card, CardContent } from "@devvoid/ui";
+import { Card, CardContent } from "@/components/ui/Card";
 import type { LucideIcon } from "lucide-react";
 
 interface FeatureCardProps {
