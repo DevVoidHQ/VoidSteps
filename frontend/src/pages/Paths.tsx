@@ -8,7 +8,9 @@ import {
   useDeletePathWithMigration,
 } from "@/lib/local-mutations";
 import { useData } from "@/contexts/DataContext";
-import { Button, Input, Card, CardContent } from "@devvoid/ui";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Card, CardContent } from "@/components/ui/Card";
 import {
   Plus,
   X,
@@ -208,7 +210,7 @@ export default function Paths() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Paths</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Paths</h1>
         {archivedCount > 0 && (
           <Button
             variant="outline"

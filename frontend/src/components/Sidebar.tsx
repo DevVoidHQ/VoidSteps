@@ -1,14 +1,18 @@
 import { useClerk, useUser } from '@clerk/clerk-react';
-import { Button } from '@devvoid/ui';
-import { LogOut, Settings, Calendar, ListTodo, Target, Zap, BarChart3, Network, X } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Button } from '@/components/ui/Button';
+import { LogOut, Settings, Calendar, ListTodo, Target, Zap, BarChart3, Network, X, ChevronsLeft, ChevronsRight, Search } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
+  onOpenCommandPalette: () => void;
 }
 
-export default function Sidebar({ isOpen, onClose }: SidebarProps) {
+export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, onOpenCommandPalette }: SidebarProps) {
   const { signOut } = useClerk();
   const { user } = useUser();
   const navigate = useNavigate();
@@ -49,82 +53,143 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       <div
         className={`
           fixed md:static
-          w-64 h-screen bg-card border-r border-border flex flex-col
+          ${isCollapsed ? 'w-16' : 'w-64'} h-screen bg-card border-r border-border flex flex-col
           z-50
-          transition-transform duration-300 ease-in-out
+          transition-all duration-300 ease-in-out
           ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}
         style={{ opacity: 1, backgroundColor: 'hsl(var(--card))' }}
       >
-      {/* Header */}
-      <div className="p-6 border-b border-border">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex-1">
-            <p className="text-sm text-muted-foreground">Welcome, {user?.firstName || 'User'}</p>
-            <h2 className="text-2xl font-bold mt-1">Today</h2>
-          </div>
-          {/* Close button for mobile */}
+        {/* Header */}
+        <div className={`border-b border-border ${isCollapsed ? 'p-3' : 'p-6'}`}>
+          {isCollapsed ? (
+            <div className="flex items-center justify-center">
+              <span className="text-lg font-bold">V</span>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex-1">
+                  <p className="text-sm text-muted-foreground">Welcome, {user?.firstName || 'User'}</p>
+                  <h2 className="text-2xl font-bold mt-1">Today</h2>
+                </div>
+                {/* Close button for mobile */}
+                <button
+                  onClick={onClose}
+                  className="md:hidden p-2 hover:bg-muted rounded-lg"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {new Date().toLocaleDateString("en-US", {
+                  weekday: "long",
+                  month: "short",
+                  day: "numeric",
+                })}
+              </p>
+            </>
+          )}
+        </div>
+
+        {/* Search / Command Palette Trigger */}
+        <div className={`${isCollapsed ? 'px-2 py-2' : 'px-4 py-2'}`}>
           <button
-            onClick={onClose}
-            className="md:hidden p-2 hover:bg-muted rounded-lg"
+            onClick={onOpenCommandPalette}
+            title={isCollapsed ? 'Search (⌘K)' : undefined}
+            className={`w-full flex items-center gap-2 rounded-lg border border-input bg-background/50 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors ${
+              isCollapsed ? 'justify-center p-2.5' : 'px-3 py-2'
+            }`}
           >
-            <X className="w-5 h-5" />
+            <Search className="w-4 h-4 shrink-0" />
+            {!isCollapsed && (
+              <>
+                <span className="flex-1 text-left text-sm">Search...</span>
+                <kbd className="hidden sm:inline-flex h-5 items-center gap-0.5 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                  ⌘K
+                </kbd>
+              </>
+            )}
           </button>
         </div>
-        <p className="text-xs text-muted-foreground">
-          {new Date().toLocaleDateString("en-US", {
-            weekday: "long",
-            month: "short",
-            day: "numeric",
+
+        {/* Navigation */}
+        <nav className={`flex-1 ${isCollapsed ? 'p-2' : 'p-4'} space-y-1`}>
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.path);
+            return (
+              <button
+                key={item.path}
+                onClick={() => handleNavigate(item.path)}
+                title={isCollapsed ? item.label : undefined}
+                className={`relative w-full flex items-center ${
+                  isCollapsed ? 'justify-center px-2 py-3' : 'space-x-3 px-4 py-3'
+                } rounded-lg transition-colors ${
+                  active
+                    ? 'text-primary-foreground font-medium'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                }`}
+              >
+                {active && (
+                  <motion.div
+                    layoutId="nav-active"
+                    className="absolute inset-0 bg-primary rounded-lg"
+                    transition={{ type: "spring", bounce: 0.15, duration: 0.4 }}
+                  />
+                )}
+                <Icon className="relative z-10 w-5 h-5 shrink-0" />
+                {!isCollapsed && <span className="relative z-10">{item.label}</span>}
+              </button>
+            );
           })}
-        </p>
-      </div>
+        </nav>
 
-      {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-1">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const active = isActive(item.path);
-          return (
-            <button
-              key={item.path}
-              onClick={() => handleNavigate(item.path)}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                active
-                  ? 'bg-primary text-primary-foreground font-medium'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-              }`}
-            >
-              <Icon className="w-5 h-5" />
-              <span>{item.label}</span>
-            </button>
-          );
-        })}
-      </nav>
+        {/* Footer */}
+        <div className={`border-t border-border space-y-1 ${isCollapsed ? 'p-2' : 'p-4'}`}>
+          <button
+            onClick={() => handleNavigate('/settings')}
+            title={isCollapsed ? 'Settings' : undefined}
+            className={`w-full flex items-center ${
+              isCollapsed ? 'justify-center px-2 py-3' : 'space-x-3 px-4 py-3'
+            } rounded-lg transition-colors ${
+              location.pathname === '/settings'
+                ? 'bg-primary text-primary-foreground font-medium'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            }`}
+          >
+            <Settings className="w-5 h-5 shrink-0" />
+            {!isCollapsed && <span>Settings</span>}
+          </button>
+          <Button
+            variant="ghost"
+            onClick={() => signOut({ redirectUrl: '/' })}
+            title={isCollapsed ? 'Logout' : undefined}
+            className={`w-full ${
+              isCollapsed ? 'justify-center px-2' : 'justify-start'
+            } text-muted-foreground hover:text-foreground`}
+          >
+            <LogOut className={`w-5 h-5 shrink-0 ${isCollapsed ? '' : 'mr-3'}`} />
+            {!isCollapsed && <span>Logout</span>}
+          </Button>
 
-      {/* Footer */}
-      <div className="p-4 border-t border-border space-y-1">
-        <button
-          onClick={() => handleNavigate('/settings')}
-          className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-            location.pathname === '/settings'
-              ? 'bg-primary text-primary-foreground font-medium'
-              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-          }`}
-        >
-          <Settings className="w-5 h-5" />
-          <span>Settings</span>
-        </button>
-        <Button
-          variant="ghost"
-          onClick={() => signOut({ redirectUrl: '/' })}
-          className="w-full justify-start text-muted-foreground hover:text-foreground"
-        >
-          <LogOut className="w-5 h-5 mr-3" />
-          <span>Logout</span>
-        </Button>
+          {/* Collapse Toggle (hidden on mobile) */}
+          <button
+            onClick={onToggleCollapse}
+            className="hidden md:flex w-full items-center justify-center px-2 py-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {isCollapsed ? (
+              <ChevronsRight className="w-4 h-4" />
+            ) : (
+              <div className="flex items-center gap-2 text-xs">
+                <ChevronsLeft className="w-4 h-4" />
+                <span>Collapse</span>
+              </div>
+            )}
+          </button>
+        </div>
       </div>
-    </div>
     </>
   );
 }

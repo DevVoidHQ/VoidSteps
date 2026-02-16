@@ -10,15 +10,18 @@ import {
   useUpdateStepParent,
 } from "@/lib/local-mutations";
 import { useData } from "@/contexts/DataContext";
-import { Button, Input } from "@devvoid/ui";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import {
   Plus,
   Star,
   Search,
   Calendar,
   Clock,
+  ChevronDown,
 } from "lucide-react";
 import { parseDateInput, parseStartDateInput } from "@/lib/date-utils";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { StepCard } from "@/components/StepCard";
 import { DraggableStepList } from "@/components/DraggableStepList";
 import { HierarchicalPathSelector } from "@/components/HierarchicalPathSelector";
@@ -49,6 +52,7 @@ export default function Steps() {
   const [stepStartDateValue, setStepStartDateValue] = useState("");
 
   // UI state
+  const [showQuickAddOptions, setShowQuickAddOptions] = useState(false);
   const [showCompletedSteps, setShowCompletedSteps] = useState(false);
   const [showFailedSteps, setShowFailedSteps] = useState(false);
   const [showUpcomingSteps, setShowUpcomingSteps] = useState(true);
@@ -266,55 +270,61 @@ export default function Steps() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">All Steps</h1>
+      <h1 className="text-2xl font-bold tracking-tight">All Steps</h1>
 
-      {/* Quick Add */}
+      {/* Compact Quick Add */}
       <div className="space-y-2">
-        <Input
-          placeholder="Step title..."
-          value={quickAddValue}
-          onChange={(e) => setQuickAddValue(e.target.value)}
-          onKeyPress={(e) => e.key === "Enter" && handleQuickAdd()}
-        />
-        <Input
-          placeholder="Description (optional)..."
-          value={stepDescValue}
-          onChange={(e) => setStepDescValue(e.target.value)}
-          onKeyPress={(e) => e.key === "Enter" && handleQuickAdd()}
-        />
-        <div className="flex space-x-2">
-          <HierarchicalPathSelector
-            paths={activePaths || []}
-            selectedPathId={stepPathValue || null}
-            onChange={(id) => setStepPathValue(id || "")}
-            placeholder="No Path"
-            allowEmpty={true}
+        <div className="flex gap-2">
+          <Input
+            placeholder="Add a step..."
+            value={quickAddValue}
+            onChange={(e) => setQuickAddValue(e.target.value)}
+            onKeyPress={(e) => e.key === "Enter" && !showQuickAddOptions && handleQuickAdd()}
             className="flex-1"
           />
-          <Button onClick={handleQuickAdd} disabled={!quickAddValue.trim()}>
+          <Button onClick={handleQuickAdd} disabled={!quickAddValue.trim()} size="icon">
             <Plus className="w-4 h-4" />
           </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setShowQuickAddOptions(!showQuickAddOptions)}
+            title="More options"
+          >
+            <ChevronDown className={`w-4 h-4 transition-transform ${showQuickAddOptions ? "rotate-180" : ""}`} />
+          </Button>
         </div>
-        <div className="flex space-x-2">
-          <div className="flex-1">
-            <label className="text-xs text-muted-foreground mb-1 block">Due Date (optional)</label>
-            <input
-              type="date"
-              className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground [color-scheme:dark] cursor-pointer"
-              value={stepDueDateValue}
-              onChange={(e) => setStepDueDateValue(e.target.value)}
+        {showQuickAddOptions && (
+          <div className="space-y-2 pl-0">
+            <Input
+              placeholder="Description (optional)..."
+              value={stepDescValue}
+              onChange={(e) => setStepDescValue(e.target.value)}
+              onKeyPress={(e) => e.key === "Enter" && handleQuickAdd()}
             />
-          </div>
-          <div className="flex-1">
-            <label className="text-xs text-muted-foreground mb-1 block">Start Date (optional)</label>
-            <input
-              type="date"
-              className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground [color-scheme:dark] cursor-pointer"
-              value={stepStartDateValue}
-              onChange={(e) => setStepStartDateValue(e.target.value)}
+            <HierarchicalPathSelector
+              paths={activePaths || []}
+              selectedPathId={stepPathValue || null}
+              onChange={(id) => setStepPathValue(id || "")}
+              placeholder="No Path"
+              allowEmpty={true}
             />
+            <div className="flex gap-2">
+              <DatePicker
+                label="Due Date"
+                value={stepDueDateValue}
+                onChange={(val) => setStepDueDateValue(val)}
+                className="flex-1"
+              />
+              <DatePicker
+                label="Start Date"
+                value={stepStartDateValue}
+                onChange={(val) => setStepStartDateValue(val)}
+                className="flex-1"
+              />
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Search and Filter */}

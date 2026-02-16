@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { applyTheme, themePresets } from '@devvoid/ui';
-import type { ThemeTokens } from '@devvoid/ui';
+import { applyTheme } from '@/lib/apply-theme';
+import { themePresets } from '@/lib/theme-presets';
+import type { ThemeTokens } from '@/lib/theme-types';
 
 // Re-export types and presets for backwards compatibility
 export type ThemeColors = ThemeTokens;

@@ -1,6 +1,20 @@
 import { useState, useCallback, memo } from "react";
 import type { Step, Path } from "@/types/index";
-import { Button, Input, Card, CardContent } from "@devvoid/ui";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Card, CardContent } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { IconButton } from "@/components/ui/IconButton";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/Dialog";
+import { DatePicker } from "@/components/ui/DatePicker";
+import { useToast } from "@/contexts/ToastContext";
 import {
   Check,
   X,
@@ -15,6 +29,7 @@ import {
   Play,
   Pause,
   Timer,
+  Trash2,
 } from "lucide-react";
 import { useElapsedTime, formatDuration } from "@/hooks/useTimer";
 import {
@@ -67,6 +82,8 @@ function StepCardComponent({
   onToggleTimer,
   activeTimerStepId,
 }: StepCardProps) {
+  const { success } = useToast();
+
   // Local edit state - changes here don't re-render other cards
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -76,6 +93,9 @@ function StepCardComponent({
     dueDate: "",
     startDate: "",
   });
+
+  // Delete confirmation state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleStartEdit = useCallback(() => {
     setIsEditing(true);
@@ -106,7 +126,8 @@ function StepCardComponent({
     });
     setIsEditing(false);
     setEditForm({ title: "", description: "", pathId: "", dueDate: "", startDate: "" });
-  }, [step._id, editForm, onSaveEdit]);
+    success("Step updated");
+  }, [step._id, editForm, onSaveEdit, success]);
 
   const handleEditFormChange = useCallback(
     (updates: Partial<{ title: string; description: string; pathId: string; dueDate: string; startDate: string }>) => {
@@ -114,6 +135,11 @@ function StepCardComponent({
     },
     []
   );
+
+  const handleDelete = useCallback(() => {
+    onDelete(step._id);
+    success("Step deleted");
+  }, [step._id, onDelete, success]);
 
   // Compute date status for display
   const dueDateStatus = getDueDateStatus(step.dueDate);
@@ -125,261 +151,271 @@ function StepCardComponent({
     step.totalTimeSpentMs || 0
   );
 
-  if (isEditing) {
-    return (
-      <Card className="border-primary/50">
-        <CardContent className="p-3 space-y-2">
-          <Input
-            placeholder="Step title"
-            value={editForm.title}
-            onChange={(e) => handleEditFormChange({ title: e.target.value })}
-          />
-          <Input
-            placeholder="Description (optional)"
-            value={editForm.description}
-            onChange={(e) => handleEditFormChange({ description: e.target.value })}
-          />
-          <HierarchicalPathSelector
-            paths={paths || []}
-            selectedPathId={editForm.pathId || null}
-            onChange={(id) => handleEditFormChange({ pathId: id || "" })}
-            placeholder="No Path"
-            allowEmpty={true}
-          />
-          <div className="flex space-x-2">
-            <div className="flex-1">
-              <label className="text-xs text-muted-foreground mb-1 block">Due Date</label>
-              <input
-                type="date"
-                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground [color-scheme:dark] cursor-pointer"
-                value={editForm.dueDate}
-                onChange={(e) => handleEditFormChange({ dueDate: e.target.value })}
-              />
-            </div>
-            <div className="flex-1">
-              <label className="text-xs text-muted-foreground mb-1 block">Start Date</label>
-              <input
-                type="date"
-                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground [color-scheme:dark] cursor-pointer"
-                value={editForm.startDate}
-                onChange={(e) => handleEditFormChange({ startDate: e.target.value })}
-              />
-            </div>
-          </div>
-          <div className="flex space-x-2">
-            <Button
-              size="sm"
-              onClick={handleSave}
-              disabled={!editForm.title.trim()}
-            >
-              Save
-            </Button>
-            <Button size="sm" variant="outline" onClick={handleCancelEdit}>
-              Cancel
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   const cardClasses = [
-    "hover:bg-muted/30 transition-all",
+    "group hover:bg-muted/30 transition-all",
     step.failed === true ? "border-destructive/50" : "",
     isDropTarget ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : "",
   ].filter(Boolean).join(" ");
 
   return (
-    <Card className={cardClasses}>
-      <CardContent className="p-3">
-        <div className="flex items-center space-x-3">
-          {/* Left: Expand button */}
-          {hasChildren ? (
-            <button
-              onClick={() => onToggleExpand?.(step._id)}
-              className="flex-shrink-0 p-0.5 hover:bg-muted rounded"
-            >
-              {isExpanded ? (
-                <ChevronDown className="w-4 h-4 text-muted-foreground" />
-              ) : (
-                <ChevronRight className="w-4 h-4 text-muted-foreground" />
-              )}
-            </button>
-          ) : (
-            // Spacer for alignment when no children
-            depth === 0 && <div className="w-5 flex-shrink-0" />
-          )}
-
-          {/* Checkbox - larger, vertically centered */}
-          <button
-            onClick={() => onToggle(step._id)}
-            className="flex-shrink-0"
-          >
-            <div
-              className={`w-6 h-6 rounded border-2 flex items-center justify-center ${
-                step.completed
-                  ? "bg-primary border-primary"
-                  : step.failed === true
-                  ? "bg-destructive border-destructive"
-                  : "border-muted-foreground hover:border-primary"
-              }`}
-            >
-              {step.completed && <Check className="w-4 h-4 text-black" />}
-              {step.failed === true && <X className="w-4 h-4 text-black" />}
-            </div>
-          </button>
-
-          {/* Middle: Content area (title + description + path) */}
-          <div className="flex-1 min-w-0">
-            {/* Row 1: Title + progress */}
-            <div className="flex items-center space-x-2">
-              <span
-                className={`font-medium ${
-                  step.completed
-                    ? "line-through text-muted-foreground"
-                    : step.failed === true
-                    ? "line-through text-destructive"
-                    : ""
-                }`}
+    <>
+      <Card className={cardClasses}>
+        <CardContent className="p-3">
+          <div className="flex items-center space-x-3">
+            {/* Left: Expand button */}
+            {hasChildren ? (
+              <button
+                onClick={() => onToggleExpand?.(step._id)}
+                className="flex-shrink-0 p-0.5 hover:bg-muted rounded"
               >
-                {step.title}
-              </span>
-              {/* Progress indicator for collapsed parents */}
-              {hasChildren && !isExpanded && childProgress && childProgress.total > 0 && (
-                <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                  {childProgress.completed}/{childProgress.total}
-                </span>
-              )}
-            </div>
-
-            {/* Row 2: Description (if any) */}
-            {step.description && (
-              <p className="text-sm text-muted-foreground mt-1">
-                {step.description}
-              </p>
-            )}
-
-            {/* Row 3: Path */}
-            {(step.pathId || step.path) && (
-              <div className="text-xs text-primary flex items-center mt-1">
-                <Target className="w-3 h-3 mr-1" />
-                {step.path?.title || (typeof step.pathId === "object" && step.pathId ? step.pathId.title : "")}
-              </div>
-            )}
-
-            {/* Row 4: Date badges (only when not completed) */}
-            {!step.completed && (
-              <div className="flex items-center gap-2 mt-1">
-                {/* Due date badge */}
-                {step.dueDate && dueDateStatus === 'overdue' && (
-                  <span className="inline-flex items-center text-xs px-1.5 py-0.5 rounded bg-destructive/10 text-destructive">
-                    <Clock className="w-3 h-3 mr-1" />
-                    {formatRelativeDate(step.dueDate)}
-                  </span>
-                )}
-                {step.dueDate && dueDateStatus === 'due-soon' && (
-                  <span className="inline-flex items-center text-xs px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-600 dark:text-yellow-400">
-                    <Clock className="w-3 h-3 mr-1" />
-                    Due {formatRelativeDate(step.dueDate).toLowerCase()}
-                  </span>
-                )}
-                {step.dueDate && dueDateStatus === 'upcoming' && (
-                  <span className="inline-flex items-center text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                    <Clock className="w-3 h-3 mr-1" />
-                    Due {formatRelativeDate(step.dueDate).toLowerCase()}
-                  </span>
-                )}
-                {/* Start date badge (only shown in upcoming section) */}
-                {showStartDateBadge && step.startDate && (
-                  <span className="inline-flex items-center text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                    <Calendar className="w-3 h-3 mr-1" />
-                    {formatRelativeDate(step.startDate, true)}
-                  </span>
-                )}
-                {/* Timer badge - show when active or has accumulated time */}
-                {onToggleTimer && (isTimerActive || (step.totalTimeSpentMs && step.totalTimeSpentMs > 0)) && (
-                  <span className={`inline-flex items-center text-xs px-1.5 py-0.5 rounded ${
-                    isTimerActive
-                      ? "bg-primary/10 text-primary"
-                      : "bg-muted text-muted-foreground"
-                  }`}>
-                    <Timer className="w-3 h-3 mr-1" />
-                    {isTimerActive ? elapsedTime : formatDuration(step.totalTimeSpentMs || 0)}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Right: Action buttons - vertically centered */}
-          <div className="flex items-center space-x-1 flex-shrink-0">
-            {onToggleTimer && !step.completed && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onToggleTimer(step._id)}
-                className="h-7 w-7 p-0"
-                title={isTimerActive ? "Stop timer" : "Start timer"}
-              >
-                {isTimerActive ? (
-                  <Pause className="w-4 h-4 text-primary" />
+                {isExpanded ? (
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
                 ) : (
-                  <Play className="w-4 h-4 text-muted-foreground" />
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
                 )}
-              </Button>
+              </button>
+            ) : (
+              // Spacer for alignment when no children
+              depth === 0 && <div className="w-5 flex-shrink-0" />
             )}
-            {onToggleFailed && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onToggleFailed(step._id)}
-                className="h-7 w-7 p-0"
-              >
-                <XCircle
-                  className={`w-4 h-4 ${
-                    step.failed === true
-                      ? "fill-destructive text-destructive"
-                      : "text-muted-foreground"
-                  }`}
-                />
-              </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() =>
-                onTogglePriority(step._id, step.prioritizedToday)
-              }
-              className="h-7 w-7 p-0"
+
+            {/* Checkbox - larger, vertically centered */}
+            <button
+              onClick={() => onToggle(step._id)}
+              className="flex-shrink-0"
             >
-              <Star
-                className={`w-4 h-4 ${
-                  step.prioritizedToday
-                    ? "fill-primary text-primary"
-                    : "text-muted-foreground"
+              <div
+                className={`w-6 h-6 rounded border-2 flex items-center justify-center ${
+                  step.completed
+                    ? "bg-primary border-primary"
+                    : step.failed === true
+                    ? "bg-destructive border-destructive"
+                    : "border-muted-foreground hover:border-primary"
                 }`}
+              >
+                {step.completed && <Check className="w-4 h-4 text-black" />}
+                {step.failed === true && <X className="w-4 h-4 text-black" />}
+              </div>
+            </button>
+
+            {/* Middle: Content area (title + description + path) */}
+            <div className="flex-1 min-w-0">
+              {/* Row 1: Title + progress */}
+              <div className="flex items-center space-x-2">
+                <span
+                  className={`font-medium ${
+                    step.completed
+                      ? "line-through text-muted-foreground"
+                      : step.failed === true
+                      ? "line-through text-destructive"
+                      : ""
+                  }`}
+                >
+                  {step.title}
+                </span>
+                {/* Progress indicator for collapsed parents */}
+                {hasChildren && !isExpanded && childProgress && childProgress.total > 0 && (
+                  <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                    {childProgress.completed}/{childProgress.total}
+                  </span>
+                )}
+              </div>
+
+              {/* Row 2: Description (if any) */}
+              {step.description && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  {step.description}
+                </p>
+              )}
+
+              {/* Row 3: Path */}
+              {(step.pathId || step.path) && (
+                <div className="text-xs text-primary flex items-center mt-1">
+                  <Target className="w-3 h-3 mr-1" />
+                  {step.path?.title || (typeof step.pathId === "object" && step.pathId ? step.pathId.title : "")}
+                </div>
+              )}
+
+              {/* Row 4: Date badges (only when not completed) */}
+              {!step.completed && (
+                <div className="flex items-center gap-2 mt-1">
+                  {/* Due date badge */}
+                  {step.dueDate && dueDateStatus === 'overdue' && (
+                    <Badge
+                      variant="destructive"
+                      size="sm"
+                      icon={<Clock className="w-3 h-3" />}
+                    >
+                      {formatRelativeDate(step.dueDate)}
+                    </Badge>
+                  )}
+                  {step.dueDate && dueDateStatus === 'due-soon' && (
+                    <Badge
+                      variant="warning"
+                      size="sm"
+                      icon={<Clock className="w-3 h-3" />}
+                    >
+                      Due {formatRelativeDate(step.dueDate).toLowerCase()}
+                    </Badge>
+                  )}
+                  {step.dueDate && dueDateStatus === 'upcoming' && (
+                    <Badge
+                      variant="secondary"
+                      size="sm"
+                      icon={<Clock className="w-3 h-3" />}
+                    >
+                      Due {formatRelativeDate(step.dueDate).toLowerCase()}
+                    </Badge>
+                  )}
+                  {/* Start date badge (only shown in upcoming section) */}
+                  {showStartDateBadge && step.startDate && (
+                    <Badge
+                      variant="secondary"
+                      size="sm"
+                      icon={<Calendar className="w-3 h-3" />}
+                    >
+                      {formatRelativeDate(step.startDate, true)}
+                    </Badge>
+                  )}
+                  {/* Timer badge - show when active or has accumulated time */}
+                  {onToggleTimer && (isTimerActive || (step.totalTimeSpentMs && step.totalTimeSpentMs > 0)) && (
+                    <Badge
+                      variant={isTimerActive ? "info" : "secondary"}
+                      size="sm"
+                      icon={<Timer className="w-3 h-3" />}
+                    >
+                      {isTimerActive ? elapsedTime : formatDuration(step.totalTimeSpentMs || 0)}
+                    </Badge>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Right: Action buttons - vertically centered, visible on hover */}
+            <div className="flex items-center space-x-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+              {/* Timer button */}
+              {onToggleTimer && !step.completed && (
+                <IconButton
+                  icon={isTimerActive ? <Pause className="w-4 h-4 text-primary" /> : <Play className="w-4 h-4" />}
+                  aria-label={isTimerActive ? "Stop timer" : "Start timer"}
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => onToggleTimer(step._id)}
+                />
+              )}
+              {/* Failed toggle button */}
+              {onToggleFailed && (
+                <IconButton
+                  icon={
+                    <XCircle
+                      className={`w-4 h-4 ${
+                        step.failed === true
+                          ? "fill-destructive text-destructive"
+                          : "text-muted-foreground"
+                      }`}
+                    />
+                  }
+                  aria-label={step.failed ? "Unmark failed" : "Mark failed"}
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => onToggleFailed(step._id)}
+                />
+              )}
+              {/* Priority toggle button */}
+              <IconButton
+                icon={
+                  <Star
+                    className={`w-4 h-4 ${
+                      step.prioritizedToday
+                        ? "fill-primary text-primary"
+                        : "text-muted-foreground"
+                    }`}
+                  />
+                }
+                aria-label={step.prioritizedToday ? "Remove priority" : "Prioritize"}
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => onTogglePriority(step._id, step.prioritizedToday)}
               />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleStartEdit}
-              className="h-7 w-7 p-0"
-            >
-              <Pencil className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onDelete(step._id)}
-              className="h-7 w-7 p-0"
-            >
-              <X className="w-4 h-4" />
-            </Button>
+              {/* Edit button */}
+              <IconButton
+                icon={<Pencil className="w-4 h-4" />}
+                aria-label="Edit step"
+                variant="ghost"
+                size="icon-sm"
+                onClick={handleStartEdit}
+              />
+              {/* Delete button */}
+              <IconButton
+                icon={<Trash2 className="w-4 h-4" />}
+                aria-label="Delete step"
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setShowDeleteConfirm(true)}
+              />
+            </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditing} onOpenChange={(open) => { if (!open) handleCancelEdit(); }}>
+        <DialogContent size="md">
+          <DialogHeader>
+            <DialogTitle>Edit Step</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              placeholder="Step title"
+              value={editForm.title}
+              onChange={(e) => handleEditFormChange({ title: e.target.value })}
+            />
+            <Input
+              placeholder="Description (optional)"
+              value={editForm.description}
+              onChange={(e) => handleEditFormChange({ description: e.target.value })}
+            />
+            <HierarchicalPathSelector
+              paths={paths || []}
+              selectedPathId={editForm.pathId || null}
+              onChange={(id) => handleEditFormChange({ pathId: id || "" })}
+              placeholder="No Path"
+              allowEmpty={true}
+            />
+            <div className="flex gap-2">
+              <DatePicker
+                label="Due Date"
+                value={editForm.dueDate}
+                onChange={(val) => handleEditFormChange({ dueDate: val })}
+                className="flex-1"
+              />
+              <DatePicker
+                label="Start Date"
+                value={editForm.startDate}
+                onChange={(val) => handleEditFormChange({ startDate: val })}
+                className="flex-1"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCancelEdit}>Cancel</Button>
+            <Button onClick={handleSave} disabled={!editForm.title.trim()}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="Delete Step"
+        description={`Are you sure you want to delete "${step.title}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="destructive"
+        onConfirm={handleDelete}
+      />
+    </>
   );
 }
 

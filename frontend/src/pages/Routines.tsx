@@ -2,7 +2,10 @@ import { useState, useCallback } from "react";
 import type { Routine, Path } from "@/types/index";
 import { useCreateRoutine, useUpdateRoutine, useDeleteRoutine } from "@/lib/local-mutations";
 import { useData } from "@/contexts/DataContext";
-import { Button, Card, CardContent, Input, Textarea } from "@devvoid/ui";
+import { Button } from "@/components/ui/Button";
+import { Card, CardContent } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
+import { Textarea } from "@/components/ui/Textarea";
 import {
   Plus,
   X,
@@ -329,7 +332,7 @@ export default function Routines() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Routines</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Routines</h1>
         {!isCreating && !editingId && (
           <Button onClick={() => setIsCreating(true)} className="flex items-center">
             <Plus className="w-4 h-4 mr-2" />

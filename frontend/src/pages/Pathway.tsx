@@ -9,7 +9,8 @@ import ReactFlow, {
 } from 'reactflow';
 import type { Node, Edge } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { Button, Tabs, TabsList, TabsTrigger, TabsContent } from '@devvoid/ui';
+import { Button } from '@/components/ui/Button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { RotateCcw, Hand, Edit3 } from 'lucide-react';
 
 import LoadingScreen from '@/components/LoadingScreen';
@@ -435,7 +436,7 @@ export default function Pathway() {
         {/* Compact Header Row */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-6">
-            <h1 className="text-3xl font-bold">Pathway</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Pathway</h1>
             <TabsList>
               <TabsTrigger value="graph">Graph</TabsTrigger>
               <TabsTrigger value="manage">Manage</TabsTrigger>

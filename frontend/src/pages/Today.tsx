@@ -11,7 +11,8 @@ import {
   useStopTimer,
 } from "@/lib/local-mutations";
 import { useData } from "@/contexts/DataContext";
-import { Input, Button } from "@devvoid/ui";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
 import {
   Star,
   Search,
@@ -250,7 +251,7 @@ export default function Today() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Today's Focus</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Today's Focus</h1>
         {activeTimerStep && (
           <button
             onClick={() => toggleTimer(activeTimerStep._id)}

@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
 import { ThemeProvider } from '@/contexts/ThemeContext';
+import { ToastProvider } from '@/contexts/ToastContext';
 import { OfflineProvider } from '@/contexts/OfflineContext';
 import { DataProvider } from '@/contexts/DataContext';
 import Layout from '@/components/Layout';
@@ -57,7 +58,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <ThemeProvider>
-        <AppRoutes />
+        <ToastProvider>
+          <AppRoutes />
+        </ToastProvider>
       </ThemeProvider>
     </BrowserRouter>
   );
