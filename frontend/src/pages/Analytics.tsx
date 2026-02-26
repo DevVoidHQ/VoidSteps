@@ -43,12 +43,13 @@ function useChartColors() {
   }, [theme]);
 }
 
-const RANGE_DAYS: Record<RangeKey, number | null> = {
+const RANGE_DAYS: Record<RangeKey, number> = {
   '7d': 7,
   '30d': 30,
   '90d': 90,
-  all: null,
 };
+
+const TIME_BY_PATH_TOP_N = 8;
 
 // ---------------------------------------------------------------------------
 // Component
@@ -61,7 +62,6 @@ export default function Analytics() {
   // ---- Range cutoff -------------------------------------------------------
   const rangeCutoff = useMemo(() => {
     const days = RANGE_DAYS[selectedRange];
-    if (!days) return 0; // all‑time
     return startOfDay(Date.now()) - (days - 1) * 24 * 60 * 60 * 1000;
   }, [selectedRange]);
 
@@ -112,10 +112,7 @@ export default function Analytics() {
 
   // ---- Section 2: Completion trends ----------------------------------------
   const completionTrendData = useMemo(() => {
-    const days = RANGE_DAYS[selectedRange] ?? Math.max(
-      Math.ceil((Date.now() - Math.min(...(completedInRange.map((s) => toMs(s.completedAt))), Date.now())) / (24 * 60 * 60 * 1000)) + 1,
-      7,
-    );
+    const days = RANGE_DAYS[selectedRange];
     const range = generateDayRange(days);
     const counts = new Map<number, number>();
     range.forEach((d) => counts.set(d, 0));
@@ -131,10 +128,7 @@ export default function Analytics() {
 
   // ---- Section 2b: Daily time spent ----------------------------------------
   const dailyTimeData = useMemo(() => {
-    const days = RANGE_DAYS[selectedRange] ?? Math.max(
-      Math.ceil((Date.now() - Math.min(...(completedInRange.map((s) => toMs(s.completedAt))), Date.now())) / (24 * 60 * 60 * 1000)) + 1,
-      7,
-    );
+    const days = RANGE_DAYS[selectedRange];
     const range = generateDayRange(days);
     const msMap = new Map<number, number>();
     range.forEach((d) => msMap.set(d, 0));
@@ -156,9 +150,26 @@ export default function Analytics() {
       const label = stepPathName(s);
       map.set(label, (map.get(label) ?? 0) + getEffectiveTimeMs(s.totalTimeSpentMs));
     });
-    return [...map.entries()]
-      .map(([name, ms]) => ({ name, hours: +(ms / 3_600_000).toFixed(1) }))
-      .sort((a, b) => b.hours - a.hours);
+    const sorted = [...map.entries()]
+      .map(([name, ms]) => ({ name, ms }))
+      .sort((a, b) => b.ms - a.ms);
+
+    // Top-N grouping: if total items <= N+1, show all (avoids "Other (1)")
+    let items: { name: string; ms: number }[];
+    if (sorted.length <= TIME_BY_PATH_TOP_N + 1) {
+      items = sorted;
+    } else {
+      const top = sorted.slice(0, TIME_BY_PATH_TOP_N);
+      const rest = sorted.slice(TIME_BY_PATH_TOP_N);
+      const otherMs = rest.reduce((sum, r) => sum + r.ms, 0);
+      items = [...top, { name: `Other (${rest.length})`, ms: otherMs }];
+    }
+
+    const maxMs = items[0]?.ms ?? 1;
+    return items.map((item) => ({
+      ...item,
+      percent: Math.round((item.ms / maxMs) * 100),
+    }));
   }, [completedInRange]);
 
   // ---- Section 4: Path breakdown -------------------------------------------
@@ -256,7 +267,6 @@ export default function Analytics() {
             <TabsTrigger value="7d">7d</TabsTrigger>
             <TabsTrigger value="30d">30d</TabsTrigger>
             <TabsTrigger value="90d">90d</TabsTrigger>
-            <TabsTrigger value="all">All Time</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
@@ -311,20 +321,25 @@ export default function Analytics() {
       {/* Section 3: Time Tracking by Path */}
       {timeByPathData.length > 0 && (
         <Section title="Time Tracking by Path" subtitle="Steps without tracked time counted as 15 min">
-          <div style={{ height: Math.max(200, timeByPathData.length * 40) }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={timeByPathData} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke={colors.muted + '33'} />
-                <XAxis type="number" tick={{ fontSize: 12, fill: colors.mutedForeground }} unit="h" />
-                <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 12, fill: colors.mutedForeground }} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8 }}
-                  formatter={(value) => [`${value}h`, 'Time']}
-                  labelStyle={{ color: colors.foreground }}
-                />
-                <Bar dataKey="hours" fill={colors.secondary} radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="space-y-2">
+            {timeByPathData.map((row, i) => (
+              <div key={row.name} className="space-y-1">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="w-5 text-right text-muted-foreground text-xs shrink-0">{i + 1}</span>
+                  <span className="font-medium truncate min-w-0 flex-1">{row.name}</span>
+                  <span className="text-muted-foreground whitespace-nowrap shrink-0">{formatDurationHM(row.ms)}</span>
+                </div>
+                <div className="ml-7 h-2 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all"
+                    style={{
+                      width: `${row.percent}%`,
+                      opacity: 1 - (i / timeByPathData.length) * 0.6,
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         </Section>
       )}

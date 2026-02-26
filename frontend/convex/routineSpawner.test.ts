@@ -91,6 +91,51 @@ describe("routineSpawner", () => {
 
   });
 
+  it("deduplicates: calling spawnDueSteps twice only creates one step", async () => {
+    const t = convexTest(schema, modules);
+    const now = Date.now();
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert("routines", {
+        userId: "user-123",
+        title: "Daily Routine",
+        frequency: "daily",
+        nextOccurrence: now - 1000, // due
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+
+    // First call should spawn 1 step
+    const result1 = await t.mutation(
+      internal.routineSpawner.spawnDueSteps,
+      {}
+    );
+    expect(result1.spawned).toBe(1);
+
+    // Reset nextOccurrence so the routine looks due again
+    await t.run(async (ctx) => {
+      const routines = await ctx.db.query("routines").collect();
+      await ctx.db.patch(routines[0]._id, {
+        nextOccurrence: now - 500,
+      });
+    });
+
+    // Second call should skip due to dedup
+    const result2 = await t.mutation(
+      internal.routineSpawner.spawnDueSteps,
+      {}
+    );
+    expect(result2.spawned).toBe(0);
+
+    // Verify only 1 step total
+    await t.run(async (ctx) => {
+      const steps = await ctx.db.query("steps").collect();
+      expect(steps).toHaveLength(1);
+    });
+
+  });
+
   it("spawned step inherits title, description, pathId, autoPrioritize from routine", async () => {
     const t = convexTest(schema, modules);
     const now = Date.now();

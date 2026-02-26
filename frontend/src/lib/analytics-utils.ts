@@ -46,13 +46,13 @@ export function generateDayRange(daysAgo: number): number[] {
   return days;
 }
 
-export type RangeKey = '7d' | '30d' | '90d' | 'all';
+export type RangeKey = '7d' | '30d' | '90d';
 
 /**
  * Formats a timestamp for use as a chart axis label.
  * - 7d  → "Mon"
  * - 30d → "Jan 5"
- * - 90d / all → "Jan 5"
+ * - 90d → "Jan 5"
  */
 export function formatDayLabel(timestamp: number, rangeKey: RangeKey): string {
   const d = new Date(timestamp);
