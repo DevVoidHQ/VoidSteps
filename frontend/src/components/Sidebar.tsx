@@ -124,7 +124,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
                 onClick={() => handleNavigate(item.path)}
                 title={isCollapsed ? item.label : undefined}
                 className={`relative w-full flex items-center ${
-                  isCollapsed ? 'justify-center px-2 py-3' : 'space-x-3 px-4 py-3'
+                  isCollapsed ? 'justify-center px-2 py-3' : 'gap-3 px-4 py-3'
                 } rounded-lg transition-colors ${
                   active
                     ? 'text-primary-foreground font-medium'
