@@ -30,6 +30,7 @@ import {
   Pause,
   Timer,
   Trash2,
+  Repeat,
 } from "lucide-react";
 import { useElapsedTime, formatDuration } from "@/hooks/useTimer";
 import {
@@ -228,62 +229,46 @@ function StepCardComponent({
                 </p>
               )}
 
-              {/* Row 3: Path */}
-              {(step.pathId || step.path) && (
-                <div className="text-xs text-primary flex items-center mt-1">
-                  <Target className="w-3 h-3 mr-1" />
-                  {step.path?.title || (typeof step.pathId === "object" && step.pathId ? step.pathId.title : "")}
-                </div>
-              )}
-
-              {/* Row 4: Date badges (only when not completed) */}
-              {!step.completed && (
-                <div className="flex items-center gap-2 mt-1">
-                  {/* Due date badge */}
-                  {step.dueDate && dueDateStatus === 'overdue' && (
-                    <Badge
-                      variant="destructive"
-                      size="sm"
-                      icon={<Clock className="w-3 h-3" />}
-                    >
+              {/* Badges row — all metadata tags in one wrapping line */}
+              {(step.pathId || step.path || step.routineId || (!step.completed && (step.dueDate || (showStartDateBadge && step.startDate) || (onToggleTimer && (isTimerActive || (step.totalTimeSpentMs && step.totalTimeSpentMs > 0)))))) && (
+                <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                  {/* Path badge */}
+                  {(step.pathId || step.path) && (
+                    <Badge variant="secondary" size="sm" icon={<Target className="w-3 h-3" />}>
+                      {step.path?.title || (typeof step.pathId === "object" && step.pathId ? step.pathId.title : "")}
+                    </Badge>
+                  )}
+                  {/* Routine badge */}
+                  {step.routineId && (
+                    <Badge variant="secondary" size="sm" icon={<Repeat className="w-3 h-3" />}>
+                      Routine
+                    </Badge>
+                  )}
+                  {/* Due date badges (only when not completed) */}
+                  {!step.completed && step.dueDate && dueDateStatus === 'overdue' && (
+                    <Badge variant="destructive" size="sm" icon={<Clock className="w-3 h-3" />}>
                       {formatRelativeDate(step.dueDate)}
                     </Badge>
                   )}
-                  {step.dueDate && dueDateStatus === 'due-soon' && (
-                    <Badge
-                      variant="warning"
-                      size="sm"
-                      icon={<Clock className="w-3 h-3" />}
-                    >
+                  {!step.completed && step.dueDate && dueDateStatus === 'due-soon' && (
+                    <Badge variant="warning" size="sm" icon={<Clock className="w-3 h-3" />}>
                       Due {formatRelativeDate(step.dueDate).toLowerCase()}
                     </Badge>
                   )}
-                  {step.dueDate && dueDateStatus === 'upcoming' && (
-                    <Badge
-                      variant="secondary"
-                      size="sm"
-                      icon={<Clock className="w-3 h-3" />}
-                    >
+                  {!step.completed && step.dueDate && dueDateStatus === 'upcoming' && (
+                    <Badge variant="secondary" size="sm" icon={<Clock className="w-3 h-3" />}>
                       Due {formatRelativeDate(step.dueDate).toLowerCase()}
                     </Badge>
                   )}
-                  {/* Start date badge (only shown in upcoming section) */}
-                  {showStartDateBadge && step.startDate && (
-                    <Badge
-                      variant="secondary"
-                      size="sm"
-                      icon={<Calendar className="w-3 h-3" />}
-                    >
+                  {/* Start date badge */}
+                  {!step.completed && showStartDateBadge && step.startDate && (
+                    <Badge variant="secondary" size="sm" icon={<Calendar className="w-3 h-3" />}>
                       {formatRelativeDate(step.startDate, true)}
                     </Badge>
                   )}
-                  {/* Timer badge - show when active or has accumulated time */}
-                  {onToggleTimer && (isTimerActive || (step.totalTimeSpentMs && step.totalTimeSpentMs > 0)) && (
-                    <Badge
-                      variant={isTimerActive ? "info" : "secondary"}
-                      size="sm"
-                      icon={<Timer className="w-3 h-3" />}
-                    >
+                  {/* Timer badge */}
+                  {!step.completed && onToggleTimer && (isTimerActive || (step.totalTimeSpentMs && step.totalTimeSpentMs > 0)) && (
+                    <Badge variant={isTimerActive ? "info" : "secondary"} size="sm" icon={<Timer className="w-3 h-3" />}>
                       {isTimerActive ? elapsedTime : formatDuration(step.totalTimeSpentMs || 0)}
                     </Badge>
                   )}
@@ -434,6 +419,7 @@ export const StepCard = memo(StepCardComponent, (prevProps, nextProps) => {
     prevProps.step.startDate === nextProps.step.startDate &&
     prevProps.step.timerStartedAt === nextProps.step.timerStartedAt &&
     prevProps.step.totalTimeSpentMs === nextProps.step.totalTimeSpentMs &&
+    prevProps.step.routineId === nextProps.step.routineId &&
     prevProps.paths === nextProps.paths &&
     prevProps.onToggle === nextProps.onToggle &&
     prevProps.onToggleFailed === nextProps.onToggleFailed &&

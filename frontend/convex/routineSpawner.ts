@@ -76,12 +76,30 @@ export const spawnDueSteps = internalMutation({
   handler: async (ctx) => {
     const now = Date.now();
 
+    // Compute start of today (midnight UTC) for dedup window
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+    const startOfTodayMs = startOfToday.getTime();
+
     // Get all routines that are due
     const allRoutines = await ctx.db.query("routines").collect();
     const dueRoutines = allRoutines.filter(routine => routine.nextOccurrence <= now);
 
+    let spawned = 0;
+
     // Spawn a new step for each due routine
     for (const routine of dueRoutines) {
+      // Dedup: skip if a step for this routine already exists today
+      const existingStep = await ctx.db
+        .query("steps")
+        .withIndex("by_routine", (q) => q.eq("routineId", routine._id))
+        .filter((q) => q.gte(q.field("createdAt"), startOfTodayMs))
+        .first();
+
+      if (existingStep) {
+        continue;
+      }
+
       // Create the new step from routine blueprint, propagating userId
       await ctx.db.insert("steps", {
         userId: routine.userId,
@@ -113,8 +131,10 @@ export const spawnDueSteps = internalMutation({
         nextOccurrence,
         updatedAt: now,
       });
+
+      spawned++;
     }
 
-    return { spawned: dueRoutines.length };
+    return { spawned };
   },
 });
