@@ -146,9 +146,15 @@ export class SyncEngine {
         if ('timerStartedAt' in data && data.timerStartedAt !== undefined) {
           // Start timer
           await this.client.mutation(api.steps.startTimer, { id: resolvedId as Id<'steps'> });
-        } else if ('totalTimeSpentMs' in data && data.timerStartedAt === undefined) {
-          // Stop timer
+        } else if ('totalTimeSpentMs' in data && 'timerStartedAt' in data && data.timerStartedAt === undefined) {
+          // Stop timer (both totalTimeSpentMs and timerStartedAt=undefined present)
           await this.client.mutation(api.steps.stopTimer, { id: resolvedId as Id<'steps'> });
+        } else if ('totalTimeSpentMs' in data && !('timerStartedAt' in data)) {
+          // Manual time set (only totalTimeSpentMs, no timerStartedAt key)
+          await this.client.mutation(api.steps.setTotalTime, {
+            id: resolvedId as Id<'steps'>,
+            totalTimeSpentMs: data.totalTimeSpentMs as number,
+          });
         }
         // sortOrder + parentId (reorder)
         if ('sortOrder' in data && 'parentId' in data) {

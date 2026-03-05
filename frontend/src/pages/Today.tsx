@@ -9,6 +9,7 @@ import {
   useUpdateStepParent,
   useStartTimer,
   useStopTimer,
+  useSetTotalTime,
 } from "@/lib/local-mutations";
 import { useData } from "@/contexts/DataContext";
 import { Input } from "@/components/ui/Input";
@@ -45,6 +46,7 @@ export default function Today() {
   const updateStepParentMutation = useUpdateStepParent();
   const startTimerMutation = useStartTimer();
   const stopTimerMutation = useStopTimer();
+  const setTotalTimeMutation = useSetTotalTime();
 
   // UI state
   const [searchQueryToday, setSearchQueryToday] = useState("");
@@ -247,6 +249,13 @@ export default function Today() {
     }
   }, [activeTimerStepId, startTimerMutation, stopTimerMutation]);
 
+  const setTotalTime = useCallback(async (id: string, totalTimeMs: number) => {
+    try {
+      await setTotalTimeMutation({ id, totalTimeSpentMs: totalTimeMs });
+    } catch (error) {
+      console.error("Error setting total time:", error);
+    }
+  }, [setTotalTimeMutation]);
 
   return (
     <div className="space-y-6">
@@ -323,6 +332,7 @@ export default function Today() {
                 onSaveEdit={updateStep}
                 onToggleTimer={toggleTimer}
                 activeTimerStepId={activeTimerStepId}
+                onSetTotalTime={setTotalTime}
               />
             ))}
           </div>
@@ -347,6 +357,7 @@ export default function Today() {
           hideExpandAllButton
           onToggleTimer={toggleTimer}
           activeTimerStepId={activeTimerStepId}
+          onSetTotalTime={setTotalTime}
         />
       ) : duePrioritySteps.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">

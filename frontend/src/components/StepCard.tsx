@@ -33,6 +33,7 @@ import {
   Repeat,
 } from "lucide-react";
 import { useElapsedTime, formatDuration } from "@/hooks/useTimer";
+import { TimeEditDialog } from "@/components/TimeEditDialog";
 import {
   getDueDateStatus,
   formatRelativeDate,
@@ -63,6 +64,7 @@ export interface StepCardProps {
   // Timer props
   onToggleTimer?: (id: string) => void;
   activeTimerStepId?: string | null;
+  onSetTotalTime?: (id: string, totalTimeMs: number) => void;
 }
 
 function StepCardComponent({
@@ -82,6 +84,7 @@ function StepCardComponent({
   showStartDateBadge = false,
   onToggleTimer,
   activeTimerStepId,
+  onSetTotalTime,
 }: StepCardProps) {
   const { success } = useToast();
 
@@ -97,6 +100,9 @@ function StepCardComponent({
 
   // Delete confirmation state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Time edit dialog state
+  const [showTimeEdit, setShowTimeEdit] = useState(false);
 
   const handleStartEdit = useCallback(() => {
     setIsEditing(true);
@@ -146,7 +152,7 @@ function StepCardComponent({
   const dueDateStatus = getDueDateStatus(step.dueDate);
 
   // Timer state
-  const isTimerActive = step._id === activeTimerStepId && step.timerStartedAt !== undefined;
+  const isTimerActive = step._id === activeTimerStepId && step.timerStartedAt != null;
   const elapsedTime = useElapsedTime(
     isTimerActive ? step.timerStartedAt : undefined,
     step.totalTimeSpentMs || 0
@@ -266,11 +272,23 @@ function StepCardComponent({
                       {formatRelativeDate(step.startDate, true)}
                     </Badge>
                   )}
-                  {/* Timer badge */}
+                  {/* Timer badge — clickable to open time edit dialog */}
                   {!step.completed && onToggleTimer && (isTimerActive || (step.totalTimeSpentMs && step.totalTimeSpentMs > 0)) && (
-                    <Badge variant={isTimerActive ? "info" : "secondary"} size="sm" icon={<Timer className="w-3 h-3" />}>
-                      {isTimerActive ? elapsedTime : formatDuration(step.totalTimeSpentMs || 0)}
-                    </Badge>
+                    onSetTotalTime ? (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); setShowTimeEdit(true); }}
+                        className="cursor-pointer hover:opacity-80 transition-opacity"
+                      >
+                        <Badge variant={isTimerActive ? "info" : "secondary"} size="sm" icon={<Timer className="w-3 h-3" />}>
+                          {isTimerActive ? elapsedTime : formatDuration(step.totalTimeSpentMs || 0)}
+                        </Badge>
+                      </button>
+                    ) : (
+                      <Badge variant={isTimerActive ? "info" : "secondary"} size="sm" icon={<Timer className="w-3 h-3" />}>
+                        {isTimerActive ? elapsedTime : formatDuration(step.totalTimeSpentMs || 0)}
+                      </Badge>
+                    )
                   )}
                 </div>
               )}
@@ -278,6 +296,16 @@ function StepCardComponent({
 
             {/* Right: Action buttons - vertically centered, visible on hover */}
             <div className="flex items-center space-x-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+              {/* Clock icon for manual time entry */}
+              {onSetTotalTime && !step.completed && (
+                <IconButton
+                  icon={<Clock className="w-4 h-4" />}
+                  aria-label="Edit time"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => setShowTimeEdit(true)}
+                />
+              )}
               {/* Timer button */}
               {onToggleTimer && !step.completed && (
                 <IconButton
@@ -389,6 +417,17 @@ function StepCardComponent({
         </DialogContent>
       </Dialog>
 
+      {/* Time Edit Dialog */}
+      {onSetTotalTime && (
+        <TimeEditDialog
+          open={showTimeEdit}
+          onOpenChange={setShowTimeEdit}
+          currentTimeMs={step.totalTimeSpentMs || 0}
+          isTimerRunning={isTimerActive}
+          onApply={(newTotalMs) => onSetTotalTime(step._id, newTotalMs)}
+        />
+      )}
+
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         open={showDeleteConfirm}
@@ -437,6 +476,7 @@ export const StepCard = memo(StepCardComponent, (prevProps, nextProps) => {
     prevProps.showStartDateBadge === nextProps.showStartDateBadge &&
     // Timer props
     prevProps.onToggleTimer === nextProps.onToggleTimer &&
-    prevProps.activeTimerStepId === nextProps.activeTimerStepId
+    prevProps.activeTimerStepId === nextProps.activeTimerStepId &&
+    prevProps.onSetTotalTime === nextProps.onSetTotalTime
   );
 });

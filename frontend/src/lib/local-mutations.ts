@@ -290,6 +290,17 @@ export function useStartTimer() {
   }, []);
 }
 
+export function useSetTotalTime() {
+  return useCallback(async (args: { id: string; totalTimeSpentMs: number }) => {
+    const now = Date.now();
+    const totalTimeSpentMs = Math.max(0, args.totalTimeSpentMs);
+    // When resetting to 0, clear the field entirely so the badge disappears
+    const value = totalTimeSpentMs === 0 ? undefined : totalTimeSpentMs;
+    await db.steps.update(args.id, { totalTimeSpentMs: value, updatedAt: now });
+    await enqueue('steps', args.id, 'update', { totalTimeSpentMs: value, updatedAt: now });
+  }, []);
+}
+
 export function useStopTimer() {
   return useCallback(async (args: { id: string }) => {
     const step = await db.steps.get(args.id);
