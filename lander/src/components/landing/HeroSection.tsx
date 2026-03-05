@@ -1,6 +1,5 @@
 import { useRef, useState, useEffect, type ReactNode } from "react";
 import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
-import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 
 const container = {
@@ -287,11 +286,11 @@ export default function HeroSection() {
           </motion.p>
 
           <motion.div variants={item} className="mt-8 flex flex-wrap gap-3">
-            <Link to="/login">
+            <a href="https://app.voidsteps.com/login">
               <Button size="xl" className="btn-glow text-base px-10">
                 Get Started
               </Button>
-            </Link>
+            </a>
             <a href="#how-it-works">
               <Button size="xl" variant="outline" className="text-base px-8">
                 Learn More

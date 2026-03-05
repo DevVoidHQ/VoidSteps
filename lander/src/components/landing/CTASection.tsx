@@ -1,6 +1,5 @@
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 
 export default function CTASection() {
@@ -42,7 +41,7 @@ export default function CTASection() {
         <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-md mx-auto">
           Join the beta and start building your paths today.
         </p>
-        <Link to="/login">
+        <a href="https://app.voidsteps.com/login">
           <motion.div
             className="inline-block"
             whileHover={{ scale: 1.05 }}
@@ -53,7 +52,7 @@ export default function CTASection() {
               Get Started
             </Button>
           </motion.div>
-        </Link>
+        </a>
       </motion.div>
     </section>
   );

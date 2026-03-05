@@ -1,3 +1,5 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
 import ScrollProgressBar from "../components/landing/ScrollProgressBar";
 import FloatingOrbs from "../components/landing/FloatingOrbs";
 import HeroSection from "../components/landing/HeroSection";
@@ -8,22 +10,21 @@ import FeaturesSection from "../components/landing/FeaturesSection";
 import SocialProofSection from "../components/landing/SocialProofSection";
 import CTASection from "../components/landing/CTASection";
 import LandingFooter from "../components/landing/LandingFooter";
+---
 
-export default function Landing() {
-  return (
-    <div className="min-h-screen bg-background text-foreground relative scroll-smooth" style={{ overflowX: "clip" }}>
-      <ScrollProgressBar />
-      <FloatingOrbs />
-      <div className="relative z-[1]">
-        <HeroSection />
-        <PhilosophySection />
-        <HowItWorksSection />
-        <ShowcaseSection />
-        <FeaturesSection />
-        <SocialProofSection />
-        <CTASection />
-        <LandingFooter />
-      </div>
+<BaseLayout>
+  <div class="min-h-screen bg-background text-foreground relative scroll-smooth" style="overflow-x: clip;">
+    <ScrollProgressBar client:load />
+    <FloatingOrbs client:load />
+    <div class="relative z-[1]">
+      <HeroSection client:load />
+      <PhilosophySection client:load />
+      <HowItWorksSection client:load />
+      <ShowcaseSection client:load />
+      <FeaturesSection client:load />
+      <SocialProofSection client:visible />
+      <CTASection client:visible />
+      <LandingFooter client:visible />
     </div>
-  );
-}
+  </div>
+</BaseLayout>

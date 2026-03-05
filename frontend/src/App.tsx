@@ -6,7 +6,6 @@ import { OfflineProvider } from '@/contexts/OfflineContext';
 import { DataProvider } from '@/contexts/DataContext';
 import Layout from '@/components/Layout';
 import LoadingScreen from '@/components/LoadingScreen';
-import Landing from '@/pages/Landing';
 import Login from '@/pages/Login';
 import Today from '@/pages/Today';
 import Steps from '@/pages/Steps';
@@ -28,9 +27,8 @@ function AppRoutes() {
   if (!isSignedIn) {
     return (
       <Routes>
-        <Route path="/" element={<Landing />} />
         <Route path="/login/*" element={<Login />} />
-        <Route path="*" element={<Navigate to="/login" />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );
   }
