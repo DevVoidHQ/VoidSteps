@@ -1,7 +1,7 @@
 import { useClerk, useUser } from '@clerk/clerk-react';
 import { motion } from 'framer-motion';
-import { Button } from '@/components/ui/Button';
-import { LogOut, Settings, Calendar, ListTodo, Target, Zap, BarChart3, Network, X, ChevronsLeft, ChevronsRight, Search } from 'lucide-react';
+import { LogOut, Settings, Calendar, ListTodo, Target, Zap, BarChart3, Network, X, ChevronsLeft, ChevronsRight, Search, MessageSquare } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 interface SidebarProps {
@@ -10,6 +10,67 @@ interface SidebarProps {
   isCollapsed: boolean;
   onToggleCollapse: () => void;
   onOpenCommandPalette: () => void;
+}
+
+interface SidebarItemProps {
+  icon: LucideIcon;
+  label: string;
+  isCollapsed: boolean;
+  active?: boolean;
+  showActiveIndicator?: boolean;
+  iconOnly?: boolean;
+  onClick?: () => void;
+  href?: string;
+  className?: string;
+}
+
+function SidebarItem({ icon: Icon, label, isCollapsed, active, showActiveIndicator, iconOnly, onClick, href, className }: SidebarItemProps) {
+  const hideLabel = isCollapsed || iconOnly;
+  const baseClass = `relative w-full flex items-center ${
+    hideLabel ? 'justify-center px-2 py-3' : 'gap-3 px-4 py-3'
+  } rounded-lg transition-colors ${
+    active
+      ? 'text-primary-foreground font-medium'
+      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+  } ${className ?? ''}`;
+
+  const content = (
+    <>
+      {showActiveIndicator && active && (
+        <motion.div
+          layoutId="nav-active"
+          className="absolute inset-0 bg-primary rounded-lg"
+          transition={{ type: "spring", bounce: 0.15, duration: 0.4 }}
+        />
+      )}
+      <Icon className="relative z-10 w-5 h-5 shrink-0" />
+      {!hideLabel && <span className="relative z-10">{label}</span>}
+    </>
+  );
+
+  if (href) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={hideLabel ? label : undefined}
+        className={baseClass}
+      >
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <button
+      onClick={onClick}
+      title={isCollapsed ? label : undefined}
+      className={baseClass}
+    >
+      {content}
+    </button>
+  );
 }
 
 export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, onOpenCommandPalette }: SidebarProps) {
@@ -25,6 +86,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
     { path: '/routines', label: 'Routines', icon: Zap },
     { path: '/analytics', label: 'Analytics', icon: BarChart3 },
     { path: '/pathway', label: 'Pathway', icon: Network },
+    { path: '/settings', label: 'Settings', icon: Settings },
   ];
 
   const isActive = (path: string) => {
@@ -115,79 +177,44 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
 
         {/* Navigation */}
         <nav className={`flex-1 ${isCollapsed ? 'p-2' : 'p-4'} space-y-1`}>
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.path);
-            return (
-              <button
-                key={item.path}
-                onClick={() => handleNavigate(item.path)}
-                title={isCollapsed ? item.label : undefined}
-                className={`relative w-full flex items-center ${
-                  isCollapsed ? 'justify-center px-2 py-3' : 'gap-3 px-4 py-3'
-                } rounded-lg transition-colors ${
-                  active
-                    ? 'text-primary-foreground font-medium'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                }`}
-              >
-                {active && (
-                  <motion.div
-                    layoutId="nav-active"
-                    className="absolute inset-0 bg-primary rounded-lg"
-                    transition={{ type: "spring", bounce: 0.15, duration: 0.4 }}
-                  />
-                )}
-                <Icon className="relative z-10 w-5 h-5 shrink-0" />
-                {!isCollapsed && <span className="relative z-10">{item.label}</span>}
-              </button>
-            );
-          })}
+          {navItems.map((item) => (
+            <SidebarItem
+              key={item.path}
+              icon={item.icon}
+              label={item.label}
+              isCollapsed={isCollapsed}
+              active={isActive(item.path)}
+              showActiveIndicator
+              onClick={() => handleNavigate(item.path)}
+            />
+          ))}
         </nav>
 
         {/* Footer */}
-        <div className={`border-t border-border space-y-1 ${isCollapsed ? 'p-2' : 'p-4'}`}>
-          <button
-            onClick={() => handleNavigate('/settings')}
-            title={isCollapsed ? 'Settings' : undefined}
-            className={`w-full flex items-center ${
-              isCollapsed ? 'justify-center px-2 py-3' : 'space-x-3 px-4 py-3'
-            } rounded-lg transition-colors ${
-              location.pathname === '/settings'
-                ? 'bg-primary text-primary-foreground font-medium'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            }`}
-          >
-            <Settings className="w-5 h-5 shrink-0" />
-            {!isCollapsed && <span>Settings</span>}
-          </button>
-          <Button
-            variant="ghost"
+        <div className={`border-t border-border ${isCollapsed ? 'p-2' : 'p-4'} space-y-1`}>
+          <div className={`flex items-center ${isCollapsed ? 'flex-col gap-1' : 'gap-1'}`}>
+            <SidebarItem
+              icon={MessageSquare}
+              label="Feedback"
+              isCollapsed={isCollapsed}
+              href="mailto:aneeshbhat@devvoid.org?subject=VoidSteps%20Feedback&body=Hey%2C%0A%0AI%20wanted%20to%20share%20some%20feedback%20about%20VoidSteps%3A%0A%0A"
+              className={isCollapsed ? '' : 'flex-1'}
+            />
+            <SidebarItem
+              icon={isCollapsed ? ChevronsRight : ChevronsLeft}
+              label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              isCollapsed={isCollapsed}
+              iconOnly
+              onClick={onToggleCollapse}
+              className={`hidden md:flex ${isCollapsed ? '' : 'shrink-0 !w-auto'}`}
+            />
+          </div>
+          <SidebarItem
+            icon={LogOut}
+            label="Logout"
+            isCollapsed={isCollapsed}
             onClick={() => signOut({ redirectUrl: '/' })}
-            title={isCollapsed ? 'Logout' : undefined}
-            className={`w-full ${
-              isCollapsed ? 'justify-center px-2' : 'justify-start'
-            } text-muted-foreground hover:text-foreground`}
-          >
-            <LogOut className={`w-5 h-5 shrink-0 ${isCollapsed ? '' : 'mr-3'}`} />
-            {!isCollapsed && <span>Logout</span>}
-          </Button>
-
-          {/* Collapse Toggle (hidden on mobile) */}
-          <button
-            onClick={onToggleCollapse}
-            className="hidden md:flex w-full items-center justify-center px-2 py-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            {isCollapsed ? (
-              <ChevronsRight className="w-4 h-4" />
-            ) : (
-              <div className="flex items-center gap-2 text-xs">
-                <ChevronsLeft className="w-4 h-4" />
-                <span>Collapse</span>
-              </div>
-            )}
-          </button>
+          />
         </div>
       </div>
     </>

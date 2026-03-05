@@ -597,6 +597,37 @@ export const startTimer = mutation({
   },
 });
 
+export const setTotalTime = mutation({
+  args: {
+    id: v.id("steps"),
+    totalTimeSpentMs: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+    const step = await ctx.db.get(args.id);
+    if (!step || step.userId !== userId) throw new Error("Step not found");
+
+    const totalTimeSpentMs = Math.max(0, args.totalTimeSpentMs);
+    const now = Date.now();
+
+    await ctx.db.patch(args.id, {
+      // 0 clears the field (back to default — no time tracked)
+      totalTimeSpentMs: totalTimeSpentMs === 0 ? undefined : totalTimeSpentMs,
+      updatedAt: now,
+    });
+
+    const updatedStep = await ctx.db.get(args.id);
+    if (!updatedStep) throw new Error("Failed to set total time");
+
+    if (updatedStep.pathId) {
+      const path = await ctx.db.get(updatedStep.pathId);
+      return { ...updatedStep, path };
+    }
+
+    return { ...updatedStep, path: null };
+  },
+});
+
 export const stopTimer = mutation({
   args: { id: v.id("steps") },
   handler: async (ctx, args) => {

@@ -1,7 +1,9 @@
 import { useState, useCallback } from "react";
 import type { Routine, Path } from "@/types/index";
-import { useCreateRoutine, useUpdateRoutine, useDeleteRoutine } from "@/lib/local-mutations";
+import { useCreateRoutine, useUpdateRoutine, useDeleteRoutine, MAX_TITLE_LENGTH, MAX_DESCRIPTION_LENGTH } from "@/lib/local-mutations";
 import { useData } from "@/contexts/DataContext";
+import { reportError } from "@/lib/error-store";
+import { useToast } from "@/contexts/ToastContext";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -16,6 +18,7 @@ import {
   Calendar,
   Check,
 } from "lucide-react";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 type Frequency = 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'yearly';
 
@@ -107,6 +110,7 @@ const defaultFormData: RoutineFormData = {
 };
 
 export default function Routines() {
+  const toast = useToast();
   const { paths, routines } = useData();
 
   const createRoutineMutation = useCreateRoutine();
@@ -142,43 +146,56 @@ export default function Routines() {
   const handleCreate = useCallback(async () => {
     if (!formData.title.trim()) return;
 
-    await createRoutineMutation({
-      title: formData.title.trim(),
-      description: formData.description.trim() || undefined,
-      pathId: formData.pathId || undefined,
-      frequency: formData.frequency,
-      daysOfWeek: formData.frequency === 'weekly' ? formData.daysOfWeek : undefined,
-      dayOfMonth: formData.frequency === 'monthly' ? formData.dayOfMonth : undefined,
-      month: formData.frequency === 'yearly' ? formData.month : undefined,
-      dayOfYear: formData.frequency === 'yearly' ? formData.dayOfYear : undefined,
-      autoPrioritize: formData.autoPrioritize,
-    });
-
-    resetForm();
-  }, [formData, createRoutineMutation, resetForm]);
+    try {
+      await createRoutineMutation({
+        title: formData.title.trim(),
+        description: formData.description.trim() || undefined,
+        pathId: formData.pathId || undefined,
+        frequency: formData.frequency,
+        daysOfWeek: formData.frequency === 'weekly' ? formData.daysOfWeek : undefined,
+        dayOfMonth: formData.frequency === 'monthly' ? formData.dayOfMonth : undefined,
+        month: formData.frequency === 'yearly' ? formData.month : undefined,
+        dayOfYear: formData.frequency === 'yearly' ? formData.dayOfYear : undefined,
+        autoPrioritize: formData.autoPrioritize,
+      });
+      resetForm();
+    } catch (error) {
+      reportError('mutation', error, { action: 'createRoutine' });
+      toast.error("Failed to create routine");
+    }
+  }, [formData, createRoutineMutation, resetForm, toast]);
 
   const handleUpdate = useCallback(async () => {
     if (!editingId || !formData.title.trim()) return;
 
-    await updateRoutineMutation({
-      id: editingId,
-      title: formData.title.trim(),
-      description: formData.description.trim() || undefined,
-      pathId: formData.pathId || null,
-      frequency: formData.frequency,
-      daysOfWeek: formData.frequency === 'weekly' ? formData.daysOfWeek : null,
-      dayOfMonth: formData.frequency === 'monthly' ? formData.dayOfMonth : null,
-      month: formData.frequency === 'yearly' ? formData.month : null,
-      dayOfYear: formData.frequency === 'yearly' ? formData.dayOfYear : null,
-      autoPrioritize: formData.autoPrioritize,
-    });
-
-    resetForm();
-  }, [editingId, formData, updateRoutineMutation, resetForm]);
+    try {
+      await updateRoutineMutation({
+        id: editingId,
+        title: formData.title.trim(),
+        description: formData.description.trim() || undefined,
+        pathId: formData.pathId || null,
+        frequency: formData.frequency,
+        daysOfWeek: formData.frequency === 'weekly' ? formData.daysOfWeek : null,
+        dayOfMonth: formData.frequency === 'monthly' ? formData.dayOfMonth : null,
+        month: formData.frequency === 'yearly' ? formData.month : null,
+        dayOfYear: formData.frequency === 'yearly' ? formData.dayOfYear : null,
+        autoPrioritize: formData.autoPrioritize,
+      });
+      resetForm();
+    } catch (error) {
+      reportError('mutation', error, { action: 'updateRoutine', routineId: editingId });
+      toast.error("Failed to update routine");
+    }
+  }, [editingId, formData, updateRoutineMutation, resetForm, toast]);
 
   const handleDelete = useCallback(async (id: string) => {
-    await deleteRoutineMutation({ id });
-  }, [deleteRoutineMutation]);
+    try {
+      await deleteRoutineMutation({ id });
+    } catch (error) {
+      reportError('mutation', error, { action: 'deleteRoutine', routineId: id });
+      toast.error("Failed to delete routine");
+    }
+  }, [deleteRoutineMutation, toast]);
 
   const toggleDayOfWeek = useCallback((day: number) => {
     setFormData(prev => {
@@ -198,12 +215,14 @@ export default function Routines() {
           value={formData.title}
           onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
           autoFocus
+          maxLength={MAX_TITLE_LENGTH}
         />
         <Textarea
           placeholder="Description (optional)"
           value={formData.description}
           onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
           rows={2}
+          maxLength={MAX_DESCRIPTION_LENGTH}
         />
         <select
           className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -409,11 +428,11 @@ export default function Routines() {
           ))}
         </div>
       ) : !isCreating && (
-        <div className="text-center py-12 text-muted-foreground">
-          <Repeat className="w-12 h-12 mx-auto mb-3 opacity-50" />
-          <p>No routines yet</p>
-          <p className="text-sm mt-1">Create a recurring task to get started</p>
-        </div>
+        <EmptyState
+          icon={Repeat}
+          message="No routines yet"
+          hint="Create a recurring task to get started"
+        />
       )}
     </div>
   );

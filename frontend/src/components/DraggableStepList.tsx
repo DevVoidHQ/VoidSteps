@@ -46,6 +46,7 @@ interface DraggableStepListProps {
   // Timer props
   onToggleTimer?: (id: string) => void;
   activeTimerStepId?: string | null;
+  onSetTotalTime?: (id: string, totalTimeMs: number) => void;
 }
 
 interface SortableStepItemProps extends StepCardProps {
@@ -156,6 +157,7 @@ export function DraggableStepList({
   showStartDateBadge,
   onToggleTimer,
   activeTimerStepId,
+  onSetTotalTime,
 }: DraggableStepListProps) {
   const [internalExpandedSteps, setInternalExpandedSteps] = useState<Set<string>>(new Set());
 
@@ -424,6 +426,7 @@ export function DraggableStepList({
                     showStartDateBadge={showStartDateBadge}
                     onToggleTimer={onToggleTimer}
                     activeTimerStepId={activeTimerStepId}
+                    onSetTotalTime={onSetTotalTime}
                   />
                 </DroppableStepWrapper>
 
@@ -446,6 +449,7 @@ export function DraggableStepList({
                         showStartDateBadge={showStartDateBadge}
                         onToggleTimer={onToggleTimer}
                         activeTimerStepId={activeTimerStepId}
+                        onSetTotalTime={onSetTotalTime}
                       />
                     ))}
                   </div>

@@ -221,7 +221,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Active timer step ID
   const activeTimerStepId = useMemo(() => {
     if (!allSteps) return null;
-    const stepWithTimer = allSteps.find(s => s.timerStartedAt !== undefined);
+    const stepWithTimer = allSteps.find(s => s.timerStartedAt != null);
     return stepWithTimer?._id ?? null;
   }, [allSteps]);
 

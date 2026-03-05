@@ -11,13 +11,14 @@ import type { Node, Edge } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { Button } from '@/components/ui/Button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
-import { RotateCcw, Hand, Edit3 } from 'lucide-react';
+import { RotateCcw, Hand, Edit3, GitBranch } from 'lucide-react';
 
 import LoadingScreen from '@/components/LoadingScreen';
 import UserNode from '@/components/graph/UserNode';
 import PathNode from '@/components/graph/PathNode';
 import StepNode from '@/components/graph/StepNode';
 import ManagePaths from '@/components/ManagePaths';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { useData } from '@/contexts/DataContext';
 
 // Define viewport type
@@ -443,8 +444,8 @@ export default function Pathway() {
             </TabsList>
           </div>
 
-          {/* Controls - only visible on Graph tab */}
-          {activeTab === 'graph' && (
+          {/* Controls - only visible on Graph tab when paths exist */}
+          {activeTab === 'graph' && paths && paths.length > 0 && (
             <div className="flex items-center space-x-2">
               <Button
                 variant={mode === 'edit' ? 'default' : 'outline'}
@@ -484,6 +485,15 @@ export default function Pathway() {
 
         {/* Graph Tab */}
         <TabsContent value="graph" className="mt-0">
+          {!paths || paths.length === 0 ? (
+            <div className="h-[calc(100vh-13rem)] border border-border rounded-lg overflow-hidden bg-background flex items-center justify-center">
+              <EmptyState
+                icon={GitBranch}
+                message="No paths to visualize"
+                hint="Create a path on the Manage tab to see your graph"
+              />
+            </div>
+          ) : (
           <div className="h-[calc(100vh-13rem)] border border-border rounded-lg overflow-hidden bg-background" style={{ touchAction: 'none' }}>
             <ReactFlow
               nodes={nodes}
@@ -511,6 +521,7 @@ export default function Pathway() {
               <Controls />
             </ReactFlow>
           </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>

@@ -93,6 +93,16 @@ export interface SyncQueueEntry {
   createdAt: number;
 }
 
+export interface ErrorLogEntry {
+  id?: number;
+  category: 'sync' | 'mutation' | 'render' | 'network';
+  message: string;
+  stack?: string;
+  context?: Record<string, unknown>;
+  timestamp: number;
+  reported: boolean;
+}
+
 export interface SyncMeta {
   key: string;
   value: string | number;
@@ -108,6 +118,7 @@ class VoidStepsDB extends Dexie {
   userSettings!: EntityTable<LocalUserSettings, '_id'>;
   syncQueue!: EntityTable<SyncQueueEntry, 'id'>;
   syncMeta!: EntityTable<SyncMeta, 'key'>;
+  errorLog!: EntityTable<ErrorLogEntry, 'id'>;
 
   constructor() {
     super('voidsteps');
@@ -120,6 +131,17 @@ class VoidStepsDB extends Dexie {
       userSettings: '_id, userId',
       syncQueue: '++id, entityType, entityId, status, createdAt',
       syncMeta: 'key',
+    });
+
+    this.version(2).stores({
+      steps: '_id, pathId, parentId, routineId, updatedAt',
+      paths: '_id, parentId, updatedAt',
+      routines: '_id, nextOccurrence, updatedAt',
+      pathways: '_id, parentId, updatedAt',
+      userSettings: '_id, userId',
+      syncQueue: '++id, entityType, entityId, status, createdAt',
+      syncMeta: 'key',
+      errorLog: '++id, category, timestamp, reported',
     });
   }
 }

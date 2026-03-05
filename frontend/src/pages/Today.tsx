@@ -9,8 +9,11 @@ import {
   useUpdateStepParent,
   useStartTimer,
   useStopTimer,
+  useSetTotalTime,
 } from "@/lib/local-mutations";
 import { useData } from "@/contexts/DataContext";
+import { reportError } from "@/lib/error-store";
+import { useToast } from "@/contexts/ToastContext";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import {
@@ -27,8 +30,10 @@ import { StepCard } from "@/components/StepCard";
 import { DraggableStepList } from "@/components/DraggableStepList";
 import { useStepHierarchy } from "@/hooks/useStepHierarchy";
 import { HierarchicalPathSelector } from "@/components/HierarchicalPathSelector";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export default function Today() {
+  const toast = useToast();
   const {
     activePaths,
     activeSteps,
@@ -45,6 +50,7 @@ export default function Today() {
   const updateStepParentMutation = useUpdateStepParent();
   const startTimerMutation = useStartTimer();
   const stopTimerMutation = useStopTimer();
+  const setTotalTimeMutation = useSetTotalTime();
 
   // UI state
   const [searchQueryToday, setSearchQueryToday] = useState("");
@@ -135,17 +141,19 @@ export default function Today() {
     try {
       await toggleStepMutation({ id });
     } catch (error) {
-      console.error("Error toggling step:", error);
+      reportError('mutation', error, { action: 'toggleStep', stepId: id });
+      toast.error("Failed to toggle step");
     }
-  }, [toggleStepMutation]);
+  }, [toggleStepMutation, toast]);
 
   const toggleFailed = useCallback(async (id: string) => {
     try {
       await toggleFailedMutation({ id });
     } catch (error) {
-      console.error("Error toggling failed:", error);
+      reportError('mutation', error, { action: 'toggleFailed', stepId: id });
+      toast.error("Failed to update step");
     }
-  }, [toggleFailedMutation]);
+  }, [toggleFailedMutation, toast]);
 
   const togglePriority = useCallback(async (id: string, currentValue: boolean) => {
     try {
@@ -154,17 +162,19 @@ export default function Today() {
         prioritizedToday: !currentValue,
       });
     } catch (error) {
-      console.error("Error toggling priority:", error);
+      reportError('mutation', error, { action: 'togglePriority', stepId: id });
+      toast.error("Failed to update priority");
     }
-  }, [updateStepMutation]);
+  }, [updateStepMutation, toast]);
 
   const deleteStep = useCallback(async (id: string) => {
     try {
       await deleteStepMutation({ id });
     } catch (error) {
-      console.error("Error deleting step:", error);
+      reportError('mutation', error, { action: 'deleteStep', stepId: id });
+      toast.error("Failed to delete step");
     }
-  }, [deleteStepMutation]);
+  }, [deleteStepMutation, toast]);
 
   const handleReorder = useCallback(async (stepIds: string[], parentId?: string) => {
     try {
@@ -173,9 +183,10 @@ export default function Today() {
         parentId,
       });
     } catch (error) {
-      console.error("Error reordering steps:", error);
+      reportError('mutation', error, { action: 'reorderSteps' });
+      toast.error("Failed to reorder steps");
     }
-  }, [reorderStepsMutation]);
+  }, [reorderStepsMutation, toast]);
 
   const handleUpdateParent = useCallback(async (stepId: string, newParentId: string | undefined) => {
     try {
@@ -184,9 +195,10 @@ export default function Today() {
         parentId: newParentId,
       });
     } catch (error) {
-      console.error("Error updating step parent:", error);
+      reportError('mutation', error, { action: 'updateStepParent', stepId });
+      toast.error("Failed to update step parent");
     }
-  }, [updateStepParentMutation]);
+  }, [updateStepParentMutation, toast]);
 
   const updateStep = useCallback(async (id: string, updates: Partial<Step>) => {
     try {
@@ -211,9 +223,10 @@ export default function Today() {
 
       await updateStepMutation(updateData);
     } catch (error) {
-      console.error("Error updating step:", error);
+      reportError('mutation', error, { action: 'updateStep', stepId: id });
+      toast.error("Failed to update step");
     }
-  }, [updateStepMutation]);
+  }, [updateStepMutation, toast]);
 
   // Find the step with active timer for the banner
   const activeTimerStep = useMemo(() => {
@@ -243,10 +256,19 @@ export default function Today() {
         await startTimerMutation({ id });
       }
     } catch (error) {
-      console.error("Error toggling timer:", error);
+      reportError('mutation', error, { action: 'toggleTimer', stepId: id });
+      toast.error("Failed to toggle timer");
     }
-  }, [activeTimerStepId, startTimerMutation, stopTimerMutation]);
+  }, [activeTimerStepId, startTimerMutation, stopTimerMutation, toast]);
 
+  const setTotalTime = useCallback(async (id: string, totalTimeMs: number) => {
+    try {
+      await setTotalTimeMutation({ id, totalTimeSpentMs: totalTimeMs });
+    } catch (error) {
+      reportError('mutation', error, { action: 'setTotalTime', stepId: id });
+      toast.error("Failed to set time");
+    }
+  }, [setTotalTimeMutation, toast]);
 
   return (
     <div className="space-y-6">
@@ -323,6 +345,7 @@ export default function Today() {
                 onSaveEdit={updateStep}
                 onToggleTimer={toggleTimer}
                 activeTimerStepId={activeTimerStepId}
+                onSetTotalTime={setTotalTime}
               />
             ))}
           </div>
@@ -347,19 +370,22 @@ export default function Today() {
           hideExpandAllButton
           onToggleTimer={toggleTimer}
           activeTimerStepId={activeTimerStepId}
+          onSetTotalTime={setTotalTime}
         />
       ) : duePrioritySteps.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          <Star className="w-12 h-12 mx-auto mb-3 opacity-50" />
-          <p>
-            {searchQueryToday || selectedPathFilterToday
+        <EmptyState
+          icon={searchQueryToday || selectedPathFilterToday ? Search : Star}
+          message={
+            searchQueryToday || selectedPathFilterToday
               ? "No steps match your search"
-              : "No steps prioritized for today"}
-          </p>
-          {!searchQueryToday && !selectedPathFilterToday && (
-            <p className="text-sm mt-1">Star a step to add it here</p>
-          )}
-        </div>
+              : "No steps prioritized for today"
+          }
+          hint={
+            !searchQueryToday && !selectedPathFilterToday
+              ? "Star a step to add it here"
+              : undefined
+          }
+        />
       ) : null}
 
       {/* Completed Today */}

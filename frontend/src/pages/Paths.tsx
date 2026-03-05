@@ -6,8 +6,12 @@ import {
   useArchivePath,
   useUnarchivePath,
   useDeletePathWithMigration,
+  MAX_TITLE_LENGTH,
+  MAX_DESCRIPTION_LENGTH,
 } from "@/lib/local-mutations";
 import { useData } from "@/contexts/DataContext";
+import { reportError } from "@/lib/error-store";
+import { useToast } from "@/contexts/ToastContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card, CardContent } from "@/components/ui/Card";
@@ -21,8 +25,10 @@ import {
   ArchiveRestore,
 } from "lucide-react";
 import { PathDeleteDialog } from "@/components/PathDeleteDialog";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export default function Paths() {
+  const toast = useToast();
   const { activePaths, archivedPaths, allSteps } = useData();
 
   const createPathMutation = useCreatePath();
@@ -86,7 +92,8 @@ export default function Paths() {
         parentId: parentId || undefined,
       });
     } catch (error) {
-      console.error("Error creating path:", error);
+      reportError('mutation', error, { action: 'createPath' });
+      toast.error("Failed to create path");
     }
   };
 
@@ -100,7 +107,8 @@ export default function Paths() {
       });
       setEditingPath(null);
     } catch (error) {
-      console.error("Error updating path:", error);
+      reportError('mutation', error, { action: 'updatePath', pathId: id });
+      toast.error("Failed to update path");
     }
   };
 
@@ -122,7 +130,8 @@ export default function Paths() {
     try {
       await archivePathMutation({ id });
     } catch (error) {
-      console.error("Error archiving path:", error);
+      reportError('mutation', error, { action: 'archivePath', pathId: id });
+      toast.error("Failed to archive path");
     }
   };
 
@@ -130,7 +139,8 @@ export default function Paths() {
     try {
       await unarchivePathMutation({ id });
     } catch (error) {
-      console.error("Error unarchiving path:", error);
+      reportError('mutation', error, { action: 'unarchivePath', pathId: id });
+      toast.error("Failed to unarchive path");
     }
   };
 
@@ -142,7 +152,8 @@ export default function Paths() {
         destinationPathId,
       });
     } catch (error) {
-      console.error("Error deleting path:", error);
+      reportError('mutation', error, { action: 'deletePath', pathId: deleteDialogPath._id });
+      toast.error("Failed to delete path");
     }
     setDeleteDialogPath(null);
   };
@@ -232,6 +243,7 @@ export default function Paths() {
             onKeyPress={(e) =>
               e.key === "Enter" && !e.shiftKey && handlePathAdd()
             }
+            maxLength={MAX_TITLE_LENGTH}
           />
           <div className="flex space-x-2">
             <Input
@@ -240,6 +252,7 @@ export default function Paths() {
               onChange={(e) => setPathDescValue(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && handlePathAdd()}
               className="flex-1 min-w-0"
+              maxLength={MAX_DESCRIPTION_LENGTH}
             />
             <select
               value={pathParentIdValue}
@@ -288,6 +301,7 @@ export default function Paths() {
                             title: e.target.value,
                           })
                         }
+                        maxLength={MAX_TITLE_LENGTH}
                       />
                       <Input
                         placeholder="Description (optional)"
@@ -298,6 +312,7 @@ export default function Paths() {
                             description: e.target.value,
                           })
                         }
+                        maxLength={MAX_DESCRIPTION_LENGTH}
                       />
                       <select
                         value={editPathForm.parentId}
@@ -428,13 +443,11 @@ export default function Paths() {
           })}
         </div>
       ) : (
-        <div className="text-center py-12 text-muted-foreground">
-          <Target className="w-12 h-12 mx-auto mb-3 opacity-50" />
-          <p>{showArchived ? "No archived paths" : "No paths yet"}</p>
-          {!showArchived && (
-            <p className="text-sm mt-1">Create a path to get started</p>
-          )}
-        </div>
+        <EmptyState
+          icon={Target}
+          message={showArchived ? "No archived paths" : "No paths yet"}
+          hint={!showArchived ? "Create a path to get started" : undefined}
+        />
       )}
 
       {/* Delete Dialog */}
