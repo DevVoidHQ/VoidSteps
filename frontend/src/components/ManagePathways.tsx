@@ -8,7 +8,11 @@ import {
   useCreatePathway,
   useUpdatePathway,
   useDeletePathway,
+  MAX_TITLE_LENGTH,
+  MAX_DESCRIPTION_LENGTH,
 } from "@/lib/local-mutations";
+import { reportError } from "@/lib/error-store";
+import { useToast } from "@/contexts/ToastContext";
 import PathSelector from "./PathSelector";
 
 interface ManagePathwaysProps {
@@ -20,6 +24,7 @@ export default function ManagePathways({
   pathways,
   paths,
 }: ManagePathwaysProps) {
+  const toast = useToast();
   const createPathwayMutation = useCreatePathway();
   const updatePathwayMutation = useUpdatePathway();
   const deletePathwayMutation = useDeletePathway();
@@ -58,7 +63,8 @@ export default function ManagePathways({
       setParentIdValue("");
       setSelectedPathIds([]);
     } catch (error) {
-      console.error("Error creating pathway:", error);
+      reportError('mutation', error, { action: 'createPathway' });
+      toast.error("Failed to create pathway");
     }
   };
 
@@ -79,7 +85,8 @@ export default function ManagePathways({
       });
       setEditingPathway(null);
     } catch (error) {
-      console.error("Error updating pathway:", error);
+      reportError('mutation', error, { action: 'updatePathway', pathwayId: id });
+      toast.error("Failed to update pathway");
     }
   };
 
@@ -88,7 +95,8 @@ export default function ManagePathways({
     try {
       await deletePathwayMutation({ id });
     } catch (error) {
-      console.error("Error deleting pathway:", error);
+      reportError('mutation', error, { action: 'deletePathway', pathwayId: id });
+      toast.error("Failed to delete pathway");
     }
   };
 
@@ -151,6 +159,7 @@ export default function ManagePathways({
           onKeyPress={(e) =>
             e.key === "Enter" && !e.shiftKey && createPathway()
           }
+          maxLength={MAX_TITLE_LENGTH}
         />
         <div className="flex space-x-2">
           <Input
@@ -159,6 +168,7 @@ export default function ManagePathways({
             onChange={(e) => setDescValue(e.target.value)}
             onKeyPress={(e) => e.key === "Enter" && createPathway()}
             className="flex-1"
+            maxLength={MAX_DESCRIPTION_LENGTH}
           />
           <select
             value={parentIdValue}
@@ -205,6 +215,7 @@ export default function ManagePathways({
                         onChange={(e) =>
                           setEditForm({ ...editForm, title: e.target.value })
                         }
+                        maxLength={MAX_TITLE_LENGTH}
                       />
                       <Input
                         placeholder="Description (optional)"
@@ -215,6 +226,7 @@ export default function ManagePathways({
                             description: e.target.value,
                           })
                         }
+                        maxLength={MAX_DESCRIPTION_LENGTH}
                       />
                       <select
                         value={editForm.parentId}

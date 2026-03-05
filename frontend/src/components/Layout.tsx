@@ -24,7 +24,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(getInitialCollapsed);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
-  const { isOnline, pendingSyncCount } = useOffline();
+  const { isOnline, pendingSyncCount, failedSyncCount } = useOffline();
 
   const toggleCollapse = useCallback(() => {
     setIsCollapsed((prev) => {
@@ -69,14 +69,24 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Offline / Sync Indicator */}
-      {(!isOnline || pendingSyncCount > 0) && (
-        <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-muted border border-border shadow-sm">
-          <span
-            className={`w-2 h-2 rounded-full ${isOnline ? 'bg-yellow-500' : 'bg-destructive'}`}
-          />
-          {isOnline
-            ? `Syncing ${pendingSyncCount} change${pendingSyncCount !== 1 ? 's' : ''}...`
-            : 'Offline'}
+      {(!isOnline || pendingSyncCount > 0 || failedSyncCount > 0) && (
+        <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-1.5">
+          {(!isOnline || pendingSyncCount > 0) && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-muted border border-border shadow-sm">
+              <span
+                className={`w-2 h-2 rounded-full ${isOnline ? 'bg-yellow-500' : 'bg-destructive'}`}
+              />
+              {isOnline
+                ? `Syncing ${pendingSyncCount} change${pendingSyncCount !== 1 ? 's' : ''}...`
+                : 'Offline'}
+            </div>
+          )}
+          {failedSyncCount > 0 && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-destructive/10 border border-destructive/30 shadow-sm text-destructive">
+              <span className="w-2 h-2 rounded-full bg-destructive" />
+              {failedSyncCount} change{failedSyncCount !== 1 ? 's' : ''} failed to sync
+            </div>
+          )}
         </div>
       )}
 

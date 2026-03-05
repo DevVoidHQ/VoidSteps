@@ -8,7 +8,11 @@ import {
   useCreatePath,
   useUpdatePath,
   useDeletePath,
+  MAX_TITLE_LENGTH,
+  MAX_DESCRIPTION_LENGTH,
 } from "@/lib/local-mutations";
+import { reportError } from "@/lib/error-store";
+import { useToast } from "@/contexts/ToastContext";
 
 interface ManagePathsProps {
   paths: Path[];
@@ -16,6 +20,7 @@ interface ManagePathsProps {
 }
 
 export default function ManagePaths({ paths, steps }: ManagePathsProps) {
+  const toast = useToast();
   const createPathMutation = useCreatePath();
   const updatePathMutation = useUpdatePath();
   const deletePathMutation = useDeletePath();
@@ -93,7 +98,8 @@ export default function ManagePaths({ paths, steps }: ManagePathsProps) {
       setSelectedConnectedPathIds([]);
       setSelectedConnectedStepIds([]);
     } catch (error) {
-      console.error("Error creating path:", error);
+      reportError('mutation', error, { action: 'createPath' });
+      toast.error("Failed to create path");
     }
   };
 
@@ -118,7 +124,8 @@ export default function ManagePaths({ paths, steps }: ManagePathsProps) {
       });
       setEditingPath(null);
     } catch (error) {
-      console.error("Error updating path:", error);
+      reportError('mutation', error, { action: 'updatePath', pathId: id });
+      toast.error("Failed to update path");
     }
   };
 
@@ -127,7 +134,8 @@ export default function ManagePaths({ paths, steps }: ManagePathsProps) {
     try {
       await deletePathMutation({ id });
     } catch (error) {
-      console.error("Error deleting path:", error);
+      reportError('mutation', error, { action: 'deletePath', pathId: id });
+      toast.error("Failed to delete path");
     }
   };
 
@@ -205,6 +213,7 @@ export default function ManagePaths({ paths, steps }: ManagePathsProps) {
           onKeyPress={(e) =>
             e.key === "Enter" && !e.shiftKey && createPath()
           }
+          maxLength={MAX_TITLE_LENGTH}
         />
         <div className="flex space-x-2">
           <Input
@@ -213,6 +222,7 @@ export default function ManagePaths({ paths, steps }: ManagePathsProps) {
             onChange={(e) => setDescValue(e.target.value)}
             onKeyPress={(e) => e.key === "Enter" && createPath()}
             className="flex-1"
+            maxLength={MAX_DESCRIPTION_LENGTH}
           />
           <select
             value={parentIdValue}
@@ -257,6 +267,7 @@ export default function ManagePaths({ paths, steps }: ManagePathsProps) {
                         onChange={(e) =>
                           setEditForm({ ...editForm, title: e.target.value })
                         }
+                        maxLength={MAX_TITLE_LENGTH}
                       />
                       <Input
                         placeholder="Description (optional)"
@@ -267,6 +278,7 @@ export default function ManagePaths({ paths, steps }: ManagePathsProps) {
                             description: e.target.value,
                           })
                         }
+                        maxLength={MAX_DESCRIPTION_LENGTH}
                       />
                       <select
                         value={editForm.parentId}

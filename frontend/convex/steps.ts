@@ -611,7 +611,8 @@ export const setTotalTime = mutation({
     const now = Date.now();
 
     await ctx.db.patch(args.id, {
-      totalTimeSpentMs,
+      // 0 clears the field (back to default — no time tracked)
+      totalTimeSpentMs: totalTimeSpentMs === 0 ? undefined : totalTimeSpentMs,
       updatedAt: now,
     });
 

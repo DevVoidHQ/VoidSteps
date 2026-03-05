@@ -45,6 +45,8 @@ export function calculateNextOccurrence(
     }
 
     case 'monthly': {
+      // Edge case: if day=31 and the target month has fewer days (e.g. Feb, Apr),
+      // the while loop rolls back to the last valid day of that month via setDate(0).
       const day = dayOfMonth || now.getDate();
       const next = new Date(now.getFullYear(), now.getMonth(), day, 0, 0, 0, 0);
       if (next <= now) {
@@ -57,6 +59,8 @@ export function calculateNextOccurrence(
     }
 
     case 'yearly': {
+      // Edge case: Feb 29 on non-leap years — JavaScript Date rolls over to Mar 1.
+      // This means a yearly routine set to Feb 29 fires on Mar 1 in non-leap years.
       const m = (month || 1) - 1;
       const d = dayOfYear || 1;
       const next = new Date(now.getFullYear(), m, d, 0, 0, 0, 0);

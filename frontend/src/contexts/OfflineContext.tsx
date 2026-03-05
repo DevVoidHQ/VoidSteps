@@ -7,13 +7,16 @@ import { SyncEngine } from '@/lib/sync-engine';
 import { performInitialSync } from '@/lib/initial-sync';
 import { startRoutineSpawner } from '@/lib/routine-spawner';
 import { useOnlineStatus } from '@/lib/online-status';
+import { reportError } from '@/lib/error-store';
 import LoadingScreen from '@/components/LoadingScreen';
 
 interface OfflineContextType {
   isOnline: boolean;
   pendingSyncCount: number;
+  failedSyncCount: number;
   lastSyncTime: number | null;
   isInitialSyncing: boolean;
+  initialSyncFailed: boolean;
 }
 
 const OfflineContext = createContext<OfflineContextType | undefined>(undefined);
@@ -35,6 +38,7 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const { user } = useUser();
   const isOnline = useOnlineStatus();
   const [isInitialSyncing, setIsInitialSyncing] = useState(true);
+  const [initialSyncFailed, setInitialSyncFailed] = useState(false);
   const syncEngineRef = useRef<SyncEngine | null>(null);
   const routineCleanupRef = useRef<(() => void) | null>(null);
 
@@ -43,6 +47,13 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Reactive pending sync count
   const pendingSyncCount = useLiveQuery(
     () => db.syncQueue.where('status').anyOf('pending', 'in-progress').count(),
+    [],
+    0
+  );
+
+  // Reactive failed sync count
+  const failedSyncCount = useLiveQuery(
+    () => db.syncQueue.where('status').equals('failed').count(),
     [],
     0
   );
@@ -81,9 +92,10 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
           setIsInitialSyncing(false);
         }
       } catch (error) {
-        console.error('Initial sync error:', error);
+        reportError('network', error, { phase: 'initialSync' });
         if (mounted) {
           setIsInitialSyncing(false);
+          setInitialSyncFailed(true);
         }
       }
     }
@@ -139,7 +151,7 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }
 
   return (
-    <OfflineContext.Provider value={{ isOnline, pendingSyncCount, lastSyncTime, isInitialSyncing }}>
+    <OfflineContext.Provider value={{ isOnline, pendingSyncCount, failedSyncCount, lastSyncTime, isInitialSyncing, initialSyncFailed }}>
       {children}
     </OfflineContext.Provider>
   );

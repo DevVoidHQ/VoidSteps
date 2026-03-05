@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { OfflineProvider } from '@/contexts/OfflineContext';
 import { DataProvider } from '@/contexts/DataContext';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import Layout from '@/components/Layout';
 import LoadingScreen from '@/components/LoadingScreen';
 import Login from '@/pages/Login';
@@ -35,20 +36,22 @@ function AppRoutes() {
 
   // Authenticated routes — wrapped in sync providers
   return (
-    <OfflineProvider>
-      <DataProvider>
-        <Routes>
-          <Route path="/login" element={<Navigate to="/" />} />
-          <Route path="/" element={<Layout key={location.pathname}><Today /></Layout>} />
-          <Route path="/steps" element={<Layout key={location.pathname}><Steps /></Layout>} />
-          <Route path="/paths" element={<Layout key={location.pathname}><Paths /></Layout>} />
-          <Route path="/routines" element={<Layout key={location.pathname}><Routines /></Layout>} />
-          <Route path="/pathway" element={<Layout key={location.pathname}><Pathway /></Layout>} />
-          <Route path="/analytics" element={<Layout key={location.pathname}><Analytics /></Layout>} />
-          <Route path="/settings" element={<Layout key={location.pathname}><Settings /></Layout>} />
-        </Routes>
-      </DataProvider>
-    </OfflineProvider>
+    <ErrorBoundary>
+      <OfflineProvider>
+        <DataProvider>
+          <Routes>
+            <Route path="/login" element={<Navigate to="/" />} />
+            <Route path="/" element={<Layout key={location.pathname}><Today /></Layout>} />
+            <Route path="/steps" element={<Layout key={location.pathname}><Steps /></Layout>} />
+            <Route path="/paths" element={<Layout key={location.pathname}><Paths /></Layout>} />
+            <Route path="/routines" element={<Layout key={location.pathname}><Routines /></Layout>} />
+            <Route path="/pathway" element={<Layout key={location.pathname}><Pathway /></Layout>} />
+            <Route path="/analytics" element={<Layout key={location.pathname}><Analytics /></Layout>} />
+            <Route path="/settings" element={<Layout key={location.pathname}><Settings /></Layout>} />
+          </Routes>
+        </DataProvider>
+      </OfflineProvider>
+    </ErrorBoundary>
   );
 }
 

@@ -3,6 +3,23 @@ import { db } from './db';
 import type { LocalStep, LocalPath, LocalRoutine, LocalPathway, LocalUserSettings } from './db';
 import { calculateNextOccurrence } from './calculate-next-occurrence';
 
+// --- Validation constants ---
+
+export const MAX_TITLE_LENGTH = 200;
+export const MAX_DESCRIPTION_LENGTH = 2000;
+
+function validateTitle(title: string) {
+  if (title.length > MAX_TITLE_LENGTH) {
+    throw new Error(`Title must be ${MAX_TITLE_LENGTH} characters or less`);
+  }
+}
+
+function validateDescription(description: string | undefined) {
+  if (description && description.length > MAX_DESCRIPTION_LENGTH) {
+    throw new Error(`Description must be ${MAX_DESCRIPTION_LENGTH} characters or less`);
+  }
+}
+
 // --- ID generation for offline creates ---
 
 function generateLocalId(): string {
@@ -43,6 +60,8 @@ export function useCreateStep() {
     dueDate?: number;
     startDate?: number;
   }) => {
+    validateTitle(args.title);
+    validateDescription(args.description);
     const now = Date.now();
     const id = generateLocalId();
 
@@ -110,6 +129,8 @@ export function useUpdateStep() {
     dueDate?: number | null;
     startDate?: number | null;
   }) => {
+    if (args.title !== undefined) validateTitle(args.title);
+    if (args.description !== undefined) validateDescription(args.description);
     const { id, ...updates } = args;
     const existing = await db.steps.get(id);
     if (!existing) throw new Error('Step not found');
@@ -335,6 +356,8 @@ export function useCreatePath() {
     connectedPathIds?: string[];
     connectedStepIds?: string[];
   }) => {
+    validateTitle(args.title);
+    validateDescription(args.description);
     const now = Date.now();
     const id = generateLocalId();
 
@@ -365,6 +388,8 @@ export function useUpdatePath() {
     connectedPathIds?: string[];
     connectedStepIds?: string[];
   }) => {
+    if (args.title !== undefined) validateTitle(args.title);
+    if (args.description !== undefined) validateDescription(args.description);
     const { id, parentId, ...otherUpdates } = args;
     const existing = await db.paths.get(id);
     if (!existing) throw new Error('Path not found');
@@ -539,6 +564,8 @@ export function useCreateRoutine() {
     dayOfYear?: number;
     autoPrioritize?: boolean;
   }) => {
+    validateTitle(args.title);
+    validateDescription(args.description);
     const now = Date.now();
     const id = generateLocalId();
 
@@ -586,6 +613,8 @@ export function useUpdateRoutine() {
     dayOfYear?: number | null;
     autoPrioritize?: boolean;
   }) => {
+    if (args.title !== undefined) validateTitle(args.title);
+    if (args.description !== undefined) validateDescription(args.description);
     const { id, ...updates } = args;
     const existing = await db.routines.get(id);
     if (!existing) throw new Error('Routine not found');
@@ -636,6 +665,8 @@ export function useCreatePathway() {
     parentId?: string;
     pathIds?: string[];
   }) => {
+    validateTitle(args.title);
+    validateDescription(args.description);
     const now = Date.now();
     const id = generateLocalId();
 
@@ -664,6 +695,8 @@ export function useUpdatePathway() {
     parentId?: string;
     pathIds?: string[];
   }) => {
+    if (args.title !== undefined) validateTitle(args.title);
+    if (args.description !== undefined) validateDescription(args.description);
     const { id, ...updates } = args;
     const existing = await db.pathways.get(id);
     if (!existing) throw new Error('Pathway not found');

@@ -1,11 +1,15 @@
 import { useState, useCallback } from "react";
 import { useTheme, PRESET_THEMES } from "@/contexts/ThemeContext";
 import type { ThemeColors } from "@/contexts/ThemeContext";
+import { useOffline } from "@/contexts/OfflineContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
-import { Download, Upload, RotateCcw, Palette, Shuffle, Dices, Check } from "lucide-react";
+import { Download, Upload, RotateCcw, Shuffle, Dices, Check, Wifi, WifiOff, RefreshCw, Trash2, Bug } from "lucide-react";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@/lib/db";
+import { reportError } from "@/lib/error-store";
 
 const COLOR_LABELS: Record<keyof ThemeColors, string> = {
   background: "Background",
@@ -101,6 +105,103 @@ const hexToHsl = (hex: string): string => {
   return `${h} ${s}% ${l}%`;
 };
 
+function SyncAndErrors() {
+  const { isOnline, pendingSyncCount, failedSyncCount } = useOffline();
+
+  const recentErrors = useLiveQuery(
+    () => db.errorLog.orderBy('timestamp').reverse().limit(20).toArray(),
+    []
+  );
+
+  const retryFailed = async () => {
+    await db.syncQueue.where('status').equals('failed').modify({ status: 'pending', retryCount: 0 });
+  };
+
+  const purgeFailed = async () => {
+    await db.syncQueue.where('status').equals('failed').delete();
+  };
+
+  const clearErrorLog = async () => {
+    await db.errorLog.clear();
+  };
+
+  const formatTimestamp = (ts: number) => {
+    const d = new Date(ts);
+    return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Status */}
+      <Card>
+        <CardContent className="p-6 space-y-4">
+          <h2 className="text-xl font-semibold">Sync Status</h2>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex items-center gap-2">
+              {isOnline ? <Wifi className="w-4 h-4 text-green-500" /> : <WifiOff className="w-4 h-4 text-destructive" />}
+              <span className="text-sm">{isOnline ? 'Online' : 'Offline'}</span>
+            </div>
+            <div className="text-sm text-muted-foreground">
+              Pending: {pendingSyncCount}
+            </div>
+            <div className="text-sm text-muted-foreground">
+              Failed: {failedSyncCount}
+            </div>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            {failedSyncCount > 0 && (
+              <>
+                <Button variant="outline" size="sm" onClick={retryFailed}>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Retry failed ({failedSyncCount})
+                </Button>
+                <Button variant="outline" size="sm" onClick={purgeFailed}>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Discard failed
+                </Button>
+              </>
+            )}
+            {import.meta.env.DEV && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => reportError('mutation', new Error('Test error from Settings'), { action: 'sentryTest' })}
+              >
+                <Bug className="w-4 h-4 mr-2" />
+                Test Sentry
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Error log — only visible in dev mode */}
+      {import.meta.env.DEV && recentErrors && recentErrors.length > 0 && (
+        <Card>
+          <CardContent className="p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-medium text-muted-foreground">Error Log (dev only)</h2>
+              <Button variant="ghost" size="sm" onClick={clearErrorLog}>
+                <Trash2 className="w-3.5 h-3.5 mr-1" />
+                Clear
+              </Button>
+            </div>
+            <div className="space-y-1 max-h-64 overflow-y-auto">
+              {recentErrors.map((entry) => (
+                <div key={entry.id} className="flex items-center gap-2 px-2 py-1 rounded bg-muted/30 text-xs text-muted-foreground">
+                  <span className="font-mono">{entry.category}</span>
+                  <span className="truncate flex-1">{entry.message}</span>
+                  <span className="shrink-0">{formatTimestamp(entry.timestamp)}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 export default function Settings() {
   const { theme, setTheme, applyPreset, resetToDefault, exportTheme, importTheme } = useTheme();
   const [importText, setImportText] = useState("");
@@ -189,16 +290,20 @@ export default function Settings() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="text-center space-y-2">
-        <h1 className="text-2xl font-bold tracking-tight flex items-center justify-center space-x-3">
-          <Palette className="w-6 h-6" />
-          <span>Theme Settings</span>
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Customize your color scheme
-        </p>
-      </div>
+      <h1 className="text-2xl font-bold tracking-tight text-center">Settings</h1>
+
+      <Tabs defaultValue="theme">
+        <TabsList className="mb-4">
+          <TabsTrigger value="theme">Theme</TabsTrigger>
+          <TabsTrigger value="sync">Sync & Errors</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="sync">
+          <SyncAndErrors />
+        </TabsContent>
+
+        <TabsContent value="theme">
+        <div className="space-y-6">
 
       {/* Preset Themes */}
       <Card>
@@ -375,6 +480,9 @@ export default function Settings() {
           </div>
         </CardContent>
       </Card>
+        </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

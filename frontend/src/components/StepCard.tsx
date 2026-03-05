@@ -42,6 +42,7 @@ import {
   parseStartDateInput,
 } from "@/lib/date-utils";
 import { HierarchicalPathSelector } from "@/components/HierarchicalPathSelector";
+import { MAX_TITLE_LENGTH, MAX_DESCRIPTION_LENGTH } from "@/lib/local-mutations";
 
 export interface StepCardProps {
   step: Step;
@@ -382,11 +383,13 @@ function StepCardComponent({
               placeholder="Step title"
               value={editForm.title}
               onChange={(e) => handleEditFormChange({ title: e.target.value })}
+              maxLength={MAX_TITLE_LENGTH}
             />
             <Input
               placeholder="Description (optional)"
               value={editForm.description}
               onChange={(e) => handleEditFormChange({ description: e.target.value })}
+              maxLength={MAX_DESCRIPTION_LENGTH}
             />
             <HierarchicalPathSelector
               paths={paths || []}

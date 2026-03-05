@@ -1,164 +1,81 @@
 # VoidSteps
 
-Track your paths and steps through your journey with a beautiful dark UI. 
+Personal task tracker with offline-first architecture, real-time sync, and customizable themes.
 
-## Features
+## Tech Stack
 
-- **Step Management**
-  - Create, update, and delete steps
-  - Add optional substeps to break down complex steps
-  - Prioritize steps for today
-  - Mark steps as completed
-  - Recurring steps (daily, weekly, monthly, yearly)
-
-- **Path Tracking**
-  - Create and manage paths (your goals/journeys)
-  - Link steps to paths
-  - Track which steps contribute to each path
-
-- **Authentication**
-  - Simple JWT-based authentication
-  - Single hardcoded user (no registration needed)
-
-- **UI/UX**
-  - Dark theme with beautiful spiral logo
-  - Minimal, clean interface
-  - Tab-based navigation (Today, Steps, Paths)
-  - Responsive design
+- **Frontend:** React 19 + TypeScript + Vite + Tailwind CSS v4
+- **Auth:** Clerk
+- **Backend:** Convex (serverless functions + real-time database)
+- **Local DB:** Dexie (IndexedDB) for offline-first storage
+- **Error Tracking:** Sentry (optional via `VITE_SENTRY_DSN`)
 
 ## Project Structure
 
 ```
-voidsteps/
-├── backend/          # Node.js + Express + MongoDB
+├── frontend/          # React SPA
 │   ├── src/
-│   │   ├── config/   # Database configuration
-│   │   ├── models/   # Mongoose models (Step, Path)
-│   │   ├── routes/   # API routes (/steps, /paths)
-│   │   ├── middleware/ # Auth middleware
-│   │   └── index.ts  # Entry point
-│   └── .env          # Environment variables
-│
-└── frontend/         # React + TypeScript + Vite
-    ├── public/
-    │   └── logo.png  # VoidSteps logo
-    ├── src/
-    │   ├── components/ # Reusable UI components
-    │   ├── contexts/   # React contexts (Auth)
-    │   ├── lib/        # Utilities and API client
-    │   ├── pages/      # Page components (Dashboard, Login)
-    │   ├── types/      # TypeScript types (Step, Path)
-    │   └── App.tsx     # Main app component
-    └── .env            # Environment variables
+│   │   ├── components/  # UI components
+│   │   ├── contexts/    # React contexts (Theme, Toast, Offline, Data)
+│   │   ├── hooks/       # Custom hooks
+│   │   ├── lib/         # Core logic (db, sync engine, mutations)
+│   │   ├── pages/       # Page components
+│   │   └── types/       # TypeScript types
+│   └── convex/          # Convex backend functions + schema
+├── lander/              # Astro landing page
+└── README.md
 ```
 
 ## Quick Start
 
 ### Prerequisites
-- Node.js (v18 or higher)
+
+- Node.js v18+
 - pnpm
-- MongoDB Atlas account (or local MongoDB)
 
-### Backend Setup
+### Setup
 
-1. Navigate to the backend directory:
 ```bash
-cd backend
-```
-
-2. Install dependencies:
-```bash
+cd frontend
 pnpm install
 ```
 
-3. Create `.env` file with your MongoDB connection string:
+Create `frontend/.env`:
+
 ```env
-PORT=5000
-MONGODB_URL=your_mongodb_connection_string
-JWT_SECRET=your_secret_key
-USER_EMAIL=aneeshbhat@devvoid.org
-USER_PASSWORD=VoidEmpire@2030
-FRONTEND_URL=http://localhost:5173,https://your-production-domain.com
+VITE_CLERK_PUBLISHABLE_KEY=pk_...
+VITE_CONVEX_URL=https://your-project.convex.cloud
+VITE_SENTRY_DSN=              # Optional — app works without it
 ```
-Note: `FRONTEND_URL` is optional. Defaults to localhost:5173, localhost:3000, localhost:4173. For production, add your frontend URL (comma-separated for multiple).
 
-4. Start the backend:
+### Development
+
 ```bash
-pnpm dev
+# Terminal 1: Convex dev server
+cd frontend && pnpm convex:dev
+
+# Terminal 2: Vite dev server
+cd frontend && pnpm dev
 ```
 
-### Frontend Setup
+## Architecture
 
-1. Navigate to the frontend directory:
-```bash
-cd frontend
-```
+VoidSteps uses an **offline-first** approach:
 
-2. Install dependencies:
-```bash
-pnpm install
-```
+1. All mutations write to local IndexedDB (Dexie) first
+2. Changes are queued in a sync queue and pushed to Convex when online
+3. Pull sync periodically fetches server state and merges with local data
+4. ID remapping handles local→server ID transitions after push
 
-3. Create `.env` file:
-```env
-VITE_API_URL=http://localhost:5000/api
-```
+The sync engine runs on intervals (push every 5s, pull every 60s) and triggers immediately when the app comes back online.
 
-4. Start the frontend:
-```bash
-pnpm dev
-```
+## Error Handling
 
-5. Open your browser to `http://localhost:5173`
-
-6. Login with:
-   - Email: `aneeshbhat@devvoid.org`
-   - Password: `VoidEmpire@2030`
-
-## Deployment
-
-### Backend Deployment (Railway/Render/Heroku)
-
-1. Set environment variables on your platform
-2. Deploy the `/backend` directory
-3. Ensure MongoDB connection string is configured
-
-### Frontend Deployment (Vercel/Netlify)
-
-1. Build the frontend:
-```bash
-cd frontend
-pnpm build
-```
-
-2. Set environment variable `VITE_API_URL` to your backend URL
-3. Deploy the `frontend/dist` directory
-
-## Tech Stack
-
-### Backend
-- Node.js + Express
-- MongoDB + Mongoose
-- JWT for authentication
-- bcryptjs for password handling
-- CORS enabled
-
-### Frontend
-- React 19 + TypeScript
-- Vite for build tooling
-- Tailwind CSS for styling
-- shadcn/ui for components
-- React Router for navigation
-- Axios for API calls
-- Lucide React for icons
-
-## Color Palette
-
-- Background: `#000000` (Black)
-- Text: `#f8f8f8` (Off-white)
-- Primary: `#76a0f2` (Blue)
-- Primary Dark: `#1d52ba` (Dark Blue)
-- Accent: Cyan and Purple spiral in logo
+- **ErrorBoundary** wraps the app at two levels to prevent white screens
+- All mutation catch blocks surface errors via toast notifications
+- Errors are logged to an IndexedDB `errorLog` table (last 200 entries)
+- Optional Sentry integration reports errors to your dashboard
+- Settings > Sync & Errors shows sync status and recent error log
 
 ## License
 

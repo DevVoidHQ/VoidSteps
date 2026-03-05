@@ -3,6 +3,7 @@ import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import { db } from './db';
 import type { SyncQueueEntry } from './db';
+import { reportError } from './error-store';
 
 const MAX_RETRIES = 5;
 const PUSH_INTERVAL = 5_000;
@@ -66,7 +67,7 @@ export class SyncEngine {
           await this.processSyncEntry(entry);
           await db.syncQueue.delete(entry.id!);
         } catch (error) {
-          console.error('Sync push failed for entry:', entry, error);
+          reportError('sync', error, { entityType: entry.entityType, entityId: entry.entityId, operation: entry.operation, retryCount: entry.retryCount });
           const newRetryCount = (entry.retryCount || 0) + 1;
           if (newRetryCount >= MAX_RETRIES) {
             await db.syncQueue.update(entry.id!, { status: 'failed', retryCount: newRetryCount });
@@ -151,9 +152,10 @@ export class SyncEngine {
           await this.client.mutation(api.steps.stopTimer, { id: resolvedId as Id<'steps'> });
         } else if ('totalTimeSpentMs' in data && !('timerStartedAt' in data)) {
           // Manual time set (only totalTimeSpentMs, no timerStartedAt key)
+          // Server clears the field when 0 is passed (back to default)
           await this.client.mutation(api.steps.setTotalTime, {
             id: resolvedId as Id<'steps'>,
-            totalTimeSpentMs: data.totalTimeSpentMs as number,
+            totalTimeSpentMs: (data.totalTimeSpentMs as number) ?? 0,
           });
         }
         // sortOrder + parentId (reorder)
@@ -549,7 +551,7 @@ export class SyncEngine {
         await db.syncMeta.put({ key: 'lastPullTimestamp', value: Date.now() });
       });
     } catch (error) {
-      console.error('Pull sync failed:', error);
+      reportError('sync', error, { phase: 'pull' });
     } finally {
       this.isPulling = false;
     }

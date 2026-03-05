@@ -8,8 +8,12 @@ import {
   useToggleStepFailed,
   useReorderSteps,
   useUpdateStepParent,
+  MAX_TITLE_LENGTH,
+  MAX_DESCRIPTION_LENGTH,
 } from "@/lib/local-mutations";
 import { useData } from "@/contexts/DataContext";
+import { reportError } from "@/lib/error-store";
+import { useToast } from "@/contexts/ToastContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import {
@@ -27,6 +31,7 @@ import { DraggableStepList } from "@/components/DraggableStepList";
 import { HierarchicalPathSelector } from "@/components/HierarchicalPathSelector";
 
 export default function Steps() {
+  const toast = useToast();
   const {
     activePaths,
     activeSteps,
@@ -150,17 +155,19 @@ export default function Steps() {
     try {
       await toggleStepMutation({ id });
     } catch (error) {
-      console.error("Error toggling step:", error);
+      reportError('mutation', error, { action: 'toggleStep', stepId: id });
+      toast.error("Failed to toggle step");
     }
-  }, [toggleStepMutation]);
+  }, [toggleStepMutation, toast]);
 
   const toggleFailed = useCallback(async (id: string) => {
     try {
       await toggleFailedMutation({ id });
     } catch (error) {
-      console.error("Error toggling failed:", error);
+      reportError('mutation', error, { action: 'toggleFailed', stepId: id });
+      toast.error("Failed to update step");
     }
-  }, [toggleFailedMutation]);
+  }, [toggleFailedMutation, toast]);
 
   const togglePriority = useCallback(async (id: string, currentValue: boolean) => {
     try {
@@ -169,17 +176,19 @@ export default function Steps() {
         prioritizedToday: !currentValue,
       });
     } catch (error) {
-      console.error("Error toggling priority:", error);
+      reportError('mutation', error, { action: 'togglePriority', stepId: id });
+      toast.error("Failed to update priority");
     }
-  }, [updateStepMutation]);
+  }, [updateStepMutation, toast]);
 
   const deleteStep = useCallback(async (id: string) => {
     try {
       await deleteStepMutation({ id });
     } catch (error) {
-      console.error("Error deleting step:", error);
+      reportError('mutation', error, { action: 'deleteStep', stepId: id });
+      toast.error("Failed to delete step");
     }
-  }, [deleteStepMutation]);
+  }, [deleteStepMutation, toast]);
 
   const handleReorder = useCallback(async (stepIds: string[], parentId?: string) => {
     try {
@@ -188,9 +197,10 @@ export default function Steps() {
         parentId,
       });
     } catch (error) {
-      console.error("Error reordering steps:", error);
+      reportError('mutation', error, { action: 'reorderSteps' });
+      toast.error("Failed to reorder steps");
     }
-  }, [reorderStepsMutation]);
+  }, [reorderStepsMutation, toast]);
 
   const handleUpdateParent = useCallback(async (stepId: string, newParentId: string | undefined) => {
     try {
@@ -199,9 +209,10 @@ export default function Steps() {
         parentId: newParentId,
       });
     } catch (error) {
-      console.error("Error updating step parent:", error);
+      reportError('mutation', error, { action: 'updateStepParent', stepId });
+      toast.error("Failed to update step parent");
     }
-  }, [updateStepParentMutation]);
+  }, [updateStepParentMutation, toast]);
 
   const updateStep = useCallback(async (id: string, updates: Partial<Step>) => {
     try {
@@ -226,9 +237,10 @@ export default function Steps() {
 
       await updateStepMutation(updateData);
     } catch (error) {
-      console.error("Error updating step:", error);
+      reportError('mutation', error, { action: 'updateStep', stepId: id });
+      toast.error("Failed to update step");
     }
-  }, [updateStepMutation]);
+  }, [updateStepMutation, toast]);
 
   const createStep = useCallback(async (
     title: string,
@@ -247,9 +259,10 @@ export default function Steps() {
         startDate,
       });
     } catch (error) {
-      console.error("Error creating step:", error);
+      reportError('mutation', error, { action: 'createStep' });
+      toast.error("Failed to create step");
     }
-  }, [createStepMutation]);
+  }, [createStepMutation, toast]);
 
   const handleQuickAdd = useCallback(() => {
     if (quickAddValue.trim()) {
@@ -281,6 +294,7 @@ export default function Steps() {
             onChange={(e) => setQuickAddValue(e.target.value)}
             onKeyPress={(e) => e.key === "Enter" && !showQuickAddOptions && handleQuickAdd()}
             className="flex-1"
+            maxLength={MAX_TITLE_LENGTH}
           />
           <Button onClick={handleQuickAdd} disabled={!quickAddValue.trim()} size="icon">
             <Plus className="w-4 h-4" />
@@ -301,6 +315,7 @@ export default function Steps() {
               value={stepDescValue}
               onChange={(e) => setStepDescValue(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && handleQuickAdd()}
+              maxLength={MAX_DESCRIPTION_LENGTH}
             />
             <HierarchicalPathSelector
               paths={activePaths || []}
