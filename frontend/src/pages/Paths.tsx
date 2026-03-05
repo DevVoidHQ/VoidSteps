@@ -25,6 +25,7 @@ import {
   ArchiveRestore,
 } from "lucide-react";
 import { PathDeleteDialog } from "@/components/PathDeleteDialog";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export default function Paths() {
   const toast = useToast();
@@ -442,13 +443,11 @@ export default function Paths() {
           })}
         </div>
       ) : (
-        <div className="text-center py-12 text-muted-foreground">
-          <Target className="w-12 h-12 mx-auto mb-3 opacity-50" />
-          <p>{showArchived ? "No archived paths" : "No paths yet"}</p>
-          {!showArchived && (
-            <p className="text-sm mt-1">Create a path to get started</p>
-          )}
-        </div>
+        <EmptyState
+          icon={Target}
+          message={showArchived ? "No archived paths" : "No paths yet"}
+          hint={!showArchived ? "Create a path to get started" : undefined}
+        />
       )}
 
       {/* Delete Dialog */}

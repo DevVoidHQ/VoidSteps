@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/Card';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { CheckCircle2, Clock, TrendingUp, Flame } from 'lucide-react';
 import {
@@ -278,6 +279,15 @@ export default function Analytics() {
         <StatCard icon={<TrendingUp className="w-5 h-5 text-primary" />} label="Completion Rate" value={`${completionRate}%`} />
         <StatCard icon={<Flame className="w-5 h-5 text-primary" />} label="Current Streak" value={`${currentStreak}d`} />
       </div>
+
+      {/* Empty State */}
+      {completedInRange.length === 0 && failedInRange.length === 0 && (
+        <EmptyState
+          icon={TrendingUp}
+          message="No activity in this period"
+          hint="Complete some steps to see your analytics"
+        />
+      )}
 
       {/* Section 2: Completion Trends */}
       <Section title="Completion Trends">

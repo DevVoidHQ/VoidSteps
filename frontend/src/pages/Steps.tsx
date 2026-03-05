@@ -23,12 +23,14 @@ import {
   Calendar,
   Clock,
   ChevronDown,
+  CheckCircle2,
 } from "lucide-react";
 import { parseDateInput, parseStartDateInput } from "@/lib/date-utils";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { StepCard } from "@/components/StepCard";
 import { DraggableStepList } from "@/components/DraggableStepList";
 import { HierarchicalPathSelector } from "@/components/HierarchicalPathSelector";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export default function Steps() {
   const toast = useToast();
@@ -427,6 +429,23 @@ export default function Steps() {
             onUpdateParent={handleUpdateParent}
           />
         </div>
+      )}
+
+      {/* Empty State */}
+      {dueSteps.length === 0 && prioritySteps.length === 0 && regularSteps.length === 0 && filteredUpcomingSteps.length === 0 && (
+        <EmptyState
+          icon={searchQuerySteps || selectedPathFilterSteps ? Search : CheckCircle2}
+          message={
+            searchQuerySteps || selectedPathFilterSteps
+              ? "No steps match your filters"
+              : "No active steps"
+          }
+          hint={
+            searchQuerySteps || selectedPathFilterSteps
+              ? "Try adjusting your search or path filter"
+              : "Add a step above to get started"
+          }
+        />
       )}
 
       {/* Upcoming Steps - At bottom with muted styling */}

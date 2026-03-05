@@ -30,6 +30,7 @@ import { StepCard } from "@/components/StepCard";
 import { DraggableStepList } from "@/components/DraggableStepList";
 import { useStepHierarchy } from "@/hooks/useStepHierarchy";
 import { HierarchicalPathSelector } from "@/components/HierarchicalPathSelector";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export default function Today() {
   const toast = useToast();
@@ -372,17 +373,19 @@ export default function Today() {
           onSetTotalTime={setTotalTime}
         />
       ) : duePrioritySteps.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          <Star className="w-12 h-12 mx-auto mb-3 opacity-50" />
-          <p>
-            {searchQueryToday || selectedPathFilterToday
+        <EmptyState
+          icon={searchQueryToday || selectedPathFilterToday ? Search : Star}
+          message={
+            searchQueryToday || selectedPathFilterToday
               ? "No steps match your search"
-              : "No steps prioritized for today"}
-          </p>
-          {!searchQueryToday && !selectedPathFilterToday && (
-            <p className="text-sm mt-1">Star a step to add it here</p>
-          )}
-        </div>
+              : "No steps prioritized for today"
+          }
+          hint={
+            !searchQueryToday && !selectedPathFilterToday
+              ? "Star a step to add it here"
+              : undefined
+          }
+        />
       ) : null}
 
       {/* Completed Today */}

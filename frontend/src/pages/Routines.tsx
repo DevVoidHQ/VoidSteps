@@ -18,6 +18,7 @@ import {
   Calendar,
   Check,
 } from "lucide-react";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 type Frequency = 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'yearly';
 
@@ -427,11 +428,11 @@ export default function Routines() {
           ))}
         </div>
       ) : !isCreating && (
-        <div className="text-center py-12 text-muted-foreground">
-          <Repeat className="w-12 h-12 mx-auto mb-3 opacity-50" />
-          <p>No routines yet</p>
-          <p className="text-sm mt-1">Create a recurring task to get started</p>
-        </div>
+        <EmptyState
+          icon={Repeat}
+          message="No routines yet"
+          hint="Create a recurring task to get started"
+        />
       )}
     </div>
   );
