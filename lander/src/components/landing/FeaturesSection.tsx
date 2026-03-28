@@ -62,7 +62,7 @@ const features = [
 
 export default function FeaturesSection() {
   return (
-    <section className="py-24 md:py-32 px-6 md:px-12 lg:px-20">
+    <section id="features" className="py-24 md:py-32 px-6 md:px-12 lg:px-20 snap-section">
       <div className="max-w-7xl mx-auto">
         <motion.div
           className="mb-12"
@@ -71,16 +71,19 @@ export default function FeaturesSection() {
           viewport={{ once: true }}
           transition={{ type: "spring", damping: 20, stiffness: 100 }}
         >
+          <p className="text-sm uppercase tracking-widest mb-2" style={{ color: "hsl(var(--primary) / 0.6)" }}>
+            Features
+          </p>
           <h2 className="text-3xl md:text-4xl font-bold">
             Everything you need
           </h2>
-          <p className="mt-2 text-lg text-muted-foreground">
+          <p className="mt-2 text-lg md:text-xl text-muted-foreground">
             Minimal by design. Powerful when you need it.
           </p>
         </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-5">
-          {features.map((feature) => (
+          {features.map((feature, i) => (
             <FeatureCard
               key={feature.title}
               icon={feature.icon}
@@ -88,6 +91,7 @@ export default function FeaturesSection() {
               description={feature.description}
               size={feature.size}
               className={feature.className}
+              index={i}
             />
           ))}
         </div>

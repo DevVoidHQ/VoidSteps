@@ -1,53 +1,25 @@
 import { useRef } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion, useScroll, useTransform, useSpring } from "framer-motion";
 
 const steps = [
   {
-    number: "01",
     title: "Define your paths",
     description:
       "Create paths that represent your goals — career, fitness, learning, or anything you want to pursue. Each path becomes a container for focused progress.",
-    accent: "from-primary/20 to-transparent",
   },
   {
-    number: "02",
     title: "Break them into steps",
     description:
       "Add actionable steps to each path. Set priorities, due dates, and organize with drag-and-drop. Nest steps for complex goals that need structure.",
-    accent: "from-secondary/20 to-transparent",
   },
   {
-    number: "03",
     title: "Track & stay focused",
     description:
       "Use the focus timer, build routines, and watch your progress grow — even offline. Stay in the zone with a distraction-free interface.",
-    accent: "from-accent/20 to-transparent",
   },
 ];
 
-function ProgressBar({
-  scrollYProgress,
-}: {
-  scrollYProgress: ReturnType<typeof useScroll>["scrollYProgress"];
-}) {
-  const width = useTransform(scrollYProgress, [0, 1], ["0%", "100%"]);
-
-  return (
-    <div className="absolute top-0 left-0 right-0 z-20 px-6 md:px-12 lg:px-20 pt-8">
-      <div className="max-w-7xl mx-auto">
-        <h2 className="text-2xl md:text-3xl font-bold mb-4" id="how-it-works">
-          How it works
-        </h2>
-        <div className="h-1 rounded-full bg-border overflow-hidden">
-          <motion.div
-            className="h-full bg-primary rounded-full"
-            style={{ width }}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
+const STEP_COUNT = steps.length;
 
 export default function HowItWorksSection() {
   const ref = useRef<HTMLElement>(null);
@@ -56,31 +28,43 @@ export default function HowItWorksSection() {
     offset: ["start start", "end end"],
   });
 
-  const x = useTransform(scrollYProgress, (latest: number) => {
-    return `${-latest * (steps.length - 1) * 100}vw`;
+  const snappedX = useTransform(scrollYProgress, (v: number) => {
+    const stepProgress = v * (STEP_COUNT - 1);
+    const snappedStep = Math.round(stepProgress);
+    return -snappedStep * 100;
   });
+
+  const smoothX = useSpring(snappedX, {
+    stiffness: 60,
+    damping: 25,
+    mass: 1,
+  });
+
+  const x = useTransform(smoothX, (v: number) => `${v}vw`);
 
   return (
     <section ref={ref} className="h-[200vh] md:h-[300vh] relative">
+      {steps.map((_, i) => (
+        <div
+          key={i}
+          className="absolute w-full h-px snap-section"
+          style={{ top: `${(i / STEP_COUNT) * 100}%` }}
+        />
+      ))}
       <div className="sticky top-0 h-screen overflow-hidden">
-        <ProgressBar scrollYProgress={scrollYProgress} />
-
         <motion.div
-          className="flex h-full items-center pt-16"
-          style={{ x }}
+          className="flex h-full items-center"
+          style={{ x, willChange: "transform" }}
         >
-          {steps.map((step) => (
+          {steps.map((step, i) => (
             <div
-              key={step.number}
+              key={i}
               className="w-screen flex-shrink-0 h-full flex items-center px-6 md:px-12 lg:px-20"
             >
               <div className="max-w-7xl mx-auto w-full">
-                <span
-                  className="text-sm font-semibold uppercase tracking-widest mb-4 block"
-                  style={{ color: "hsl(var(--primary) / 0.5)" }}
-                >
-                  {step.number}
-                </span>
+                <p className="text-sm uppercase tracking-widest mb-2" style={{ color: "hsl(var(--primary) / 0.6)" }} {...(i === 0 ? { id: "how-it-works" } : {})}>
+                  How it works
+                </p>
                 <h3 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4">
                   {step.title}
                 </h3>

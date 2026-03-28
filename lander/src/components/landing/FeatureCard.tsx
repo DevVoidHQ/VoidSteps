@@ -1,5 +1,4 @@
-import { useRef } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/Card";
 import type { LucideIcon } from "lucide-react";
 
@@ -9,6 +8,7 @@ interface FeatureCardProps {
   description: string;
   size: "large" | "medium" | "small";
   className?: string;
+  index?: number;
 }
 
 const sizeConfig = {
@@ -41,27 +41,17 @@ export default function FeatureCard({
   description,
   size,
   className = "",
+  index = 0,
 }: FeatureCardProps) {
-  const ref = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start end", "end start"],
-  });
-
-  const driftRate = size === "large" ? 20 : size === "medium" ? 15 : 10;
-  const y = useTransform(scrollYProgress, [0, 1], [driftRate, -driftRate]);
-
   const config = sizeConfig[size];
 
   return (
     <motion.div
-      ref={ref}
       className={className}
-      style={{ y }}
       initial={{ opacity: 0, y: 40 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ type: "spring", damping: 25, stiffness: 120 }}
+      viewport={{ once: true, margin: "-50px" }}
+      transition={{ type: "spring", damping: 25, stiffness: 120, delay: index * 0.08 }}
     >
       <motion.div
         whileHover={{ scale: 1.02, y: -4 }}

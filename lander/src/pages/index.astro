@@ -13,7 +13,7 @@ import LandingFooter from "../components/landing/LandingFooter";
 ---
 
 <BaseLayout>
-  <div class="min-h-screen bg-background text-foreground relative scroll-smooth" style="overflow-x: clip;">
+  <div class="min-h-screen bg-background text-foreground relative scroll-smooth noise-overlay" style="overflow-x: clip; scroll-snap-type: y mandatory;">
     <ScrollProgressBar client:load />
     <FloatingOrbs client:load />
     <div class="relative z-[1]">
@@ -21,7 +21,7 @@ import LandingFooter from "../components/landing/LandingFooter";
       <PhilosophySection client:load />
       <HowItWorksSection client:load />
       <ShowcaseSection client:load />
-      <FeaturesSection client:load />
+      <FeaturesSection client:visible />
       <SocialProofSection client:visible />
       <CTASection client:visible />
       <LandingFooter client:visible />

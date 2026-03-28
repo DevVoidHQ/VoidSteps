@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, type ReactNode } from "react";
-import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
+import { motion, useScroll, useTransform } from "framer-motion";
 import { Button } from "@/components/ui/Button";
 
 const container = {
@@ -21,8 +21,10 @@ const item = {
 /* ── Card content definitions ─────────────────────────────── */
 
 const cardStyle = {
-  border: "1px solid hsl(var(--foreground) / 0.1)",
-  backgroundColor: "hsl(var(--background))",
+  border: "1px solid hsl(var(--foreground) / 0.08)",
+  backgroundColor: "hsl(var(--card) / 0.7)",
+  backdropFilter: "blur(12px)",
+  WebkitBackdropFilter: "blur(12px)",
 };
 
 function PathCard() {
@@ -185,45 +187,43 @@ function CardStack() {
   useEffect(() => {
     const interval = setInterval(() => {
       setFrontIndex((prev) => (prev + 1) % cards.length);
-    }, 3500);
+    }, 4500);
     return () => clearInterval(interval);
   }, []);
 
   return (
-    <div className="relative w-[380px] lg:w-[460px] h-[360px] lg:h-[420px]">
-      <AnimatePresence initial={false}>
-        {cards.map((card, i) => {
-          // Calculate position in stack relative to the front card
-          const stackPos = (i - frontIndex + cards.length) % cards.length;
-          const pos = stackPositions[stackPos];
+    <div className="relative w-full max-w-[380px] lg:max-w-[460px] h-[360px] lg:h-[420px]">
+      {cards.map((card, i) => {
+        const stackPos = (i - frontIndex + cards.length) % cards.length;
+        const pos = stackPositions[stackPos];
 
-          return (
-            <motion.div
-              key={card.key}
-              className="absolute inset-x-0 top-0 rounded-2xl overflow-hidden"
-              style={cardStyle}
-              animate={{
-                y: pos.y,
-                scale: pos.scale,
-                rotate: pos.rotate,
-                zIndex: pos.zIndex,
-                opacity: pos.opacity,
-                boxShadow:
-                  stackPos === 0
-                    ? "0 20px 60px rgba(0,0,0,0.1), 0 4px 16px rgba(0,0,0,0.05)"
-                    : "0 8px 24px rgba(0,0,0,0.06)",
-              }}
-              transition={{
-                type: "spring",
-                stiffness: 200,
-                damping: 25,
-              }}
-            >
-              {card.content}
-            </motion.div>
-          );
-        })}
-      </AnimatePresence>
+        return (
+          <motion.div
+            key={card.key}
+            className="absolute inset-x-0 top-0 rounded-2xl overflow-hidden will-change-transform"
+            style={cardStyle}
+            animate={{
+              y: pos.y,
+              scale: pos.scale,
+              rotate: pos.rotate,
+              zIndex: pos.zIndex,
+              opacity: pos.opacity,
+              boxShadow:
+                stackPos === 0
+                  ? "0 20px 60px rgba(0,0,0,0.1), 0 4px 16px rgba(0,0,0,0.05)"
+                  : "0 8px 24px rgba(0,0,0,0.06)",
+            }}
+            transition={{
+              type: "spring",
+              stiffness: 120,
+              damping: 22,
+              mass: 0.8,
+            }}
+          >
+            {card.content}
+          </motion.div>
+        );
+      })}
 
     </div>
   );
@@ -243,7 +243,7 @@ export default function HeroSection() {
   const y = useTransform(scrollYProgress, [0, 0.8], [0, -80]);
 
   return (
-    <section ref={ref} className="h-screen relative flex items-center justify-center px-6 md:px-12 lg:px-20">
+    <section ref={ref} className="h-screen relative flex items-center justify-center px-6 md:px-12 lg:px-20 snap-section">
       <motion.div
         style={{ opacity, scale, y }}
         className="w-full max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12 items-center"
@@ -279,7 +279,7 @@ export default function HeroSection() {
 
           <motion.p
             variants={item}
-            className="mt-4 text-base md:text-lg text-muted-foreground max-w-md"
+            className="mt-4 text-lg md:text-xl text-muted-foreground max-w-lg"
           >
             Track your paths and steps through your journey. Organize tasks,
             build routines, and stay focused — all offline-first.
@@ -287,12 +287,12 @@ export default function HeroSection() {
 
           <motion.div variants={item} className="mt-8 flex flex-wrap gap-3">
             <a href="https://app.voidsteps.com/login">
-              <Button size="xl" className="btn-glow text-base px-10">
+              <Button size="xl" className="btn-glow">
                 Get Started
               </Button>
             </a>
             <a href="#how-it-works">
-              <Button size="xl" variant="outline" className="text-base px-8">
+              <Button size="xl" variant="outline">
                 Learn More
               </Button>
             </a>

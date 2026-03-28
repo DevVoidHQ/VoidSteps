@@ -39,6 +39,9 @@ module.exports = {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
+        "accent-warm": "hsl(var(--accent-warm))",
+        "accent-green": "hsl(var(--accent-green))",
+        "accent-amber": "hsl(var(--accent-amber))",
       },
       borderRadius: {
         lg: "var(--radius)",
