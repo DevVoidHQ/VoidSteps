@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import Sidebar from "./Sidebar";
 import CommandPalette from "./CommandPalette";
+import FailedSyncReviewDialog from "./FailedSyncReviewDialog";
 import { Button } from "@/components/ui/Button";
 import { Menu } from "lucide-react";
 import { useOffline } from "@/contexts/OfflineContext";
@@ -24,6 +25,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(getInitialCollapsed);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+  const [isFailedSyncOpen, setIsFailedSyncOpen] = useState(false);
   const { isOnline, pendingSyncCount, failedSyncCount } = useOffline();
 
   const toggleCollapse = useCallback(() => {
@@ -82,10 +84,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </div>
           )}
           {failedSyncCount > 0 && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-destructive/10 border border-destructive/30 shadow-sm text-destructive">
+            <button
+              onClick={() => setIsFailedSyncOpen(true)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-destructive/10 border border-destructive/30 shadow-sm text-destructive cursor-pointer hover:bg-destructive/20 transition-colors"
+            >
               <span className="w-2 h-2 rounded-full bg-destructive" />
               {failedSyncCount} change{failedSyncCount !== 1 ? 's' : ''} failed to sync
-            </div>
+            </button>
           )}
         </div>
       )}
@@ -117,6 +122,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Command Palette */}
       <CommandPalette open={isPaletteOpen} onOpenChange={setIsPaletteOpen} />
+
+      {/* Failed Sync Review */}
+      <FailedSyncReviewDialog open={isFailedSyncOpen} onOpenChange={setIsFailedSyncOpen} />
     </div>
   );
 }

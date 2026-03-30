@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
-import { Download, Upload, RotateCcw, Shuffle, Dices, Check, Wifi, WifiOff, RefreshCw, Trash2, Bug } from "lucide-react";
+import { Download, Upload, RotateCcw, Shuffle, Dices, Check, Wifi, WifiOff, RefreshCw, Trash2, Bug, Eye } from "lucide-react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { reportError } from "@/lib/error-store";
+import { retryAllFailed, discardAllFailed } from "@/lib/sync-queue-actions";
+import FailedSyncReviewDialog from "@/components/FailedSyncReviewDialog";
 
 const COLOR_LABELS: Record<keyof ThemeColors, string> = {
   background: "Background",
@@ -107,19 +109,12 @@ const hexToHsl = (hex: string): string => {
 
 function SyncAndErrors() {
   const { isOnline, pendingSyncCount, failedSyncCount } = useOffline();
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
 
   const recentErrors = useLiveQuery(
     () => db.errorLog.orderBy('timestamp').reverse().limit(20).toArray(),
     []
   );
-
-  const retryFailed = async () => {
-    await db.syncQueue.where('status').equals('failed').modify({ status: 'pending', retryCount: 0 });
-  };
-
-  const purgeFailed = async () => {
-    await db.syncQueue.where('status').equals('failed').delete();
-  };
 
   const clearErrorLog = async () => {
     await db.errorLog.clear();
@@ -151,13 +146,17 @@ function SyncAndErrors() {
           <div className="flex gap-2 flex-wrap">
             {failedSyncCount > 0 && (
               <>
-                <Button variant="outline" size="sm" onClick={retryFailed}>
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Retry failed ({failedSyncCount})
+                <Button variant="outline" size="sm" onClick={() => setIsReviewOpen(true)}>
+                  <Eye className="w-4 h-4 mr-2" />
+                  Review failed ({failedSyncCount})
                 </Button>
-                <Button variant="outline" size="sm" onClick={purgeFailed}>
+                <Button variant="outline" size="sm" onClick={retryAllFailed}>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Retry all
+                </Button>
+                <Button variant="outline" size="sm" onClick={discardAllFailed}>
                   <Trash2 className="w-4 h-4 mr-2" />
-                  Discard failed
+                  Discard all
                 </Button>
               </>
             )}
@@ -198,6 +197,8 @@ function SyncAndErrors() {
           </CardContent>
         </Card>
       )}
+
+      <FailedSyncReviewDialog open={isReviewOpen} onOpenChange={setIsReviewOpen} />
     </div>
   );
 }

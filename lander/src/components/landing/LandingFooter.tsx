@@ -1,18 +1,21 @@
 import { motion } from "framer-motion";
+import { Linkedin, Mail, Globe, ExternalLink, Hash, Layers } from "lucide-react";
+import type { ReactNode } from "react";
 
-const productLinks = [
-  { label: "Features", href: "#features" },
-  { label: "How it Works", href: "#how-it-works" },
-  { label: "Philosophy", href: "#philosophy" },
+const productLinks: { label: string; href: string; icon: ReactNode }[] = [
+  { label: "Features", href: "#features", icon: <Layers size={14} /> },
+  { label: "How it Works", href: "#how-it-works", icon: <Hash size={14} /> },
 ];
 
-const companyLinks = [
-  { label: "DevVoid", href: "https://devvoid.org" },
+const companyLinks: { label: string; href: string; icon: ReactNode }[] = [
+  { label: "DevVoid", href: "https://devvoid.org", icon: <Globe size={14} /> },
+  { label: "Founder", href: "https://aneeshmbhat.com", icon: <ExternalLink size={14} /> },
 ];
 
-const connectLinks = [
-  { label: "GitHub", href: "https://github.com/DevVoidHQ" },
-  { label: "Twitter", href: "https://twitter.com/devvoidhq" },
+const connectLinks: { label: string; href: string; icon: ReactNode }[] = [
+  { label: "Company LinkedIn", href: "https://www.linkedin.com/company/devvoid/", icon: <Linkedin size={14} /> },
+  { label: "Founder's LinkedIn", href: "https://www.linkedin.com/in/devvoid-aneesh/", icon: <Linkedin size={14} /> },
+  { label: "Email", href: "mailto:aneesh@devvoid.org", icon: <Mail size={14} /> },
 ];
 
 export default function LandingFooter() {
@@ -45,18 +48,10 @@ export default function LandingFooter() {
             Your journey, step by step. An offline-first productivity tool built
             for people who value focus.
           </p>
-          <p className="text-xs text-muted-foreground/60">
-            Made with care by{" "}
-            <a
-              href="https://devvoid.org"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary/60 hover:text-primary transition-colors"
-            >
-              DevVoid
-            </a>
-          </p>
         </div>
+
+        {/* Spacer to push link columns right */}
+        <div className="hidden md:block md:col-span-2" />
 
         {/* Product */}
         <div className="md:col-span-2">
@@ -68,8 +63,9 @@ export default function LandingFooter() {
               <li key={link.label}>
                 <a
                   href={link.href}
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
+                  {link.icon}
                   {link.label}
                 </a>
               </li>
@@ -89,8 +85,9 @@ export default function LandingFooter() {
                   href={link.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
+                  {link.icon}
                   {link.label}
                 </a>
               </li>
@@ -110,8 +107,9 @@ export default function LandingFooter() {
                   href={link.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
+                  {link.icon}
                   {link.label}
                 </a>
               </li>

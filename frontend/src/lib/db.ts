@@ -90,6 +90,7 @@ export interface SyncQueueEntry {
   data?: Record<string, unknown>;
   status: 'pending' | 'in-progress' | 'failed';
   retryCount: number;
+  lastError?: string;
   createdAt: number;
 }
 
@@ -134,6 +135,18 @@ class VoidStepsDB extends Dexie {
     });
 
     this.version(2).stores({
+      steps: '_id, pathId, parentId, routineId, updatedAt',
+      paths: '_id, parentId, updatedAt',
+      routines: '_id, nextOccurrence, updatedAt',
+      pathways: '_id, parentId, updatedAt',
+      userSettings: '_id, userId',
+      syncQueue: '++id, entityType, entityId, status, createdAt',
+      syncMeta: 'key',
+      errorLog: '++id, category, timestamp, reported',
+    });
+
+    // v3: adds lastError to syncQueue entries (no index change needed)
+    this.version(3).stores({
       steps: '_id, pathId, parentId, routineId, updatedAt',
       paths: '_id, parentId, updatedAt',
       routines: '_id, nextOccurrence, updatedAt',

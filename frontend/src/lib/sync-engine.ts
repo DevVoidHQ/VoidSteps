@@ -69,10 +69,11 @@ export class SyncEngine {
         } catch (error) {
           reportError('sync', error, { entityType: entry.entityType, entityId: entry.entityId, operation: entry.operation, retryCount: entry.retryCount });
           const newRetryCount = (entry.retryCount || 0) + 1;
+          const lastError = error instanceof Error ? error.message : String(error);
           if (newRetryCount >= MAX_RETRIES) {
-            await db.syncQueue.update(entry.id!, { status: 'failed', retryCount: newRetryCount });
+            await db.syncQueue.update(entry.id!, { status: 'failed', retryCount: newRetryCount, lastError });
           } else {
-            await db.syncQueue.update(entry.id!, { status: 'pending', retryCount: newRetryCount });
+            await db.syncQueue.update(entry.id!, { status: 'pending', retryCount: newRetryCount, lastError });
           }
         }
       }

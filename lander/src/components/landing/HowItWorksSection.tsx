@@ -43,7 +43,7 @@ export default function HowItWorksSection() {
   const x = useTransform(smoothX, (v: number) => `${v}vw`);
 
   return (
-    <section ref={ref} className="h-[200vh] md:h-[300vh] relative">
+    <section ref={ref} id="how-it-works" className="h-[200vh] md:h-[300vh] relative">
       {steps.map((_, i) => (
         <div
           key={i}
@@ -62,7 +62,7 @@ export default function HowItWorksSection() {
               className="w-screen flex-shrink-0 h-full flex items-center px-6 md:px-12 lg:px-20"
             >
               <div className="max-w-7xl mx-auto w-full">
-                <p className="text-sm uppercase tracking-widest mb-2" style={{ color: "hsl(var(--primary) / 0.6)" }} {...(i === 0 ? { id: "how-it-works" } : {})}>
+                <p className="text-sm uppercase tracking-widest mb-2" style={{ color: "hsl(var(--primary) / 0.6)" }} >
                   How it works
                 </p>
                 <h3 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4">
