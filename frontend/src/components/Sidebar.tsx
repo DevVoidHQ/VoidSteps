@@ -1,6 +1,7 @@
 import { useClerk, useUser } from '@clerk/clerk-react';
 import { motion } from 'framer-motion';
-import { LogOut, Settings, Calendar, ListTodo, Target, Zap, BarChart3, Network, X, ChevronsLeft, ChevronsRight, Search, MessageSquare } from 'lucide-react';
+import { LogOut, Settings, Calendar, ListTodo, Target, Zap, BarChart3, X, ChevronsLeft, ChevronsRight, MessageSquare } from 'lucide-react';
+import { getKeybinds, formatKeybindDisplay, type KeybindMap } from '@/lib/keybind-config';
 import type { LucideIcon } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -9,7 +10,6 @@ interface SidebarProps {
   onClose: () => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
-  onOpenCommandPalette: () => void;
 }
 
 interface SidebarItemProps {
@@ -19,15 +19,16 @@ interface SidebarItemProps {
   active?: boolean;
   showActiveIndicator?: boolean;
   iconOnly?: boolean;
+  shortcut?: string;
   onClick?: () => void;
   href?: string;
   className?: string;
 }
 
-function SidebarItem({ icon: Icon, label, isCollapsed, active, showActiveIndicator, iconOnly, onClick, href, className }: SidebarItemProps) {
+function SidebarItem({ icon: Icon, label, isCollapsed, active, showActiveIndicator, iconOnly, shortcut, onClick, href, className }: SidebarItemProps) {
   const hideLabel = isCollapsed || iconOnly;
   const baseClass = `relative w-full flex items-center ${
-    hideLabel ? 'justify-center px-2 py-3' : 'gap-3 px-4 py-3'
+    hideLabel ? 'justify-center px-2 py-3' : 'gap-3 px-4 py-3 text-left'
   } rounded-lg transition-colors ${
     active
       ? 'text-primary-foreground font-medium'
@@ -44,7 +45,16 @@ function SidebarItem({ icon: Icon, label, isCollapsed, active, showActiveIndicat
         />
       )}
       <Icon className="relative z-10 w-5 h-5 shrink-0" />
-      {!hideLabel && <span className="relative z-10">{label}</span>}
+      {!hideLabel && <span className="relative z-10 flex-1">{label}</span>}
+      {!hideLabel && shortcut && (
+        <kbd className={`relative z-10 hidden sm:inline-flex h-5 items-center rounded border px-1.5 font-mono text-[10px] ${
+          active
+            ? 'border-primary-foreground/30 bg-primary-foreground/10 text-primary-foreground'
+            : 'border-border bg-muted/50 text-muted-foreground'
+        }`}>
+          {shortcut}
+        </kbd>
+      )}
     </>
   );
 
@@ -73,20 +83,21 @@ function SidebarItem({ icon: Icon, label, isCollapsed, active, showActiveIndicat
   );
 }
 
-export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, onOpenCommandPalette }: SidebarProps) {
+export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: SidebarProps) {
   const { signOut } = useClerk();
   const { user } = useUser();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const navItems = [
-    { path: '/', label: 'Today', icon: Calendar },
-    { path: '/steps', label: 'Steps', icon: ListTodo },
-    { path: '/paths', label: 'Paths', icon: Target },
-    { path: '/routines', label: 'Routines', icon: Zap },
-    { path: '/analytics', label: 'Analytics', icon: BarChart3 },
-    { path: '/pathway', label: 'Pathway', icon: Network },
-    { path: '/settings', label: 'Settings', icon: Settings },
+  const keybinds = getKeybinds();
+
+  const navItems: { path: string; label: string; icon: LucideIcon; keybindKey?: keyof KeybindMap }[] = [
+    { path: '/', label: 'Today', icon: Calendar, keybindKey: 'navToday' },
+    { path: '/steps', label: 'Steps', icon: ListTodo, keybindKey: 'navSteps' },
+    { path: '/paths', label: 'Paths', icon: Target, keybindKey: 'navPaths' },
+    { path: '/routines', label: 'Routines', icon: Zap, keybindKey: 'navRoutines' },
+    { path: '/analytics', label: 'Analytics', icon: BarChart3, keybindKey: 'navAnalytics' },
+    { path: '/settings', label: 'Settings', icon: Settings, keybindKey: 'navSettings' },
   ];
 
   const isActive = (path: string) => {
@@ -154,27 +165,6 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
           )}
         </div>
 
-        {/* Search / Command Palette Trigger */}
-        <div className={`${isCollapsed ? 'px-2 py-2' : 'px-4 py-2'}`}>
-          <button
-            onClick={onOpenCommandPalette}
-            title={isCollapsed ? 'Search (⌘K)' : undefined}
-            className={`w-full flex items-center gap-2 rounded-lg border border-input bg-background/50 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors ${
-              isCollapsed ? 'justify-center p-2.5' : 'px-3 py-2'
-            }`}
-          >
-            <Search className="w-4 h-4 shrink-0" />
-            {!isCollapsed && (
-              <>
-                <span className="flex-1 text-left text-sm">Search...</span>
-                <kbd className="hidden sm:inline-flex h-5 items-center gap-0.5 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-                  ⌘K
-                </kbd>
-              </>
-            )}
-          </button>
-        </div>
-
         {/* Navigation */}
         <nav className={`flex-1 ${isCollapsed ? 'p-2' : 'p-4'} space-y-1`}>
           {navItems.map((item) => (
@@ -185,6 +175,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
               isCollapsed={isCollapsed}
               active={isActive(item.path)}
               showActiveIndicator
+              shortcut={item.keybindKey ? formatKeybindDisplay(keybinds[item.keybindKey]) : undefined}
               onClick={() => handleNavigate(item.path)}
             />
           ))}
@@ -192,23 +183,20 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
 
         {/* Footer */}
         <div className={`border-t border-border ${isCollapsed ? 'p-2' : 'p-4'} space-y-1`}>
-          <div className={`flex items-center ${isCollapsed ? 'flex-col gap-1' : 'gap-1'}`}>
-            <SidebarItem
-              icon={MessageSquare}
-              label="Feedback"
-              isCollapsed={isCollapsed}
-              href="mailto:aneeshbhat@devvoid.org?subject=VoidSteps%20Feedback&body=Hey%2C%0A%0AI%20wanted%20to%20share%20some%20feedback%20about%20VoidSteps%3A%0A%0A"
-              className={isCollapsed ? '' : 'flex-1'}
-            />
-            <SidebarItem
-              icon={isCollapsed ? ChevronsRight : ChevronsLeft}
-              label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              isCollapsed={isCollapsed}
-              iconOnly
-              onClick={onToggleCollapse}
-              className={`hidden md:flex ${isCollapsed ? '' : 'shrink-0 !w-auto'}`}
-            />
-          </div>
+          <SidebarItem
+            icon={MessageSquare}
+            label="Feedback"
+            isCollapsed={isCollapsed}
+            href="mailto:aneeshbhat@devvoid.org?subject=VoidSteps%20Feedback&body=Hey%2C%0A%0AI%20wanted%20to%20share%20some%20feedback%20about%20VoidSteps%3A%0A%0A"
+          />
+          <SidebarItem
+            icon={isCollapsed ? ChevronsRight : ChevronsLeft}
+            label={isCollapsed ? 'Expand' : 'Collapse'}
+            isCollapsed={isCollapsed}
+            shortcut={!isCollapsed ? formatKeybindDisplay(keybinds.toggleSidebar) : undefined}
+            onClick={onToggleCollapse}
+            className="hidden md:flex"
+          />
           <SidebarItem
             icon={LogOut}
             label="Logout"
