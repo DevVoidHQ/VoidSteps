@@ -1,18 +1,16 @@
 import { useState, useCallback, useMemo } from "react";
 import type { Step } from "@/types/index";
 import {
-  useCreateStep,
   useUpdateStep,
   useDeleteStep,
   useToggleStepCompletion,
   useToggleStepFailed,
   useReorderSteps,
   useUpdateStepParent,
-  MAX_TITLE_LENGTH,
-  MAX_DESCRIPTION_LENGTH,
 } from "@/lib/local-mutations";
 import { useData } from "@/contexts/DataContext";
 import { reportError } from "@/lib/error-store";
+import { getDescendantPathIds } from "@/lib/path-utils";
 import { useToast } from "@/contexts/ToastContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -22,11 +20,10 @@ import {
   Search,
   Calendar,
   Clock,
-  ChevronDown,
   CheckCircle2,
 } from "lucide-react";
-import { parseDateInput, parseStartDateInput } from "@/lib/date-utils";
-import { DatePicker } from "@/components/ui/DatePicker";
+import QuickCreateDialog from "@/components/QuickCreateDialog";
+import { getKeybinds, formatKeybindDisplay } from "@/lib/keybind-config";
 import { StepCard } from "@/components/StepCard";
 import { DraggableStepList } from "@/components/DraggableStepList";
 import { HierarchicalPathSelector } from "@/components/HierarchicalPathSelector";
@@ -43,7 +40,6 @@ export default function Steps() {
   } = useData();
 
   // Mutations
-  const createStepMutation = useCreateStep();
   const updateStepMutation = useUpdateStep();
   const deleteStepMutation = useDeleteStep();
   const toggleStepMutation = useToggleStepCompletion();
@@ -51,15 +47,8 @@ export default function Steps() {
   const reorderStepsMutation = useReorderSteps();
   const updateStepParentMutation = useUpdateStepParent();
 
-  // Form state for quick add
-  const [quickAddValue, setQuickAddValue] = useState("");
-  const [stepDescValue, setStepDescValue] = useState("");
-  const [stepPathValue, setStepPathValue] = useState("");
-  const [stepDueDateValue, setStepDueDateValue] = useState("");
-  const [stepStartDateValue, setStepStartDateValue] = useState("");
-
   // UI state
-  const [showQuickAddOptions, setShowQuickAddOptions] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [showCompletedSteps, setShowCompletedSteps] = useState(false);
   const [showFailedSteps, setShowFailedSteps] = useState(false);
   const [showUpcomingSteps, setShowUpcomingSteps] = useState(true);
@@ -68,6 +57,11 @@ export default function Steps() {
 
   // Memoize paths for stable reference
   const memoizedPaths = useMemo(() => activePaths || [], [activePaths]);
+
+  const descendantPathIds = useMemo(
+    () => getDescendantPathIds(selectedPathFilterSteps, memoizedPaths),
+    [selectedPathFilterSteps, memoizedPaths]
+  );
 
   // Stable filter function
   const filterSteps = useCallback((
@@ -81,11 +75,11 @@ export default function Steps() {
         (step.description || "").toLowerCase().includes(searchQuery.toLowerCase());
 
       const stepPathId = step.path?._id || (typeof step.pathId === 'string' ? step.pathId : null);
-      const matchesPath = !pathFilter || stepPathId === pathFilter;
+      const matchesPath = !pathFilter || (stepPathId ? descendantPathIds.has(stepPathId) : false);
 
       return matchesSearch && matchesPath;
     });
-  }, []);
+  }, [descendantPathIds]);
 
   // Memoized filtered arrays
   // Separate steps with due dates from active steps (shown at top)
@@ -244,104 +238,17 @@ export default function Steps() {
     }
   }, [updateStepMutation, toast]);
 
-  const createStep = useCallback(async (
-    title: string,
-    description?: string,
-    pathId?: string,
-    dueDate?: number,
-    startDate?: number
-  ) => {
-    try {
-      await createStepMutation({
-        title,
-        description: description || "",
-        pathId: pathId || undefined,
-        prioritizedToday: true,
-        dueDate,
-        startDate,
-      });
-    } catch (error) {
-      reportError('mutation', error, { action: 'createStep' });
-      toast.error("Failed to create step");
-    }
-  }, [createStepMutation, toast]);
-
-  const handleQuickAdd = useCallback(() => {
-    if (quickAddValue.trim()) {
-      createStep(
-        quickAddValue.trim(),
-        stepDescValue.trim(),
-        stepPathValue,
-        parseDateInput(stepDueDateValue),
-        parseStartDateInput(stepStartDateValue)
-      );
-      setQuickAddValue("");
-      setStepDescValue("");
-      setStepPathValue("");
-      setStepDueDateValue("");
-      setStepStartDateValue("");
-    }
-  }, [quickAddValue, stepDescValue, stepPathValue, stepDueDateValue, stepStartDateValue, createStep]);
-
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold tracking-tight">All Steps</h1>
-
-      {/* Compact Quick Add */}
-      <div className="space-y-2">
-        <div className="flex gap-2">
-          <Input
-            placeholder="Add a step..."
-            value={quickAddValue}
-            onChange={(e) => setQuickAddValue(e.target.value)}
-            onKeyPress={(e) => e.key === "Enter" && !showQuickAddOptions && handleQuickAdd()}
-            className="flex-1"
-            maxLength={MAX_TITLE_LENGTH}
-          />
-          <Button onClick={handleQuickAdd} disabled={!quickAddValue.trim()} size="icon">
-            <Plus className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setShowQuickAddOptions(!showQuickAddOptions)}
-            title="More options"
-          >
-            <ChevronDown className={`w-4 h-4 transition-transform ${showQuickAddOptions ? "rotate-180" : ""}`} />
-          </Button>
-        </div>
-        {showQuickAddOptions && (
-          <div className="space-y-2 pl-0">
-            <Input
-              placeholder="Description (optional)..."
-              value={stepDescValue}
-              onChange={(e) => setStepDescValue(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleQuickAdd()}
-              maxLength={MAX_DESCRIPTION_LENGTH}
-            />
-            <HierarchicalPathSelector
-              paths={activePaths || []}
-              selectedPathId={stepPathValue || null}
-              onChange={(id) => setStepPathValue(id || "")}
-              placeholder="No Path"
-              allowEmpty={true}
-            />
-            <div className="flex gap-2">
-              <DatePicker
-                label="Due Date"
-                value={stepDueDateValue}
-                onChange={(val) => setStepDueDateValue(val)}
-                className="flex-1"
-              />
-              <DatePicker
-                label="Start Date"
-                value={stepStartDateValue}
-                onChange={(val) => setStepStartDateValue(val)}
-                className="flex-1"
-              />
-            </div>
-          </div>
-        )}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold tracking-tight">All Steps</h1>
+        <Button onClick={() => setIsCreateOpen(true)} size="sm">
+          <Plus className="w-4 h-4 mr-2" />
+          New Step
+          <kbd className="ml-2 hidden sm:inline-flex h-5 items-center rounded border border-primary-foreground/30 bg-primary-foreground/10 px-1.5 font-mono text-[10px]">
+            {formatKeybindDisplay(getKeybinds().quickCreate)}
+          </kbd>
+        </Button>
       </div>
 
       {/* Search and Filter */}
@@ -547,6 +454,8 @@ export default function Steps() {
           </div>
         </div>
       )}
+
+      <QuickCreateDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
     </div>
   );
 }

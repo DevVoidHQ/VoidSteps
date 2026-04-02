@@ -13,6 +13,7 @@ import {
 } from "@/lib/local-mutations";
 import { useData } from "@/contexts/DataContext";
 import { reportError } from "@/lib/error-store";
+import { getDescendantPathIds } from "@/lib/path-utils";
 import { useToast } from "@/contexts/ToastContext";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -78,6 +79,11 @@ export default function TodayView() {
     }
   }, [allExpanded, stepsWithChildren]);
 
+  const descendantPathIds = useMemo(
+    () => getDescendantPathIds(selectedPathFilterToday, memoizedPaths),
+    [selectedPathFilterToday, memoizedPaths]
+  );
+
   const filterSteps = useCallback((
     steps: Step[],
     searchQuery: string,
@@ -88,10 +94,10 @@ export default function TodayView() {
         step.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (step.description || "").toLowerCase().includes(searchQuery.toLowerCase());
       const stepPathId = step.path?._id || (typeof step.pathId === 'string' ? step.pathId : null);
-      const matchesPath = !pathFilter || stepPathId === pathFilter;
+      const matchesPath = !pathFilter || (stepPathId ? descendantPathIds.has(stepPathId) : false);
       return matchesSearch && matchesPath;
     });
-  }, []);
+  }, [descendantPathIds]);
 
   const unfilteredDuePrioritySteps = useMemo(
     () => activeSteps?.filter((s: Step) => s.prioritizedToday && s.dueDate !== undefined).sort((a, b) => {

@@ -11,7 +11,6 @@ import Login from '@/pages/Login';
 import Steps from '@/pages/Steps';
 import Paths from '@/pages/Paths';
 import Routines from '@/pages/Routines';
-import Pathway from '@/pages/Pathway';
 import Analytics from '@/pages/Analytics';
 import Calendar from '@/pages/Calendar';
 import Settings from '@/pages/Settings';
@@ -45,7 +44,7 @@ function AppRoutes() {
             <Route path="/steps" element={<Layout key={location.pathname}><Steps /></Layout>} />
             <Route path="/paths" element={<Layout key={location.pathname}><Paths /></Layout>} />
             <Route path="/routines" element={<Layout key={location.pathname}><Routines /></Layout>} />
-            <Route path="/pathway" element={<Layout key={location.pathname}><Pathway /></Layout>} />
+            <Route path="/pathway" element={<Navigate to="/paths" replace />} />
             <Route path="/analytics" element={<Layout key={location.pathname}><Analytics /></Layout>} />
             <Route path="/settings" element={<Layout key={location.pathname}><Settings /></Layout>} />
           </Routes>

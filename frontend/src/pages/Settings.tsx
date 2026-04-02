@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useTheme, PRESET_THEMES } from "@/contexts/ThemeContext";
 import type { ThemeColors } from "@/contexts/ThemeContext";
 import { useOffline } from "@/contexts/OfflineContext";
@@ -12,6 +12,17 @@ import { db } from "@/lib/db";
 import { reportError } from "@/lib/error-store";
 import { retryAllFailed, discardAllFailed } from "@/lib/sync-queue-actions";
 import FailedSyncReviewDialog from "@/components/FailedSyncReviewDialog";
+import {
+  getKeybinds,
+  setKeybind,
+  resetKeybind,
+  resetAllKeybinds,
+  formatKeybindDisplay,
+  eventToKeybind,
+  KEYBIND_LABELS,
+  DEFAULT_KEYBINDS,
+  type KeybindMap,
+} from "@/lib/keybind-config";
 
 const COLOR_LABELS: Record<keyof ThemeColors, string> = {
   background: "Background",
@@ -203,6 +214,108 @@ function SyncAndErrors() {
   );
 }
 
+function KeybindSettings() {
+  const [keybinds, setKeybindsState] = useState<KeybindMap>(getKeybinds);
+  const [editingAction, setEditingAction] = useState<keyof KeybindMap | null>(null);
+
+  const handleStartEdit = (action: keyof KeybindMap) => {
+    setEditingAction(action);
+  };
+
+  const handleReset = (action: keyof KeybindMap) => {
+    resetKeybind(action);
+    setKeybindsState(getKeybinds());
+  };
+
+  const handleResetAll = () => {
+    resetAllKeybinds();
+    setKeybindsState(getKeybinds());
+  };
+
+  useEffect(() => {
+    if (!editingAction) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const kb = eventToKeybind(e);
+      if (!kb) return; // ignore standalone modifier
+
+      setKeybind(editingAction, kb);
+      setKeybindsState(getKeybinds());
+      setEditingAction(null);
+    };
+
+    document.addEventListener("keydown", handleKeyDown, true);
+    return () => document.removeEventListener("keydown", handleKeyDown, true);
+  }, [editingAction]);
+
+  const actions = Object.keys(KEYBIND_LABELS) as (keyof KeybindMap)[];
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardContent className="p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Keyboard Shortcuts</h2>
+            <Button variant="outline" size="sm" onClick={handleResetAll}>
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Reset All
+            </Button>
+          </div>
+
+          <div className="space-y-1">
+            {actions.map((action) => {
+              const isEditing = editingAction === action;
+              const isCustom = keybinds[action] !== DEFAULT_KEYBINDS[action];
+
+              return (
+                <div
+                  key={action}
+                  className={`flex items-center justify-between py-2.5 px-3 rounded-lg ${
+                    isEditing ? "bg-primary/10 ring-2 ring-primary" : "hover:bg-muted/50"
+                  }`}
+                >
+                  <span className="text-sm">{KEYBIND_LABELS[action]}</span>
+                  <div className="flex items-center gap-2">
+                    {isEditing ? (
+                      <kbd className="inline-flex h-8 items-center rounded border border-primary bg-primary/10 px-3 text-xs font-mono text-primary animate-pulse">
+                        Press a key...
+                      </kbd>
+                    ) : (
+                      <kbd className="inline-flex h-8 items-center rounded border border-border bg-muted px-3 text-xs font-mono text-muted-foreground">
+                        {formatKeybindDisplay(keybinds[action])}
+                      </kbd>
+                    )}
+                    {!isEditing && (
+                      <>
+                        <Button variant="ghost" size="icon-sm" onClick={() => handleStartEdit(action)} title="Edit">
+                          <span className="text-xs">Edit</span>
+                        </Button>
+                        {isCustom && (
+                          <Button variant="ghost" size="icon-sm" onClick={() => handleReset(action)} title="Reset to default">
+                            <RotateCcw className="w-3 h-3" />
+                          </Button>
+                        )}
+                      </>
+                    )}
+                    {isEditing && (
+                      <Button variant="ghost" size="icon-sm" onClick={() => setEditingAction(null)}>
+                        <span className="text-xs">Cancel</span>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function Settings() {
   const { theme, setTheme, applyPreset, resetToDefault, exportTheme, importTheme } = useTheme();
   const [importText, setImportText] = useState("");
@@ -296,11 +409,16 @@ export default function Settings() {
       <Tabs defaultValue="theme">
         <TabsList className="mb-4">
           <TabsTrigger value="theme">Theme</TabsTrigger>
+          <TabsTrigger value="keybinds">Keybinds</TabsTrigger>
           <TabsTrigger value="sync">Sync & Errors</TabsTrigger>
         </TabsList>
 
         <TabsContent value="sync">
           <SyncAndErrors />
+        </TabsContent>
+
+        <TabsContent value="keybinds">
+          <KeybindSettings />
         </TabsContent>
 
         <TabsContent value="theme">

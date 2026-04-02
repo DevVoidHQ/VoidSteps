@@ -2,8 +2,10 @@ import { useState, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import Sidebar from "./Sidebar";
-import CommandPalette from "./CommandPalette";
 import FailedSyncReviewDialog from "./FailedSyncReviewDialog";
+import QuickCreateDialog from "./QuickCreateDialog";
+import QuickCreateRoutineDialog from "./QuickCreateRoutineDialog";
+import QuickCreatePathDialog from "./QuickCreatePathDialog";
 import { Button } from "@/components/ui/Button";
 import { Menu } from "lucide-react";
 import { useOffline } from "@/contexts/OfflineContext";
@@ -24,8 +26,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(getInitialCollapsed);
-  const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [isFailedSyncOpen, setIsFailedSyncOpen] = useState(false);
+  const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
+  const [isQuickCreateRoutineOpen, setIsQuickCreateRoutineOpen] = useState(false);
+  const [isQuickCreatePathOpen, setIsQuickCreatePathOpen] = useState(false);
   const { isOnline, pendingSyncCount, failedSyncCount } = useOffline();
 
   const toggleCollapse = useCallback(() => {
@@ -40,20 +44,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const togglePalette = useCallback(() => {
-    setIsPaletteOpen((prev) => !prev);
-  }, []);
-
   useKeyboardShortcuts({
-    onTogglePalette: togglePalette,
     onToggleSidebar: toggleCollapse,
-    onQuickAdd: () => {
-      // Placeholder for quick add - will be implemented in a future phase
-    },
+    onQuickAdd: () => setIsQuickCreateOpen(true),
+    onQuickAddRoutine: () => setIsQuickCreateRoutineOpen(true),
+    onQuickAddPath: () => setIsQuickCreatePathOpen(true),
     onEscape: () => {
-      if (isPaletteOpen) {
-        setIsPaletteOpen(false);
-      }
+      if (isQuickCreateOpen) setIsQuickCreateOpen(false);
+      else if (isQuickCreateRoutineOpen) setIsQuickCreateRoutineOpen(false);
+      else if (isQuickCreatePathOpen) setIsQuickCreatePathOpen(false);
     },
   });
 
@@ -101,7 +100,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         onClose={() => setIsMobileMenuOpen(false)}
         isCollapsed={isCollapsed}
         onToggleCollapse={toggleCollapse}
-        onOpenCommandPalette={() => setIsPaletteOpen(true)}
       />
 
       {/* Main Content */}
@@ -120,11 +118,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </AnimatePresence>
       </main>
 
-      {/* Command Palette */}
-      <CommandPalette open={isPaletteOpen} onOpenChange={setIsPaletteOpen} />
-
       {/* Failed Sync Review */}
       <FailedSyncReviewDialog open={isFailedSyncOpen} onOpenChange={setIsFailedSyncOpen} />
+
+      {/* Quick Create Dialogs */}
+      <QuickCreateDialog open={isQuickCreateOpen} onOpenChange={setIsQuickCreateOpen} />
+      <QuickCreateRoutineDialog open={isQuickCreateRoutineOpen} onOpenChange={setIsQuickCreateRoutineOpen} />
+      <QuickCreatePathDialog open={isQuickCreatePathOpen} onOpenChange={setIsQuickCreatePathOpen} />
     </div>
   );
 }

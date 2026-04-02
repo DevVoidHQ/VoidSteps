@@ -187,7 +187,7 @@ export function HierarchicalPathSelector({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-muted/50 transition-colors"
+        className="flex items-center justify-between w-full h-11 rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-muted/50 transition-colors"
       >
         <span className={selectedPathId ? "" : "text-muted-foreground"}>
           {selectedPathDisplay}

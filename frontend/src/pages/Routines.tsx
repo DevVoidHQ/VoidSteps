@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import type { Routine, Path } from "@/types/index";
-import { useCreateRoutine, useUpdateRoutine, useDeleteRoutine, MAX_TITLE_LENGTH, MAX_DESCRIPTION_LENGTH } from "@/lib/local-mutations";
+import { useUpdateRoutine, useDeleteRoutine, MAX_TITLE_LENGTH, MAX_DESCRIPTION_LENGTH } from "@/lib/local-mutations";
 import { useData } from "@/contexts/DataContext";
 import { reportError } from "@/lib/error-store";
 import { useToast } from "@/contexts/ToastContext";
@@ -19,6 +19,8 @@ import {
   Check,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
+import QuickCreateRoutineDialog from "@/components/QuickCreateRoutineDialog";
+import { getKeybinds, formatKeybindDisplay } from "@/lib/keybind-config";
 
 type Frequency = 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'yearly';
 
@@ -113,23 +115,22 @@ export default function Routines() {
   const toast = useToast();
   const { paths, routines } = useData();
 
-  const createRoutineMutation = useCreateRoutine();
   const updateRoutineMutation = useUpdateRoutine();
   const deleteRoutineMutation = useDeleteRoutine();
 
-  const [isCreating, setIsCreating] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<RoutineFormData>(defaultFormData);
 
   const resetForm = useCallback(() => {
     setFormData(defaultFormData);
-    setIsCreating(false);
+    setIsCreateDialogOpen(false);
     setEditingId(null);
   }, []);
 
   const startEditing = useCallback((routine: Routine) => {
     setEditingId(routine._id);
-    setIsCreating(false);
+    setIsCreateDialogOpen(false);
     setFormData({
       title: routine.title,
       description: routine.description || '',
@@ -142,28 +143,6 @@ export default function Routines() {
       autoPrioritize: routine.autoPrioritize ?? true,
     });
   }, []);
-
-  const handleCreate = useCallback(async () => {
-    if (!formData.title.trim()) return;
-
-    try {
-      await createRoutineMutation({
-        title: formData.title.trim(),
-        description: formData.description.trim() || undefined,
-        pathId: formData.pathId || undefined,
-        frequency: formData.frequency,
-        daysOfWeek: formData.frequency === 'weekly' ? formData.daysOfWeek : undefined,
-        dayOfMonth: formData.frequency === 'monthly' ? formData.dayOfMonth : undefined,
-        month: formData.frequency === 'yearly' ? formData.month : undefined,
-        dayOfYear: formData.frequency === 'yearly' ? formData.dayOfYear : undefined,
-        autoPrioritize: formData.autoPrioritize,
-      });
-      resetForm();
-    } catch (error) {
-      reportError('mutation', error, { action: 'createRoutine' });
-      toast.error("Failed to create routine");
-    }
-  }, [formData, createRoutineMutation, resetForm, toast]);
 
   const handleUpdate = useCallback(async () => {
     if (!editingId || !formData.title.trim()) return;
@@ -336,9 +315,9 @@ export default function Routines() {
 
         {/* Actions */}
         <div className="flex gap-2">
-          <Button onClick={editingId ? handleUpdate : handleCreate} disabled={!formData.title.trim()}>
+          <Button onClick={handleUpdate} disabled={!formData.title.trim()}>
             <Check className="w-4 h-4 mr-2" />
-            {editingId ? 'Save' : 'Create'}
+            Save
           </Button>
           <Button variant="outline" onClick={resetForm}>
             Cancel
@@ -352,16 +331,17 @@ export default function Routines() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Routines</h1>
-        {!isCreating && !editingId && (
-          <Button onClick={() => setIsCreating(true)} className="flex items-center">
-            <Plus className="w-4 h-4 mr-2" />
-            New Routine
-          </Button>
-        )}
+        <Button onClick={() => setIsCreateDialogOpen(true)} size="sm">
+          <Plus className="w-4 h-4 mr-2" />
+          New Routine
+          <kbd className="ml-2 hidden sm:inline-flex h-5 items-center rounded border border-primary-foreground/30 bg-primary-foreground/10 px-1.5 font-mono text-[10px]">
+            {formatKeybindDisplay(getKeybinds().quickCreateRoutine)}
+          </kbd>
+        </Button>
       </div>
 
-      {/* Create/Edit Form */}
-      {(isCreating || editingId) && renderForm()}
+      {/* Edit Form (inline) */}
+      {editingId && renderForm()}
 
       {/* Routines List */}
       {routines && routines.length > 0 ? (
@@ -427,13 +407,15 @@ export default function Routines() {
             </Card>
           ))}
         </div>
-      ) : !isCreating && (
+      ) : (
         <EmptyState
           icon={Repeat}
           message="No routines yet"
           hint="Create a recurring task to get started"
         />
       )}
+
+      <QuickCreateRoutineDialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} />
     </div>
   );
 }
