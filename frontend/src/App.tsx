@@ -8,12 +8,12 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import Layout from '@/components/Layout';
 import LoadingScreen from '@/components/LoadingScreen';
 import Login from '@/pages/Login';
-import Today from '@/pages/Today';
 import Steps from '@/pages/Steps';
 import Paths from '@/pages/Paths';
 import Routines from '@/pages/Routines';
 import Pathway from '@/pages/Pathway';
 import Analytics from '@/pages/Analytics';
+import Calendar from '@/pages/Calendar';
 import Settings from '@/pages/Settings';
 
 function AppRoutes() {
@@ -41,7 +41,7 @@ function AppRoutes() {
         <DataProvider>
           <Routes>
             <Route path="/login" element={<Navigate to="/" />} />
-            <Route path="/" element={<Layout key={location.pathname}><Today /></Layout>} />
+            <Route path="/" element={<Layout key={location.pathname}><Calendar /></Layout>} />
             <Route path="/steps" element={<Layout key={location.pathname}><Steps /></Layout>} />
             <Route path="/paths" element={<Layout key={location.pathname}><Paths /></Layout>} />
             <Route path="/routines" element={<Layout key={location.pathname}><Routines /></Layout>} />

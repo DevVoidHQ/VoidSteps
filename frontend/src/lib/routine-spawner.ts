@@ -22,6 +22,39 @@ async function enqueue(
   });
 }
 
+async function prioritizeDueSteps() {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const startOfToday = today.getTime();
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const startOfTomorrow = tomorrow.getTime();
+
+    const stepsToPrioritize = await db.steps
+      .filter(s =>
+        !s._deleted &&
+        !s.completed &&
+        !s.failed &&
+        !s.archived &&
+        !s.prioritizedToday &&
+        s.dueDate !== undefined &&
+        s.dueDate >= startOfToday &&
+        s.dueDate < startOfTomorrow
+      )
+      .toArray();
+
+    const now = Date.now();
+    for (const step of stepsToPrioritize) {
+      await db.steps.update(step._id, { prioritizedToday: true, updatedAt: now });
+      await enqueue('steps', step._id, 'update', { prioritizedToday: true, updatedAt: now });
+    }
+  } catch (error) {
+    console.error('Due date prioritizer error:', error);
+  }
+}
+
 async function spawnDueRoutines() {
   try {
     const now = Date.now();
@@ -93,17 +126,22 @@ async function spawnDueRoutines() {
   }
 }
 
+function runScheduledTasks() {
+  spawnDueRoutines();
+  prioritizeDueSteps();
+}
+
 export function startRoutineSpawner(): () => void {
   // Run immediately
-  spawnDueRoutines();
+  runScheduledTasks();
 
   // Run on interval
-  const intervalId = setInterval(spawnDueRoutines, SPAWN_INTERVAL);
+  const intervalId = setInterval(runScheduledTasks, SPAWN_INTERVAL);
 
   // Run on visibility change (app resume)
   const handleVisibility = () => {
     if (document.visibilityState === 'visible') {
-      spawnDueRoutines();
+      runScheduledTasks();
     }
   };
   document.addEventListener('visibilitychange', handleVisibility);
