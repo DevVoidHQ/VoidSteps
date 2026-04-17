@@ -31,13 +31,13 @@ function useChartColors() {
       return raw ? `hsl(${raw})` : undefined;
     };
     return {
-      primary: resolve('--primary') ?? '#6366f1',
-      secondary: resolve('--secondary') ?? '#8b5cf6',
-      accent: resolve('--accent') ?? '#a78bfa',
+      primary: resolve('--primary') ?? '#083291',
+      secondary: resolve('--accent') ?? '#c26579',
+      accent: resolve('--accent') ?? '#c26579',
       destructive: resolve('--destructive') ?? '#ef4444',
       muted: resolve('--muted') ?? '#64748b',
-      foreground: resolve('--foreground') ?? '#e2e8f0',
-      mutedForeground: resolve('--muted-foreground') ?? '#94a3b8',
+      foreground: resolve('--foreground') ?? '#1a1a1a',
+      mutedForeground: resolve('--muted-foreground') ?? '#6b6b6b',
     };
     // theme is the dependency that triggers re-computation when the user changes theme
     // eslint-disable-next-line react-hooks/exhaustive-deps

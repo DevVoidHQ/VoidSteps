@@ -3,24 +3,19 @@ import type { ThemeTokens, ThemeTokenKey } from "./theme-types";
 const TOKEN_TO_CSS_VAR: Record<ThemeTokenKey, string> = {
   background: "--background",
   foreground: "--foreground",
-  card: "--card",
-  cardForeground: "--card-foreground",
-  popover: "--popover",
-  popoverForeground: "--popover-foreground",
   primary: "--primary",
-  primaryForeground: "--primary-foreground",
-  secondary: "--secondary",
-  secondaryForeground: "--secondary-foreground",
-  muted: "--muted",
-  mutedForeground: "--muted-foreground",
   accent: "--accent",
-  accentForeground: "--accent-foreground",
-  destructive: "--destructive",
-  destructiveForeground: "--destructive-foreground",
-  border: "--border",
-  input: "--input",
-  ring: "--ring",
+  primaryLight: "--primary-light",
+  accentLight: "--accent-light",
 };
+
+// Pick black or white text for a brand surface based on HSL lightness.
+function contrastForeground(hsl: string): string {
+  const match = hsl.trim().match(/^\d+(?:\.\d+)?\s+\d+(?:\.\d+)?%\s+(\d+(?:\.\d+)?)%$/);
+  if (!match) return "0 0% 100%";
+  const l = parseFloat(match[1]);
+  return l > 55 ? "0 0% 8%" : "0 0% 100%";
+}
 
 export function applyTheme(
   theme: ThemeTokens,
@@ -32,6 +27,9 @@ export function applyTheme(
       target.style.setProperty(cssVar, value);
     }
   }
+  // Derived contrast colors for text on brand surfaces.
+  target.style.setProperty("--primary-foreground", contrastForeground(theme.primary));
+  target.style.setProperty("--accent-foreground", contrastForeground(theme.accent));
 }
 
 export function getThemeFromDOM(

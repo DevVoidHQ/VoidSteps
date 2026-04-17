@@ -24,26 +24,14 @@ import {
   type KeybindMap,
 } from "@/lib/keybind-config";
 
+// Every theme is exactly 6 colors. Everything else derives from these.
 const COLOR_LABELS: Record<keyof ThemeColors, string> = {
   background: "Background",
   foreground: "Foreground",
-  card: "Card",
-  cardForeground: "Card Foreground",
-  popover: "Popover",
-  popoverForeground: "Popover Foreground",
   primary: "Primary",
-  primaryForeground: "Primary Foreground",
-  secondary: "Secondary",
-  secondaryForeground: "Secondary Foreground",
-  muted: "Muted",
-  mutedForeground: "Muted Foreground",
   accent: "Accent",
-  accentForeground: "Accent Foreground",
-  destructive: "Destructive",
-  destructiveForeground: "Destructive Foreground",
-  border: "Border",
-  input: "Input",
-  ring: "Ring",
+  primaryLight: "Primary Light",
+  accentLight: "Accent Light",
 };
 
 // Helper to convert HSL string to hex for color input
@@ -342,43 +330,27 @@ export default function Settings() {
   }, [presetNames, activePresetName, applyPreset]);
 
   const generateRandomTheme = useCallback(() => {
-    const hue = Math.floor(Math.random() * 360);
-    // Offset hues for secondary & accent to keep things harmonious
-    const hue2 = (hue + 30 + Math.floor(Math.random() * 60)) % 360;
-    const hue3 = (hue + 150 + Math.floor(Math.random() * 60)) % 360;
-    const isDark = Math.random() > 0.3; // 70% chance dark theme
+    const hue1 = Math.floor(Math.random() * 360);
+    // Complementary-ish hue for accent
+    const hue2 = (hue1 + 150 + Math.floor(Math.random() * 60)) % 360;
+    const isDark = Math.random() > 0.3;
 
     const bgL = isDark ? 3 + Math.floor(Math.random() * 8) : 95 + Math.floor(Math.random() * 5);
     const fgL = isDark ? 90 + Math.floor(Math.random() * 8) : 3 + Math.floor(Math.random() * 8);
-    const cardL = isDark ? bgL + 3 + Math.floor(Math.random() * 4) : bgL - 2 - Math.floor(Math.random() * 3);
-    const mutedL = isDark ? 15 + Math.floor(Math.random() * 8) : 90 + Math.floor(Math.random() * 6);
-    const mutedFgL = isDark ? 55 + Math.floor(Math.random() * 15) : 35 + Math.floor(Math.random() * 15);
-    const borderL = isDark ? 18 + Math.floor(Math.random() * 10) : 82 + Math.floor(Math.random() * 10);
     const primaryS = 60 + Math.floor(Math.random() * 40);
-    const primaryL = isDark ? 55 + Math.floor(Math.random() * 20) : 40 + Math.floor(Math.random() * 15);
+    const primaryL = isDark ? 55 + Math.floor(Math.random() * 20) : 35 + Math.floor(Math.random() * 20);
+    const accentS = 50 + Math.floor(Math.random() * 40);
+    const accentL = isDark ? 55 + Math.floor(Math.random() * 20) : 45 + Math.floor(Math.random() * 20);
+    const lightL = isDark ? 14 + Math.floor(Math.random() * 6) : 94 + Math.floor(Math.random() * 4);
 
-    const generated: ThemeColors = {
-      background: `${hue} ${isDark ? 10 + Math.floor(Math.random() * 20) : 0}% ${bgL}%`,
-      foreground: `${hue} ${Math.floor(Math.random() * 15)}% ${fgL}%`,
-      card: `${hue} ${isDark ? 10 + Math.floor(Math.random() * 15) : 0}% ${cardL}%`,
-      cardForeground: `${hue} ${Math.floor(Math.random() * 15)}% ${fgL}%`,
-      popover: `${hue} ${isDark ? 10 + Math.floor(Math.random() * 15) : 0}% ${cardL}%`,
-      popoverForeground: `${hue} ${Math.floor(Math.random() * 15)}% ${fgL}%`,
-      primary: `${hue} ${primaryS}% ${primaryL}%`,
-      primaryForeground: `${hue} ${Math.floor(Math.random() * 10)}% ${isDark ? bgL : 98}%`,
-      secondary: `${hue2} ${50 + Math.floor(Math.random() * 40)}% ${isDark ? 45 + Math.floor(Math.random() * 15) : 35 + Math.floor(Math.random() * 15)}%`,
-      secondaryForeground: `${hue} ${Math.floor(Math.random() * 10)}% ${isDark ? fgL : 98}%`,
-      muted: `${hue} ${Math.floor(Math.random() * 15)}% ${mutedL}%`,
-      mutedForeground: `${hue} ${Math.floor(Math.random() * 15)}% ${mutedFgL}%`,
-      accent: `${hue3} ${50 + Math.floor(Math.random() * 40)}% ${isDark ? 50 + Math.floor(Math.random() * 20) : 40 + Math.floor(Math.random() * 15)}%`,
-      accentForeground: `${hue} ${Math.floor(Math.random() * 10)}% ${isDark ? bgL : 98}%`,
-      destructive: `${350 + Math.floor(Math.random() * 20)} ${70 + Math.floor(Math.random() * 25)}% ${55 + Math.floor(Math.random() * 15)}%`,
-      destructiveForeground: `${hue} ${Math.floor(Math.random() * 10)}% ${fgL}%`,
-      border: `${hue} ${Math.floor(Math.random() * 15)}% ${borderL}%`,
-      input: `${hue} ${Math.floor(Math.random() * 15)}% ${borderL}%`,
-      ring: `${hue} ${primaryS}% ${primaryL}%`,
-    };
-    setTheme(generated);
+    setTheme({
+      background: `${hue1} ${isDark ? 10 + Math.floor(Math.random() * 20) : 0}% ${bgL}%`,
+      foreground: `${hue1} ${Math.floor(Math.random() * 15)}% ${fgL}%`,
+      primary: `${hue1} ${primaryS}% ${primaryL}%`,
+      accent: `${hue2} ${accentS}% ${accentL}%`,
+      primaryLight: `${hue1} ${Math.min(primaryS, 85)}% ${lightL}%`,
+      accentLight: `${hue2} ${Math.min(accentS, 85)}% ${lightL}%`,
+    });
   }, [setTheme]);
 
   const handleExport = () => {
@@ -455,9 +427,9 @@ export default function Settings() {
                   }`}
                   style={{ backgroundColor: `hsl(${preset.background})` }}
                 >
-                  {/* Color swatch row */}
+                  {/* 4 brand swatches: primary, accent + their lights */}
                   <div className="flex gap-1 mb-2">
-                    {(["primary", "secondary", "accent", "destructive"] as const).map((token) => (
+                    {(["primary", "accent", "primaryLight", "accentLight"] as const).map((token) => (
                       <div
                         key={token}
                         className="h-4 flex-1 rounded-sm"
@@ -465,11 +437,11 @@ export default function Settings() {
                       />
                     ))}
                   </div>
-                  {/* Muted bar to show card/muted tones */}
-                  <div className="flex gap-1 mb-2">
-                    <div className="h-1.5 flex-[2] rounded-sm" style={{ backgroundColor: `hsl(${preset.muted})` }} />
-                    <div className="h-1.5 flex-1 rounded-sm" style={{ backgroundColor: `hsl(${preset.border})` }} />
-                  </div>
+                  {/* Foreground tone line */}
+                  <div
+                    className="h-1.5 mb-2 rounded-sm"
+                    style={{ backgroundColor: `hsl(${preset.foreground} / 0.15)` }}
+                  />
                   {/* Label */}
                   <div className="flex items-center justify-between">
                     <span
@@ -500,40 +472,17 @@ export default function Settings() {
             </Button>
           </div>
 
-          <Tabs defaultValue="core">
-            <TabsList>
-              <TabsTrigger value="core">Core</TabsTrigger>
-              <TabsTrigger value="brand">Brand</TabsTrigger>
-              <TabsTrigger value="ui">UI</TabsTrigger>
-            </TabsList>
-            <TabsContent value="core">
-              <ColorGroup
-                keys={["background", "foreground", "card", "cardForeground", "popover", "popoverForeground"]}
-                theme={theme}
-                labels={COLOR_LABELS}
-                onColorChange={handleColorChange}
-                onHslChange={(key, val) => setTheme({ ...theme, [key]: val })}
-              />
-            </TabsContent>
-            <TabsContent value="brand">
-              <ColorGroup
-                keys={["primary", "primaryForeground", "secondary", "secondaryForeground", "accent", "accentForeground", "destructive", "destructiveForeground"]}
-                theme={theme}
-                labels={COLOR_LABELS}
-                onColorChange={handleColorChange}
-                onHslChange={(key, val) => setTheme({ ...theme, [key]: val })}
-              />
-            </TabsContent>
-            <TabsContent value="ui">
-              <ColorGroup
-                keys={["muted", "mutedForeground", "border", "input", "ring"]}
-                theme={theme}
-                labels={COLOR_LABELS}
-                onColorChange={handleColorChange}
-                onHslChange={(key, val) => setTheme({ ...theme, [key]: val })}
-              />
-            </TabsContent>
-          </Tabs>
+          <p className="text-xs text-muted-foreground">
+            Every theme is 6 colors. Borders, cards, muted surfaces, destructive and secondary
+            all derive from these automatically.
+          </p>
+          <ColorGroup
+            keys={["background", "foreground", "primary", "accent", "primaryLight", "accentLight"]}
+            theme={theme}
+            labels={COLOR_LABELS}
+            onColorChange={handleColorChange}
+            onHslChange={(key, val) => setTheme({ ...theme, [key]: val })}
+          />
         </CardContent>
       </Card>
 
@@ -627,12 +576,12 @@ function ColorGroup({
           <div className="flex space-x-2">
             <input
               type="color"
-              value={hslToHex(theme[key])}
+              value={hslToHex(theme[key] ?? "0 0% 0%")}
               onChange={(e) => onColorChange(key, e.target.value)}
               className="w-12 h-10 rounded border border-input cursor-pointer"
             />
             <input
-              value={theme[key]}
+              value={theme[key] ?? ""}
               onChange={(e) => onHslChange(key, e.target.value)}
               placeholder="H S% L%"
               className="flex-1 h-11 rounded-md border border-input bg-background px-3 py-2 text-sm"

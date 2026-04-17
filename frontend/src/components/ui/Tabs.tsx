@@ -95,7 +95,7 @@ function TabsTrigger({
             ]
           : [
               "bg-background text-foreground border-input",
-              "hover:bg-accent hover:text-accent-foreground hover:-translate-y-0.5 hover:shadow-sm",
+              "hover:bg-primary-light hover:text-primary hover:-translate-y-0.5 hover:shadow-sm",
               "active:translate-y-0 active:shadow-none",
             ],
         className

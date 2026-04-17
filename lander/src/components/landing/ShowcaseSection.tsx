@@ -59,9 +59,9 @@ function RoutineFloatingCard({
       <div
         className="rounded-lg backdrop-blur-md shadow-lg p-4"
         style={{
-          border: "1px solid hsl(var(--accent-warm) / 0.15)",
+          border: "1px solid hsl(var(--accent) / 0.15)",
           backgroundColor: "hsl(var(--card) / 0.7)",
-          boxShadow: "0 20px 40px -12px hsl(var(--accent-warm) / 0.08)",
+          boxShadow: "0 20px 40px -12px hsl(var(--accent) / 0.08)",
         }}
       >
         <div className="flex items-center justify-between mb-3">
@@ -102,9 +102,9 @@ function RoutineFloatingCard({
 function MockupSidebar() {
   const paths = [
     { name: "Learning React", active: true, color: "hsl(var(--primary))" },
-    { name: "Fitness Goals", active: false, color: "hsl(var(--accent-green))" },
-    { name: "Side Project", active: false, color: "hsl(var(--accent-warm))" },
-    { name: "Reading List", active: false, color: "hsl(var(--accent-amber))" },
+    { name: "Fitness Goals", active: false, color: "hsl(var(--accent))" },
+    { name: "Side Project", active: false, color: "hsl(var(--primary) / 0.6)" },
+    { name: "Reading List", active: false, color: "hsl(var(--accent) / 0.6)" },
   ];
 
   return (

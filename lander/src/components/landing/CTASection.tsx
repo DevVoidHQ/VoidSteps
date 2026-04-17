@@ -28,7 +28,7 @@ export default function CTASection() {
         <div
           className="w-[600px] h-[400px] rounded-full blur-3xl"
           style={{
-            background: "radial-gradient(circle, hsl(var(--accent-warm) / 0.12), hsl(var(--primary) / 0.08))",
+            background: "radial-gradient(circle, hsl(var(--accent) / 0.12), hsl(var(--primary) / 0.08))",
           }}
         />
       </motion.div>

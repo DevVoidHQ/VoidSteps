@@ -245,7 +245,7 @@ export default function Routines() {
                   className={`px-3 py-1.5 rounded-md text-sm font-medium border transition-colors ${
                     formData.daysOfWeek.includes(day.value)
                       ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-background border-input hover:bg-accent'
+                      : 'bg-background border-input hover:bg-primary-light'
                   }`}
                 >
                   {day.label}

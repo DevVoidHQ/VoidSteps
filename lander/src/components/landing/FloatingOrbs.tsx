@@ -35,7 +35,7 @@ const farLayer: BlobDef[] = [
   {
     width: 700, height: 650,
     top: "45%", right: "-12%",
-    color: "hsl(var(--accent-warm) / 0.05)",
+    color: "hsl(var(--accent) / 0.05)",
     blur: "blur-[90px]",
     borderRadius: "44% 56% 58% 42% / 48% 38% 62% 52%",
     drift: "orb-drift-2", driftDuration: 35,
@@ -43,7 +43,7 @@ const farLayer: BlobDef[] = [
   {
     width: 500, height: 480,
     top: "75%", left: "30%",
-    color: "hsl(var(--accent-green) / 0.04)",
+    color: "hsl(var(--primary) / 0.04)",
     blur: "blur-[70px]",
     borderRadius: "55% 45% 40% 60% / 60% 50% 50% 40%",
     drift: "orb-drift-3", driftDuration: 28,
@@ -62,7 +62,7 @@ const midLayer: BlobDef[] = [
   {
     width: 420, height: 400,
     top: "50%", left: "-3%",
-    color: "hsl(var(--accent-warm) / 0.06)",
+    color: "hsl(var(--accent) / 0.06)",
     blur: "blur-[55px]",
     borderRadius: "40% 60% 52% 48% / 55% 45% 55% 45%",
     drift: "orb-drift-5", driftDuration: 26,
@@ -70,7 +70,7 @@ const midLayer: BlobDef[] = [
   {
     width: 300, height: 280,
     top: "80%", right: "20%",
-    color: "hsl(var(--accent-green) / 0.06)",
+    color: "hsl(var(--accent) / 0.04)",
     blur: "blur-[45px]",
     borderRadius: "58% 42% 48% 52% / 42% 58% 42% 58%",
     drift: "orb-drift-6", driftDuration: 20,
@@ -89,7 +89,7 @@ const nearLayer: BlobDef[] = [
   {
     width: 260, height: 240,
     top: "60%", right: "8%",
-    color: "hsl(var(--accent-amber) / 0.05)",
+    color: "hsl(var(--primary) / 0.05)",
     blur: "blur-[35px]",
     borderRadius: "52% 48% 44% 56% / 56% 52% 48% 44%",
     drift: "orb-drift-8", driftDuration: 16,

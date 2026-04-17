@@ -5,6 +5,7 @@ import type { ThemeTokens } from '@/lib/theme-types';
 
 // Re-export types and presets for backwards compatibility
 export type ThemeColors = ThemeTokens;
+export const DEFAULT_THEME = themePresets.devvoid;
 export const DEFAULT_DARK_THEME = themePresets.dark;
 export const DEFAULT_LIGHT_THEME = themePresets.light;
 export const PRESET_THEMES = themePresets;
@@ -21,7 +22,7 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setThemeState] = useState<ThemeColors>(DEFAULT_DARK_THEME);
+  const [theme, setThemeState] = useState<ThemeColors>(DEFAULT_THEME);
 
   // Load theme from localStorage on mount
   useEffect(() => {
@@ -35,7 +36,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         console.error('Failed to parse saved theme', error);
       }
     } else {
-      applyTheme(DEFAULT_DARK_THEME);
+      applyTheme(DEFAULT_THEME);
     }
   }, []);
 
@@ -53,7 +54,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const resetToDefault = () => {
-    setTheme(DEFAULT_DARK_THEME);
+    setTheme(DEFAULT_THEME);
   };
 
   const exportTheme = (): string => {
@@ -64,7 +65,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       const parsed = JSON.parse(jsonString);
       // Validate that all required keys exist
-      const requiredKeys = Object.keys(DEFAULT_DARK_THEME);
+      const requiredKeys = Object.keys(DEFAULT_THEME).filter(
+        (k) => k !== "primaryLight" && k !== "accentLight"
+      );
       const hasAllKeys = requiredKeys.every(key => key in parsed);
       if (hasAllKeys) {
         setTheme(parsed);

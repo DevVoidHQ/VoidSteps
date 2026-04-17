@@ -1,35 +1,48 @@
 @import "tailwindcss";
 @config "../../tailwind.config.js";
 
-:root {
-  --background: 0 0% 99%;
-  --foreground: 220 15% 15%;
-  --card: 0 0% 100%;
-  --card-foreground: 220 15% 15%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 220 15% 15%;
-  --primary: 220 80% 50%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 220 60% 60%;
-  --secondary-foreground: 0 0% 100%;
-  --muted: 220 10% 94%;
-  --muted-foreground: 220 10% 45%;
-  --accent: 220 80% 50%;
-  --accent-foreground: 0 0% 100%;
-  --destructive: 0 84% 55%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 220 10% 90%;
-  --input: 220 10% 90%;
-  --ring: 220 80% 50%;
-  --radius: 0.5rem;
+@font-face {
+  font-family: "Satoshi";
+  src: url("/fonts/Satoshi-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Satoshi";
+  src: url("/fonts/Satoshi-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
 
-  --accent-warm: 280 55% 58%;
-  --accent-green: 160 45% 42%;
-  --accent-amber: 35 85% 52%;
+/*
+ * DevVoid theme model — 6 colors only.
+ * Source of truth: --background, --foreground, --primary, --accent,
+ *                  --primary-light, --accent-light.
+ * All UI tokens (card/popover/muted/border/input/destructive/secondary)
+ * are derived in tailwind.config.js via alpha over --foreground or by
+ * aliasing one of the six.
+ */
+:root {
+  --background: 44 10% 97%;
+  --foreground: 43 8% 10%;
+  --primary: 222 90% 30%;            /* #083291 */
+  --accent: 348 42% 58%;             /* #c26579 */
+  --primary-light: 221 83% 95%;      /* #e8effc */
+  --accent-light: 348 83% 95%;       /* #fce8ed */
+
+  --primary-foreground: 0 0% 100%;
+  --accent-foreground: 0 0% 100%;
+  --radius: 0.5rem;
+}
+
+html, body {
+  font-family: "Satoshi", system-ui, sans-serif;
 }
 
 * {
-  border-color: hsl(var(--border));
+  border-color: hsl(var(--foreground) / 0.1);
 }
 
 body {
@@ -80,9 +93,9 @@ body {
   background: linear-gradient(
     90deg,
     hsl(var(--primary)) 0%,
-    hsl(var(--secondary)) 40%,
+    hsl(var(--accent)) 40%,
     hsl(var(--primary)) 80%,
-    hsl(var(--secondary)) 100%
+    hsl(var(--accent)) 100%
   );
   background-size: 200% auto;
   background-clip: text;
@@ -93,14 +106,14 @@ body {
 
 /* Dot pattern background */
 .dot-pattern {
-  background-image: radial-gradient(circle, hsl(var(--muted-foreground) / 0.15) 1px, transparent 1px);
+  background-image: radial-gradient(circle, hsl(var(--foreground) / 0.12) 1px, transparent 1px);
   background-size: 24px 24px;
 }
 
 /* Button glow pulse */
 @keyframes btn-glow {
-  0%, 100% { box-shadow: 0 0 20px hsl(var(--primary) / 0.25); }
-  50% { box-shadow: 0 0 35px hsl(var(--primary) / 0.35); }
+  0%, 100% { box-shadow: 0 0 20px hsl(var(--accent) / 0.30); }
+  50% { box-shadow: 0 0 35px hsl(var(--accent) / 0.45); }
 }
 .btn-glow {
   animation: btn-glow 3s ease-in-out infinite;
