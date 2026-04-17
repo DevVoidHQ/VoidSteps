@@ -1,6 +1,6 @@
 import { useClerk, useUser } from '@clerk/clerk-react';
 import { motion } from 'framer-motion';
-import { LogOut, Settings, Calendar, ListTodo, Target, Zap, BarChart3, X, ChevronsLeft, ChevronsRight, MessageSquare } from 'lucide-react';
+import { LogOut, Settings, Calendar, ListTodo, Target, Zap, BookOpen, BarChart3, X, ChevronsLeft, ChevronsRight, MessageSquare } from 'lucide-react';
 import { getKeybinds, formatKeybindDisplay, type KeybindMap } from '@/lib/keybind-config';
 import type { LucideIcon } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -96,6 +96,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
     { path: '/steps', label: 'Steps', icon: ListTodo, keybindKey: 'navSteps' },
     { path: '/paths', label: 'Paths', icon: Target, keybindKey: 'navPaths' },
     { path: '/routines', label: 'Routines', icon: Zap, keybindKey: 'navRoutines' },
+    { path: '/notes', label: 'Notes', icon: BookOpen, keybindKey: 'navNotes' },
     { path: '/analytics', label: 'Analytics', icon: BarChart3, keybindKey: 'navAnalytics' },
     { path: '/settings', label: 'Settings', icon: Settings, keybindKey: 'navSettings' },
   ];

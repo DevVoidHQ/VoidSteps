@@ -120,6 +120,75 @@ body {
   animation: btn-glow 3s ease-in-out infinite;
 }
 
+/* Markdown rendered output — scoped to .markdown-body */
+.markdown-body h1 { font-size: 1.75rem; font-weight: 700; margin: 1.25em 0 0.5em; line-height: 1.25; }
+.markdown-body h2 { font-size: 1.4rem; font-weight: 700; margin: 1.15em 0 0.5em; line-height: 1.3; }
+.markdown-body h3 { font-size: 1.15rem; font-weight: 600; margin: 1em 0 0.4em; }
+.markdown-body h4 { font-size: 1rem; font-weight: 600; margin: 0.9em 0 0.35em; }
+.markdown-body p { margin: 0.6em 0; line-height: 1.65; }
+.markdown-body ul, .markdown-body ol { margin: 0.6em 0; padding-left: 1.5em; }
+.markdown-body ul { list-style: disc; }
+.markdown-body ol { list-style: decimal; }
+.markdown-body li { margin: 0.2em 0; }
+.markdown-body li > p { margin: 0.2em 0; }
+.markdown-body blockquote {
+  border-left: 3px solid hsl(var(--primary) / 0.4);
+  padding-left: 1em;
+  margin: 0.8em 0;
+  color: hsl(var(--foreground) / 0.7);
+}
+.markdown-body code {
+  background: hsl(var(--foreground) / 0.07);
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+  font-size: 0.875em;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+.markdown-body pre {
+  background: hsl(var(--foreground) / 0.05);
+  border: 1px solid hsl(var(--foreground) / 0.1);
+  padding: 0.75em 1em;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 0.8em 0;
+  font-size: 0.85em;
+  line-height: 1.5;
+}
+.markdown-body pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+}
+.markdown-body a {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.markdown-body a:hover { color: hsl(var(--accent)); }
+.markdown-body hr {
+  border: none;
+  border-top: 1px solid hsl(var(--foreground) / 0.1);
+  margin: 1.5em 0;
+}
+.markdown-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.8em 0;
+  font-size: 0.9em;
+}
+.markdown-body th, .markdown-body td {
+  border: 1px solid hsl(var(--foreground) / 0.12);
+  padding: 0.5em 0.75em;
+  text-align: left;
+}
+.markdown-body th {
+  background: hsl(var(--foreground) / 0.04);
+  font-weight: 600;
+}
+.markdown-body img { max-width: 100%; border-radius: 6px; }
+.markdown-body input[type="checkbox"] { margin-right: 0.4em; }
+
 /* Marquee animations */
 @keyframes marquee-left {
   0% { transform: translateX(0); }

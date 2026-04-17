@@ -7,6 +7,7 @@ const NAV_ACTIONS = [
   "navSteps",
   "navPaths",
   "navRoutines",
+  "navNotes",
   "navAnalytics",
   "navSettings",
 ] as const;
@@ -16,6 +17,7 @@ const NAV_ROUTES: Record<string, string> = {
   navSteps: "/steps",
   navPaths: "/paths",
   navRoutines: "/routines",
+  navNotes: "/notes",
   navAnalytics: "/analytics",
   navSettings: "/settings",
 };

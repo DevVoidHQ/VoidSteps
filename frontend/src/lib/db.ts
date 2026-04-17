@@ -73,6 +73,34 @@ export interface LocalPathway {
   _deleted?: boolean;
 }
 
+export interface LocalNotebook {
+  _id: string;
+  title: string;
+  description?: string;
+  sortOrder?: number;
+  archived?: boolean;
+  archivedAt?: number;
+  createdAt: number;
+  updatedAt: number;
+  _localOnly?: boolean;
+  _deleted?: boolean;
+}
+
+export interface LocalNote {
+  _id: string;
+  notebookId: string;
+  pathId?: string;
+  title: string;
+  body: string; // markdown
+  sortOrder?: number;
+  archived?: boolean;
+  archivedAt?: number;
+  createdAt: number;
+  updatedAt: number;
+  _localOnly?: boolean;
+  _deleted?: boolean;
+}
+
 export interface LocalUserSettings {
   _id: string;
   userId: string;
@@ -84,7 +112,7 @@ export interface LocalUserSettings {
 
 export interface SyncQueueEntry {
   id?: number; // auto-increment
-  entityType: 'steps' | 'paths' | 'routines' | 'pathways' | 'userSettings';
+  entityType: 'steps' | 'paths' | 'routines' | 'pathways' | 'userSettings' | 'notebooks' | 'notes';
   entityId: string;
   operation: 'create' | 'update' | 'delete';
   data?: Record<string, unknown>;
@@ -116,6 +144,8 @@ class VoidStepsDB extends Dexie {
   paths!: EntityTable<LocalPath, '_id'>;
   routines!: EntityTable<LocalRoutine, '_id'>;
   pathways!: EntityTable<LocalPathway, '_id'>;
+  notebooks!: EntityTable<LocalNotebook, '_id'>;
+  notes!: EntityTable<LocalNote, '_id'>;
   userSettings!: EntityTable<LocalUserSettings, '_id'>;
   syncQueue!: EntityTable<SyncQueueEntry, 'id'>;
   syncMeta!: EntityTable<SyncMeta, 'key'>;
@@ -151,6 +181,20 @@ class VoidStepsDB extends Dexie {
       paths: '_id, parentId, updatedAt',
       routines: '_id, nextOccurrence, updatedAt',
       pathways: '_id, parentId, updatedAt',
+      userSettings: '_id, userId',
+      syncQueue: '++id, entityType, entityId, status, createdAt',
+      syncMeta: 'key',
+      errorLog: '++id, category, timestamp, reported',
+    });
+
+    // v4: notebooks + notes (2-level notes hierarchy)
+    this.version(4).stores({
+      steps: '_id, pathId, parentId, routineId, updatedAt',
+      paths: '_id, parentId, updatedAt',
+      routines: '_id, nextOccurrence, updatedAt',
+      pathways: '_id, parentId, updatedAt',
+      notebooks: '_id, updatedAt',
+      notes: '_id, notebookId, pathId, updatedAt',
       userSettings: '_id, userId',
       syncQueue: '++id, entityType, entityId, status, createdAt',
       syncMeta: 'key',

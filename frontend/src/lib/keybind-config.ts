@@ -9,6 +9,7 @@ export interface KeybindMap {
   navSteps: string;
   navPaths: string;
   navRoutines: string;
+  navNotes: string;
   navAnalytics: string;
   navSettings: string;
 }
@@ -22,8 +23,9 @@ export const DEFAULT_KEYBINDS: KeybindMap = {
   navSteps: "2",
   navPaths: "3",
   navRoutines: "4",
-  navAnalytics: "5",
-  navSettings: "6",
+  navNotes: "5",
+  navAnalytics: "6",
+  navSettings: "7",
 };
 
 export const KEYBIND_LABELS: Record<keyof KeybindMap, string> = {
@@ -35,6 +37,7 @@ export const KEYBIND_LABELS: Record<keyof KeybindMap, string> = {
   navSteps: "Go to Steps",
   navPaths: "Go to Paths",
   navRoutines: "Go to Routines",
+  navNotes: "Go to Notes",
   navAnalytics: "Go to Analytics",
   navSettings: "Go to Settings",
 };

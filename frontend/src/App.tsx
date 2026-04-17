@@ -1,3 +1,4 @@
+import { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
 import { ThemeProvider } from '@/contexts/ThemeContext';
@@ -14,6 +15,9 @@ import Routines from '@/pages/Routines';
 import Analytics from '@/pages/Analytics';
 import Calendar from '@/pages/Calendar';
 import Settings from '@/pages/Settings';
+
+// Lazy — Notes pulls in BlockNote (~1.4MB). Keeps main bundle lean.
+const Notes = lazy(() => import('@/pages/Notes'));
 
 function AppRoutes() {
   const { isSignedIn, isLoaded } = useUser();
@@ -44,6 +48,16 @@ function AppRoutes() {
             <Route path="/steps" element={<Layout key={location.pathname}><Steps /></Layout>} />
             <Route path="/paths" element={<Layout key={location.pathname}><Paths /></Layout>} />
             <Route path="/routines" element={<Layout key={location.pathname}><Routines /></Layout>} />
+            <Route
+              path="/notes"
+              element={
+                <Layout key={location.pathname} fullWidth>
+                  <Suspense fallback={<LoadingScreen />}>
+                    <Notes />
+                  </Suspense>
+                </Layout>
+              }
+            />
             <Route path="/pathway" element={<Navigate to="/paths" replace />} />
             <Route path="/analytics" element={<Layout key={location.pathname}><Analytics /></Layout>} />
             <Route path="/settings" element={<Layout key={location.pathname}><Settings /></Layout>} />
