@@ -90,12 +90,12 @@ function TabsTrigger({
         "active:scale-[0.97]",
         isActive
           ? [
-              "bg-primary text-primary-foreground border-primary shadow-sm",
-              "hover:bg-primary/90",
+              "bg-accent text-accent-foreground border-accent shadow-sm",
+              "hover:bg-accent/90",
             ]
           : [
               "bg-background text-foreground border-input",
-              "hover:bg-accent hover:text-accent-foreground hover:-translate-y-0.5 hover:shadow-sm",
+              "hover:bg-primary-light hover:text-primary hover:-translate-y-0.5 hover:shadow-sm",
               "active:translate-y-0 active:shadow-none",
             ],
         className

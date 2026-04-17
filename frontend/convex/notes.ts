@@ -1,0 +1,119 @@
+import { v } from "convex/values";
+import { query, mutation } from "./_generated/server";
+
+async function requireAuth(ctx: { auth: any }) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) throw new Error("Unauthenticated");
+  return identity.subject;
+}
+
+export const getNotes = query({
+  handler: async (ctx) => {
+    const userId = await requireAuth(ctx);
+    return await ctx.db
+      .query("notes")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+  },
+});
+
+export const getNotesByNotebook = query({
+  args: { notebookId: v.id("notebooks") },
+  handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+    const notebook = await ctx.db.get(args.notebookId);
+    if (!notebook || notebook.userId !== userId) return [];
+    return await ctx.db
+      .query("notes")
+      .withIndex("by_notebook", (q) => q.eq("notebookId", args.notebookId))
+      .collect();
+  },
+});
+
+export const getNote = query({
+  args: { id: v.id("notes") },
+  handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+    const note = await ctx.db.get(args.id);
+    if (!note || note.userId !== userId) return null;
+    return note;
+  },
+});
+
+export const createNote = mutation({
+  args: {
+    notebookId: v.id("notebooks"),
+    pathId: v.optional(v.id("paths")),
+    title: v.string(),
+    body: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+
+    const notebook = await ctx.db.get(args.notebookId);
+    if (!notebook || notebook.userId !== userId) {
+      throw new Error("Notebook not found");
+    }
+
+    const now = Date.now();
+    const id = await ctx.db.insert("notes", {
+      userId,
+      notebookId: args.notebookId,
+      pathId: args.pathId,
+      title: args.title,
+      body: args.body ?? "",
+      sortOrder: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return await ctx.db.get(id);
+  },
+});
+
+export const updateNote = mutation({
+  args: {
+    id: v.id("notes"),
+    title: v.optional(v.string()),
+    body: v.optional(v.string()),
+    notebookId: v.optional(v.id("notebooks")),
+    pathId: v.optional(v.union(v.id("paths"), v.null())),
+    sortOrder: v.optional(v.number()),
+    archived: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+    const existing = await ctx.db.get(args.id);
+    if (!existing || existing.userId !== userId) {
+      throw new Error("Note not found");
+    }
+
+    const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    if (args.title !== undefined) patch.title = args.title;
+    if (args.body !== undefined) patch.body = args.body;
+    if (args.notebookId !== undefined) patch.notebookId = args.notebookId;
+    if (args.pathId !== undefined) {
+      patch.pathId = args.pathId === null ? undefined : args.pathId;
+    }
+    if (args.sortOrder !== undefined) patch.sortOrder = args.sortOrder;
+    if (args.archived !== undefined) {
+      patch.archived = args.archived;
+      patch.archivedAt = args.archived ? Date.now() : undefined;
+    }
+
+    await ctx.db.patch(args.id, patch);
+    return await ctx.db.get(args.id);
+  },
+});
+
+export const deleteNote = mutation({
+  args: { id: v.id("notes") },
+  handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+    const existing = await ctx.db.get(args.id);
+    if (!existing || existing.userId !== userId) {
+      throw new Error("Note not found");
+    }
+    await ctx.db.delete(args.id);
+  },
+});

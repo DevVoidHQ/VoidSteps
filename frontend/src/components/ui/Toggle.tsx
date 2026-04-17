@@ -59,7 +59,7 @@ const Toggle = React.forwardRef<HTMLInputElement, ToggleProps>(
           <span
             className={cn(
               "rounded-full transition-colors duration-200",
-              "bg-input peer-checked:bg-primary",
+              "bg-input peer-checked:bg-accent",
               "peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background",
               sizes.track
             )}
@@ -68,7 +68,7 @@ const Toggle = React.forwardRef<HTMLInputElement, ToggleProps>(
             className={cn(
               "absolute left-0.5 rounded-full bg-background shadow-sm",
               "transition-transform duration-200 ease-in-out",
-              "peer-checked:bg-primary-foreground",
+              "peer-checked:bg-accent-foreground",
               sizes.thumb,
               `peer-checked:${sizes.translate}`
             )}

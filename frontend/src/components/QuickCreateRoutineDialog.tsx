@@ -105,7 +105,7 @@ export default function QuickCreateRoutineDialog({ open, onOpenChange }: QuickCr
             <div className="flex gap-1">
               {DAY_LABELS.map((label, i) => (
                 <button key={i} type="button" onClick={() => toggleDay(i)}
-                  className={`flex-1 py-1.5 rounded text-xs font-medium transition-colors ${daysOfWeek.includes(i) ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
+                  className={`flex-1 py-1.5 rounded text-xs font-medium transition-colors ${daysOfWeek.includes(i) ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
                   {label}
                 </button>
               ))}

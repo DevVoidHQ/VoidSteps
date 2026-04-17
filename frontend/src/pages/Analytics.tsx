@@ -31,13 +31,13 @@ function useChartColors() {
       return raw ? `hsl(${raw})` : undefined;
     };
     return {
-      primary: resolve('--primary') ?? '#6366f1',
-      secondary: resolve('--secondary') ?? '#8b5cf6',
-      accent: resolve('--accent') ?? '#a78bfa',
+      primary: resolve('--primary') ?? '#083291',
+      secondary: resolve('--accent') ?? '#c26579',
+      accent: resolve('--accent') ?? '#c26579',
       destructive: resolve('--destructive') ?? '#ef4444',
       muted: resolve('--muted') ?? '#64748b',
-      foreground: resolve('--foreground') ?? '#e2e8f0',
-      mutedForeground: resolve('--muted-foreground') ?? '#94a3b8',
+      foreground: resolve('--foreground') ?? '#1a1a1a',
+      mutedForeground: resolve('--muted-foreground') ?? '#6b6b6b',
     };
     // theme is the dependency that triggers re-computation when the user changes theme
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -341,7 +341,7 @@ export default function Analytics() {
                 </div>
                 <div className="ml-7 h-2 rounded-full bg-muted overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-primary transition-all"
+                    className="h-full rounded-full bg-accent transition-all"
                     style={{
                       width: `${row.percent}%`,
                       opacity: 1 - (i / timeByPathData.length) * 0.6,
@@ -369,7 +369,7 @@ export default function Analytics() {
                 </div>
                 <div className="h-2 rounded-full bg-muted overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-primary transition-all"
+                    className="h-full rounded-full bg-accent transition-all"
                     style={{ width: `${row.rate}%` }}
                   />
                 </div>
@@ -415,7 +415,7 @@ export default function Analytics() {
                     </div>
                     <div className="h-2 rounded-full bg-muted overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-primary transition-all"
+                        className="h-full rounded-full bg-accent transition-all"
                         style={{ width: `${r.rate}%` }}
                       />
                     </div>

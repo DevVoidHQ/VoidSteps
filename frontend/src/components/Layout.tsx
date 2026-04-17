@@ -22,7 +22,13 @@ function getInitialCollapsed(): boolean {
   }
 }
 
-export default function Layout({ children }: { children: React.ReactNode }) {
+export default function Layout({
+  children,
+  fullWidth = false,
+}: {
+  children: React.ReactNode;
+  fullWidth?: boolean;
+}) {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(getInitialCollapsed);
@@ -111,7 +117,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
-            className="container mx-auto px-4 md:px-8 py-6 pt-16 md:pt-6"
+            className={
+              fullWidth
+                ? "w-full h-screen pt-16 md:pt-0"
+                : "container mx-auto px-4 md:px-8 py-6 pt-16 md:pt-6"
+            }
           >
             {children}
           </motion.div>

@@ -5,43 +5,48 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["Satoshi", "system-ui", "sans-serif"],
+      },
+      // Every theme is 6 colors: background, foreground, primary, accent,
+      // primaryLight, accentLight. All other UI tokens derive from these
+      // via alpha over foreground.
       colors: {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
-        card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
-        },
-        popover: {
-          DEFAULT: "hsl(var(--popover))",
-          foreground: "hsl(var(--popover-foreground))",
-        },
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
-        },
-        secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
-        },
-        muted: {
-          DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))",
+          light: "hsl(var(--primary-light))",
         },
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
+          light: "hsl(var(--accent-light))",
+        },
+        card: {
+          DEFAULT: "hsl(var(--background))",
+          foreground: "hsl(var(--foreground))",
+        },
+        popover: {
+          DEFAULT: "hsl(var(--background))",
+          foreground: "hsl(var(--foreground))",
+        },
+        muted: {
+          DEFAULT: "hsl(var(--foreground) / 0.05)",
+          foreground: "hsl(var(--foreground) / 0.6)",
         },
         destructive: {
-          DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))",
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
         },
-        border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
-        "accent-warm": "hsl(var(--accent-warm))",
-        "accent-green": "hsl(var(--accent-green))",
-        "accent-amber": "hsl(var(--accent-amber))",
+        secondary: {
+          DEFAULT: "hsl(var(--primary-light))",
+          foreground: "hsl(var(--primary))",
+        },
+        border: "hsl(var(--foreground) / 0.1)",
+        input: "hsl(var(--foreground) / 0.15)",
+        ring: "hsl(var(--primary))",
       },
       borderRadius: {
         lg: "var(--radius)",

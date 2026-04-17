@@ -162,7 +162,7 @@ function StepCardComponent({
   const cardClasses = [
     "group hover:bg-muted/30 transition-all",
     step.failed === true ? "border-destructive/50" : "",
-    isDropTarget ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : "",
+    isDropTarget ? "ring-2 ring-accent ring-offset-2 ring-offset-background" : "",
   ].filter(Boolean).join(" ");
 
   return (
@@ -195,14 +195,14 @@ function StepCardComponent({
               <div
                 className={`w-6 h-6 rounded border-2 flex items-center justify-center ${
                   step.completed
-                    ? "bg-primary border-primary"
+                    ? "bg-accent border-accent"
                     : step.failed === true
                     ? "bg-destructive border-destructive"
-                    : "border-muted-foreground hover:border-primary"
+                    : "border-muted-foreground hover:border-accent"
                 }`}
               >
-                {step.completed && <Check className="w-4 h-4 text-black" />}
-                {step.failed === true && <X className="w-4 h-4 text-black" />}
+                {step.completed && <Check className="w-4 h-4 text-accent-foreground" />}
+                {step.failed === true && <X className="w-4 h-4 text-destructive-foreground" />}
               </div>
             </button>
 

@@ -98,6 +98,12 @@ export class SyncEngine {
       case 'pathways':
         await this.syncPathway(entityId, operation, entry.data);
         break;
+      case 'notebooks':
+        await this.syncNotebook(entityId, operation, entry.data);
+        break;
+      case 'notes':
+        await this.syncNote(entityId, operation, entry.data);
+        break;
       case 'userSettings':
         await this.syncUserSettings(entityId, operation, entry.data);
         break;
@@ -334,6 +340,102 @@ export class SyncEngine {
     }
   }
 
+  private async syncNotebook(entityId: string, operation: string, data?: Record<string, unknown>) {
+    const resolvedId = this.resolveId(entityId)!;
+
+    if (operation === 'create') {
+      const local = await db.notebooks.get(entityId);
+      if (!local) return;
+
+      const result = await this.client.mutation(api.notebooks.createNotebook, {
+        title: local.title,
+        description: local.description,
+      });
+
+      if (result && result._id) {
+        const serverId = result._id.toString();
+        await this.remapId(entityId, serverId, 'notebooks');
+      }
+    } else if (operation === 'update') {
+      if (this.isLocalId(resolvedId)) return;
+      if (!data) return;
+
+      const updateData: Record<string, unknown> = { id: resolvedId as Id<'notebooks'> };
+      if (data.title !== undefined) updateData.title = data.title;
+      if ('description' in data) updateData.description = data.description ?? null;
+      if (data.sortOrder !== undefined) updateData.sortOrder = data.sortOrder;
+      if (data.archived !== undefined) updateData.archived = data.archived;
+
+      const keys = Object.keys(updateData).filter(k => k !== 'id');
+      if (keys.length > 0) {
+        await this.client.mutation(api.notebooks.updateNotebook, updateData as any);
+      }
+    } else if (operation === 'delete') {
+      if (this.isLocalId(resolvedId)) {
+        await db.notebooks.delete(entityId);
+        return;
+      }
+      await this.client.mutation(api.notebooks.deleteNotebook, { id: resolvedId as Id<'notebooks'> });
+      await db.notebooks.delete(entityId);
+    }
+  }
+
+  private async syncNote(entityId: string, operation: string, data?: Record<string, unknown>) {
+    const resolvedId = this.resolveId(entityId)!;
+
+    if (operation === 'create') {
+      const local = await db.notes.get(entityId);
+      if (!local) return;
+
+      const notebookId = this.resolveId(local.notebookId);
+      if (!notebookId || this.isLocalId(notebookId)) {
+        // Parent notebook hasn't synced yet — defer via error so we retry later.
+        throw new Error('Parent notebook not yet synced');
+      }
+
+      const result = await this.client.mutation(api.notes.createNote, {
+        notebookId: notebookId as Id<'notebooks'>,
+        pathId: this.resolveId(local.pathId) as Id<'paths'> | undefined,
+        title: local.title,
+        body: local.body,
+      });
+
+      if (result && result._id) {
+        const serverId = result._id.toString();
+        await this.remapId(entityId, serverId, 'notes');
+      }
+    } else if (operation === 'update') {
+      if (this.isLocalId(resolvedId)) return;
+      if (!data) return;
+
+      const updateData: Record<string, unknown> = { id: resolvedId as Id<'notes'> };
+      if (data.title !== undefined) updateData.title = data.title;
+      if (data.body !== undefined) updateData.body = data.body;
+      if (data.notebookId !== undefined) {
+        const nbId = this.resolveId(data.notebookId as string);
+        if (nbId && !this.isLocalId(nbId)) updateData.notebookId = nbId as Id<'notebooks'>;
+      }
+      if ('pathId' in data) {
+        const pid = this.resolveId(data.pathId as string | undefined);
+        updateData.pathId = pid ? (pid as Id<'paths'>) : null;
+      }
+      if (data.sortOrder !== undefined) updateData.sortOrder = data.sortOrder;
+      if (data.archived !== undefined) updateData.archived = data.archived;
+
+      const keys = Object.keys(updateData).filter(k => k !== 'id');
+      if (keys.length > 0) {
+        await this.client.mutation(api.notes.updateNote, updateData as any);
+      }
+    } else if (operation === 'delete') {
+      if (this.isLocalId(resolvedId)) {
+        await db.notes.delete(entityId);
+        return;
+      }
+      await this.client.mutation(api.notes.deleteNote, { id: resolvedId as Id<'notes'> });
+      await db.notes.delete(entityId);
+    }
+  }
+
   private async syncUserSettings(entityId: string, operation: string, _data?: Record<string, unknown>) {
     if (operation === 'delete') return; // Settings are never deleted
 
@@ -356,19 +458,24 @@ export class SyncEngine {
   // ID REMAPPING
   // ========================
 
-  private async remapId(localId: string, serverId: string, table: 'steps' | 'paths' | 'routines' | 'pathways') {
+  private async remapId(localId: string, serverId: string, table: 'steps' | 'paths' | 'routines' | 'pathways' | 'notebooks' | 'notes') {
     this.idMap.set(localId, serverId);
 
-    await db.transaction('rw', [db.steps, db.paths, db.routines, db.pathways, db.syncQueue], async () => {
+    await db.transaction('rw', [db.steps, db.paths, db.routines, db.pathways, db.notebooks, db.notes, db.syncQueue], async () => {
       // Get the local record to preserve its data
       const tableRef = db[table] as any;
       const localRecord = await tableRef.get(localId);
 
       if (localRecord) {
-        // Create new record with server ID, preserving all data
-        const newRecord = { ...localRecord, _id: serverId, _localOnly: false };
-        await tableRef.put(newRecord);
-        // Delete old local record
+        // If a record at serverId already exists (e.g. server-side dedup
+        // returned an existing step for a routine), keep the existing one
+        // and drop the local duplicate instead of overwriting.
+        const existingAtServerId = await tableRef.get(serverId);
+        if (!existingAtServerId) {
+          const newRecord = { ...localRecord, _id: serverId, _localOnly: false };
+          await tableRef.put(newRecord);
+        }
+        // Always remove the old local record
         await tableRef.delete(localId);
       }
 
@@ -428,6 +535,20 @@ export class SyncEngine {
         }
       }
 
+      // Update foreign keys in notes
+      if (table === 'notebooks') {
+        const notesInNotebook = await db.notes.where('notebookId').equals(localId).toArray();
+        for (const n of notesInNotebook) {
+          await db.notes.update(n._id, { notebookId: serverId });
+        }
+      }
+      if (table === 'paths') {
+        const notesWithPath = await db.notes.where('pathId').equals(localId).toArray();
+        for (const n of notesWithPath) {
+          await db.notes.update(n._id, { pathId: serverId });
+        }
+      }
+
       // Update foreign keys in pathways
       if (table === 'paths') {
         const allPathways = await db.pathways.toArray();
@@ -468,15 +589,17 @@ export class SyncEngine {
       const pendingEntityIds = new Set(pendingEntries.map(e => e.entityId));
 
       // Fetch all data from Convex
-      const [serverSteps, serverPaths, serverRoutines, serverPathways, serverUserSettings] = await Promise.all([
+      const [serverSteps, serverPaths, serverRoutines, serverPathways, serverNotebooks, serverNotes, serverUserSettings] = await Promise.all([
         this.client.query(api.steps.getSteps),
         this.client.query(api.paths.getPaths),
         this.client.query(api.routines.getRoutines),
         this.client.query(api.pathways.getPathways),
+        this.client.query(api.notebooks.getNotebooks),
+        this.client.query(api.notes.getNotes),
         this.client.query(api.userSettings.getAllUserSettings),
       ]);
 
-      await db.transaction('rw', [db.steps, db.paths, db.routines, db.pathways, db.userSettings, db.syncMeta], async () => {
+      await db.transaction('rw', [db.steps, db.paths, db.routines, db.pathways, db.notebooks, db.notes, db.userSettings, db.syncMeta], async () => {
         // Merge steps
         if (serverSteps) {
           await this.mergeEntities(
@@ -535,6 +658,32 @@ export class SyncEngine {
           );
         }
 
+        // Merge notebooks
+        if (serverNotebooks) {
+          await this.mergeEntities(
+            'notebooks',
+            serverNotebooks.map((n: any) => ({
+              ...n,
+              _id: n._id.toString(),
+            })),
+            pendingEntityIds
+          );
+        }
+
+        // Merge notes
+        if (serverNotes) {
+          await this.mergeEntities(
+            'notes',
+            serverNotes.map((n: any) => ({
+              ...n,
+              _id: n._id.toString(),
+              notebookId: n.notebookId?.toString(),
+              pathId: n.pathId?.toString(),
+            })),
+            pendingEntityIds
+          );
+        }
+
         // Merge user settings
         if (serverUserSettings) {
           await this.mergeEntities(
@@ -559,7 +708,7 @@ export class SyncEngine {
   }
 
   private async mergeEntities(
-    tableName: 'steps' | 'paths' | 'routines' | 'pathways' | 'userSettings',
+    tableName: 'steps' | 'paths' | 'routines' | 'pathways' | 'notebooks' | 'notes' | 'userSettings',
     serverRecords: any[],
     pendingEntityIds: Set<string>
   ) {

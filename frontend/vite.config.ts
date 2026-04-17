@@ -48,6 +48,8 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         navigateFallback: '/index.html',
+        // BlockNote editor bundle is large (~1.4MB); lazy-loaded from /notes.
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       }
     })
   ],

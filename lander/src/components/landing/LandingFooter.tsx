@@ -36,7 +36,7 @@ export default function LandingFooter() {
       <div
         className="h-px w-full mb-12"
         style={{
-          background: "linear-gradient(90deg, transparent 0%, hsl(var(--primary) / 0.3) 30%, hsl(var(--accent-warm) / 0.2) 70%, transparent 100%)",
+          background: "linear-gradient(90deg, transparent 0%, hsl(var(--primary) / 0.3) 30%, hsl(var(--accent) / 0.2) 70%, transparent 100%)",
         }}
       />
 

@@ -31,7 +31,7 @@ const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
               "peer h-5 w-5 shrink-0 cursor-pointer appearance-none rounded-md border-2",
               "border-input bg-background",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-              "checked:border-primary checked:bg-primary",
+              "checked:border-accent checked:bg-accent",
               "disabled:cursor-not-allowed disabled:opacity-50",
               "transition-all duration-150",
               error && "border-destructive"
@@ -40,7 +40,7 @@ const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
           />
           <svg
             className={cn(
-              "pointer-events-none absolute h-4 w-4 text-primary-foreground",
+              "pointer-events-none absolute h-4 w-4 text-accent-foreground",
               "opacity-0 transition-opacity duration-150",
               "peer-checked:opacity-100"
             )}

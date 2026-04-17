@@ -86,6 +86,34 @@ export default defineSchema({
     .index("by_parent", ["parentId"])
     .index("by_routine", ["routineId"]),
 
+  // Notebooks — top-level container for notes. 2-level hierarchy: notebooks → notes.
+  notebooks: defineTable({
+    userId: v.optional(v.string()),
+    title: v.string(),
+    description: v.optional(v.string()),
+    sortOrder: v.optional(v.number()),
+    archived: v.optional(v.boolean()),
+    archivedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"]),
+
+  // Notes — markdown content inside a notebook. Optionally linked to a path.
+  notes: defineTable({
+    userId: v.optional(v.string()),
+    notebookId: v.id("notebooks"),
+    pathId: v.optional(v.id("paths")),
+    title: v.string(),
+    body: v.string(), // markdown
+    sortOrder: v.optional(v.number()),
+    archived: v.optional(v.boolean()),
+    archivedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"])
+    .index("by_notebook", ["notebookId"])
+    .index("by_path", ["pathId"]),
+
   userSettings: defineTable({
     userId: v.string(),
     theme: v.object({

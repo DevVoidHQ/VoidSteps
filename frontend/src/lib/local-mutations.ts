@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { db } from './db';
-import type { LocalStep, LocalPath, LocalRoutine, LocalPathway, LocalUserSettings } from './db';
+import type { LocalStep, LocalPath, LocalRoutine, LocalPathway, LocalNotebook, LocalNote, LocalUserSettings } from './db';
 import { calculateNextOccurrence } from './calculate-next-occurrence';
 
 // --- Validation constants ---
@@ -29,7 +29,7 @@ function generateLocalId(): string {
 // --- Sync queue helper ---
 
 async function enqueue(
-  entityType: 'steps' | 'paths' | 'routines' | 'pathways' | 'userSettings',
+  entityType: 'steps' | 'paths' | 'routines' | 'pathways' | 'userSettings' | 'notebooks' | 'notes',
   entityId: string,
   operation: 'create' | 'update' | 'delete',
   data?: Record<string, unknown>
@@ -745,5 +745,150 @@ export function useUpdateUserSettings() {
       await db.userSettings.add(settings);
       await enqueue('userSettings', id, 'create', settings as unknown as Record<string, unknown>);
     }
+  }, []);
+}
+
+// ============================================================
+// NOTEBOOKS
+// ============================================================
+
+export function useCreateNotebook() {
+  return useCallback(async (args: { title: string; description?: string }) => {
+    validateTitle(args.title);
+    validateDescription(args.description);
+    const now = Date.now();
+    const id = generateLocalId();
+
+    const notebook: LocalNotebook = {
+      _id: id,
+      title: args.title,
+      description: args.description,
+      sortOrder: now,
+      createdAt: now,
+      updatedAt: now,
+      _localOnly: true,
+    };
+
+    await db.notebooks.add(notebook);
+    await enqueue('notebooks', id, 'create', notebook as unknown as Record<string, unknown>);
+    return notebook;
+  }, []);
+}
+
+export function useUpdateNotebook() {
+  return useCallback(async (args: {
+    id: string;
+    title?: string;
+    description?: string | null;
+    archived?: boolean;
+  }) => {
+    if (args.title !== undefined) validateTitle(args.title);
+    if (args.description !== undefined && args.description !== null) validateDescription(args.description);
+    const existing = await db.notebooks.get(args.id);
+    if (!existing) throw new Error('Notebook not found');
+
+    const now = Date.now();
+    const patch: Partial<LocalNotebook> = { updatedAt: now };
+    if (args.title !== undefined) patch.title = args.title;
+    if (args.description !== undefined) {
+      patch.description = args.description === null ? undefined : args.description;
+    }
+    if (args.archived !== undefined) {
+      patch.archived = args.archived;
+      patch.archivedAt = args.archived ? now : undefined;
+    }
+
+    await db.notebooks.update(args.id, patch);
+    await enqueue('notebooks', args.id, 'update', patch as Record<string, unknown>);
+  }, []);
+}
+
+export function useDeleteNotebook() {
+  return useCallback(async (id: string) => {
+    const existing = await db.notebooks.get(id);
+    if (!existing) return;
+
+    // Cascade: soft-delete contained notes
+    const notes = await db.notes.where('notebookId').equals(id).toArray();
+    for (const note of notes) {
+      await db.notes.update(note._id, { _deleted: true, updatedAt: Date.now() });
+      await enqueue('notes', note._id, 'delete');
+    }
+
+    await db.notebooks.update(id, { _deleted: true, updatedAt: Date.now() });
+    await enqueue('notebooks', id, 'delete');
+  }, []);
+}
+
+// ============================================================
+// NOTES
+// ============================================================
+
+export function useCreateNote() {
+  return useCallback(async (args: {
+    notebookId: string;
+    pathId?: string;
+    title: string;
+    body?: string;
+  }) => {
+    validateTitle(args.title);
+    const now = Date.now();
+    const id = generateLocalId();
+
+    const note: LocalNote = {
+      _id: id,
+      notebookId: args.notebookId,
+      pathId: args.pathId,
+      title: args.title,
+      body: args.body ?? '',
+      sortOrder: now,
+      createdAt: now,
+      updatedAt: now,
+      _localOnly: true,
+    };
+
+    await db.notes.add(note);
+    await enqueue('notes', id, 'create', note as unknown as Record<string, unknown>);
+    return note;
+  }, []);
+}
+
+export function useUpdateNote() {
+  return useCallback(async (args: {
+    id: string;
+    title?: string;
+    body?: string;
+    notebookId?: string;
+    pathId?: string | null;
+    archived?: boolean;
+  }) => {
+    if (args.title !== undefined) validateTitle(args.title);
+    const existing = await db.notes.get(args.id);
+    if (!existing) throw new Error('Note not found');
+
+    const now = Date.now();
+    const patch: Partial<LocalNote> = { updatedAt: now };
+    if (args.title !== undefined) patch.title = args.title;
+    if (args.body !== undefined) patch.body = args.body;
+    if (args.notebookId !== undefined) patch.notebookId = args.notebookId;
+    if (args.pathId !== undefined) {
+      patch.pathId = args.pathId === null ? undefined : args.pathId;
+    }
+    if (args.archived !== undefined) {
+      patch.archived = args.archived;
+      patch.archivedAt = args.archived ? now : undefined;
+    }
+
+    await db.notes.update(args.id, patch);
+    await enqueue('notes', args.id, 'update', patch as Record<string, unknown>);
+  }, []);
+}
+
+export function useDeleteNote() {
+  return useCallback(async (id: string) => {
+    const existing = await db.notes.get(id);
+    if (!existing) return;
+    await db.notes.update(id, { _deleted: true, updatedAt: Date.now() });
+    await enqueue('notes', id, 'delete');
   }, []);
 }
