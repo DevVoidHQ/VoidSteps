@@ -259,6 +259,30 @@ export const createStep = mutation({
     const userId = await requireAuth(ctx);
     const now = Date.now();
 
+    // Routine spawn idempotency: the server cron and the client-side spawner
+    // can both try to create today's step for the same routine. Before inserting,
+    // return any existing step for this routine created today so the caller
+    // converges onto a single server id.
+    if (args.routineId) {
+      const startOfToday = new Date(now);
+      startOfToday.setHours(0, 0, 0, 0);
+      const startOfTodayMs = startOfToday.getTime();
+
+      const existing = await ctx.db
+        .query("steps")
+        .withIndex("by_routine", (q) => q.eq("routineId", args.routineId))
+        .filter((q) => q.gte(q.field("createdAt"), startOfTodayMs))
+        .first();
+
+      if (existing && existing.userId === userId) {
+        if (existing.pathId) {
+          const path = await ctx.db.get(existing.pathId);
+          return { ...existing, path };
+        }
+        return { ...existing, path: null };
+      }
+    }
+
     // If parentId is provided, validate it exists and is not itself a child (enforce 1 level)
     if (args.parentId) {
       const parent = await ctx.db.get(args.parentId);

@@ -365,10 +365,15 @@ export class SyncEngine {
       const localRecord = await tableRef.get(localId);
 
       if (localRecord) {
-        // Create new record with server ID, preserving all data
-        const newRecord = { ...localRecord, _id: serverId, _localOnly: false };
-        await tableRef.put(newRecord);
-        // Delete old local record
+        // If a record at serverId already exists (e.g. server-side dedup
+        // returned an existing step for a routine), keep the existing one
+        // and drop the local duplicate instead of overwriting.
+        const existingAtServerId = await tableRef.get(serverId);
+        if (!existingAtServerId) {
+          const newRecord = { ...localRecord, _id: serverId, _localOnly: false };
+          await tableRef.put(newRecord);
+        }
+        // Always remove the old local record
         await tableRef.delete(localId);
       }
 

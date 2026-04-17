@@ -4,6 +4,9 @@ import { calculateNextOccurrence } from './calculate-next-occurrence';
 
 const SPAWN_INTERVAL = 15 * 60 * 1000; // 15 minutes
 
+// Prevent overlapping runs when mount + visibilitychange fire close together.
+let isRunning = false;
+
 // Sync queue helper (duplicated to avoid circular dependency)
 async function enqueue(
   entityType: 'steps' | 'routines',
@@ -126,9 +129,15 @@ async function spawnDueRoutines() {
   }
 }
 
-function runScheduledTasks() {
-  spawnDueRoutines();
-  prioritizeDueSteps();
+async function runScheduledTasks() {
+  if (isRunning) return;
+  isRunning = true;
+  try {
+    await spawnDueRoutines();
+    await prioritizeDueSteps();
+  } finally {
+    isRunning = false;
+  }
 }
 
 export function startRoutineSpawner(): () => void {
