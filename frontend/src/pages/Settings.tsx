@@ -262,13 +262,13 @@ function KeybindSettings() {
                 <div
                   key={action}
                   className={`flex items-center justify-between py-2.5 px-3 rounded-lg ${
-                    isEditing ? "bg-primary/10 ring-2 ring-primary" : "hover:bg-muted/50"
+                    isEditing ? "bg-accent/10 ring-2 ring-accent" : "hover:bg-muted/50"
                   }`}
                 >
                   <span className="text-sm">{KEYBIND_LABELS[action]}</span>
                   <div className="flex items-center gap-2">
                     {isEditing ? (
-                      <kbd className="inline-flex h-8 items-center rounded border border-primary bg-primary/10 px-3 text-xs font-mono text-primary animate-pulse">
+                      <kbd className="inline-flex h-8 items-center rounded border border-accent bg-accent/10 px-3 text-xs font-mono text-accent animate-pulse">
                         Press a key...
                       </kbd>
                     ) : (

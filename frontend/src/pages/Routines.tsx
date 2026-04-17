@@ -187,7 +187,7 @@ export default function Routines() {
   }, []);
 
   const renderForm = () => (
-    <Card className="border-primary">
+    <Card className="border-accent">
       <CardContent className="p-4 space-y-4">
         <Input
           placeholder="Routine title"
@@ -244,8 +244,8 @@ export default function Routines() {
                   onClick={() => toggleDayOfWeek(day.value)}
                   className={`px-3 py-1.5 rounded-md text-sm font-medium border transition-colors ${
                     formData.daysOfWeek.includes(day.value)
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-background border-input hover:bg-primary-light'
+                      ? 'bg-accent text-accent-foreground border-accent'
+                      : 'bg-background border-input hover:bg-accent-light'
                   }`}
                 >
                   {day.label}

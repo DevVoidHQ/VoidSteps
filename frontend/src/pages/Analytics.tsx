@@ -341,7 +341,7 @@ export default function Analytics() {
                 </div>
                 <div className="ml-7 h-2 rounded-full bg-muted overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-primary transition-all"
+                    className="h-full rounded-full bg-accent transition-all"
                     style={{
                       width: `${row.percent}%`,
                       opacity: 1 - (i / timeByPathData.length) * 0.6,
@@ -369,7 +369,7 @@ export default function Analytics() {
                 </div>
                 <div className="h-2 rounded-full bg-muted overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-primary transition-all"
+                    className="h-full rounded-full bg-accent transition-all"
                     style={{ width: `${row.rate}%` }}
                   />
                 </div>
@@ -415,7 +415,7 @@ export default function Analytics() {
                     </div>
                     <div className="h-2 rounded-full bg-muted overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-primary transition-all"
+                        className="h-full rounded-full bg-accent transition-all"
                         style={{ width: `${r.rate}%` }}
                       />
                     </div>

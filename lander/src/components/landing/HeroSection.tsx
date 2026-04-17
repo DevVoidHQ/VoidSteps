@@ -49,12 +49,12 @@ function PathCard() {
             <div
               className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0"
               style={{
-                border: `1.5px solid ${step.done ? "hsl(var(--primary))" : "hsl(var(--foreground) / 0.15)"}`,
-                backgroundColor: step.done ? "hsl(var(--primary) / 0.15)" : "transparent",
+                border: `1.5px solid ${step.done ? "hsl(var(--accent))" : "hsl(var(--foreground) / 0.15)"}`,
+                backgroundColor: step.done ? "hsl(var(--accent) / 0.15)" : "transparent",
               }}
             >
               {step.done && (
-                <svg className="w-3 h-3 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <svg className="w-3 h-3 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
               )}
@@ -79,10 +79,10 @@ function PathCard() {
       <div className="mt-5 pt-4" style={{ borderTop: "1px solid hsl(var(--foreground) / 0.06)" }}>
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-[10px] text-muted-foreground">Progress</span>
-          <span className="text-[10px] font-semibold" style={{ color: "hsl(var(--primary))" }}>33%</span>
+          <span className="text-[10px] font-semibold" style={{ color: "hsl(var(--accent))" }}>33%</span>
         </div>
         <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "hsl(var(--foreground) / 0.06)" }}>
-          <div className="h-full rounded-full bg-primary" style={{ width: "33%" }} />
+          <div className="h-full rounded-full bg-accent" style={{ width: "33%" }} />
         </div>
       </div>
     </div>
@@ -257,9 +257,9 @@ export default function HeroSection() {
         >
           <motion.div
             variants={item}
-            className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/30 bg-primary/5 text-xs font-medium text-primary mb-6"
+            className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-accent/30 bg-accent/10 text-xs font-medium text-accent mb-6"
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+            <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
             Now in Beta
           </motion.div>
 

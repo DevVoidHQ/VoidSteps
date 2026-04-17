@@ -274,8 +274,8 @@ export default function Steps() {
 
       {/* Due Steps - Pinned at top */}
       {dueSteps.length > 0 && (
-        <div className="space-y-3 p-4 -mx-4 bg-primary/5 border-y border-primary/20">
-          <h2 className="text-lg font-semibold flex items-center space-x-2 text-primary">
+        <div className="space-y-3 p-4 -mx-4 bg-accent/5 border-y border-accent/20">
+          <h2 className="text-lg font-semibold flex items-center space-x-2 text-accent">
             <Calendar className="w-5 h-5" />
             <span>Due ({dueSteps.length})</span>
           </h2>
