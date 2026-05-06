@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Plus, Trash2, Pencil, BookOpen, FileText, Search, X } from "lucide-react";
+import { Plus, Trash2, Pencil, BookOpen, FileText, Search, X, Maximize2, Minimize2 } from "lucide-react";
 
 import { db } from "@/lib/db";
 import type { LocalNotebook, LocalNote } from "@/lib/db";
@@ -16,7 +16,16 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { NoteEditor } from "@/components/notes/NoteEditor";
 
-const AUTOSAVE_MS = 500;
+const TITLE_AUTOSAVE_MS = 500;
+const FOCUS_MODE_KEY = "voidsteps-notes-focus-mode";
+
+function getInitialFocusMode(): boolean {
+  try {
+    return localStorage.getItem(FOCUS_MODE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
 
 // "April 17th 2025" — month name + day with ordinal suffix + year.
 function formatDateTitle(d: Date): string {
@@ -52,6 +61,19 @@ export default function Notes() {
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [editingNotebookId, setEditingNotebookId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [focusMode, setFocusMode] = useState<boolean>(getInitialFocusMode);
+
+  const toggleFocusMode = useCallback(() => {
+    setFocusMode((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(FOCUS_MODE_KEY, String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }, []);
 
   const createNotebook = useCreateNotebook();
   const updateNotebook = useUpdateNotebook();
@@ -137,33 +159,39 @@ export default function Notes() {
 
   return (
     <div className="flex h-full min-h-screen">
-      <NotebookPane
-        notebooks={sortedNotebooks}
-        activeId={activeNotebookId}
-        editingId={editingNotebookId}
-        onStartEdit={setEditingNotebookId}
-        onEndEdit={() => setEditingNotebookId(null)}
-        onSelect={(id) => {
-          setActiveNotebookId(id);
-          setActiveNoteId(null);
-        }}
-        onNew={handleNewNotebook}
-        onRename={(id, title) => updateNotebook({ id, title })}
-        onDelete={handleDeleteNotebook}
-      />
-      <NoteListPane
-        notes={notesInNotebook}
-        activeId={activeNoteId}
-        onSelect={setActiveNoteId}
-        onNew={handleNewNote}
-        onDelete={handleDeleteNote}
-        disabled={!activeNotebookId}
-        search={search}
-        onSearch={setSearch}
-      />
+      {!focusMode && (
+        <>
+          <NotebookPane
+            notebooks={sortedNotebooks}
+            activeId={activeNotebookId}
+            editingId={editingNotebookId}
+            onStartEdit={setEditingNotebookId}
+            onEndEdit={() => setEditingNotebookId(null)}
+            onSelect={(id) => {
+              setActiveNotebookId(id);
+              setActiveNoteId(null);
+            }}
+            onNew={handleNewNotebook}
+            onRename={(id, title) => updateNotebook({ id, title })}
+            onDelete={handleDeleteNotebook}
+          />
+          <NoteListPane
+            notes={notesInNotebook}
+            activeId={activeNoteId}
+            onSelect={setActiveNoteId}
+            onNew={handleNewNote}
+            onDelete={handleDeleteNote}
+            disabled={!activeNotebookId}
+            search={search}
+            onSearch={setSearch}
+          />
+        </>
+      )}
       <NoteEditorPane
         note={activeNote}
         onChange={(patch) => activeNote && updateNote({ id: activeNote._id, ...patch })}
+        focusMode={focusMode}
+        onToggleFocusMode={toggleFocusMode}
       />
     </div>
   );
@@ -466,55 +494,107 @@ function extractText(node: unknown): string {
 function NoteEditorPane({
   note,
   onChange,
+  focusMode,
+  onToggleFocusMode,
 }: {
   note: LocalNote | null;
   onChange: (patch: { title?: string; body?: string }) => void;
+  focusMode: boolean;
+  onToggleFocusMode: () => void;
 }) {
   const [title, setTitle] = useState(note?.title ?? "");
   const titleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const bodyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const noteRef = useRef(note);
+  noteRef.current = note;
 
   useEffect(() => {
     setTitle(note?.title ?? "");
   }, [note?._id]);
 
-  if (!note) {
-    return (
-      <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
-        Select or create a note to get started.
-      </div>
-    );
-  }
+  // Flush any pending title save on note switch / unmount.
+  useEffect(() => {
+    return () => {
+      if (titleTimer.current) {
+        clearTimeout(titleTimer.current);
+        titleTimer.current = null;
+      }
+    };
+  }, [note?._id]);
 
   const scheduleTitleSave = (value: string) => {
     if (titleTimer.current) clearTimeout(titleTimer.current);
     titleTimer.current = setTimeout(() => {
-      if (value !== note.title) onChange({ title: value || "Untitled" });
-    }, AUTOSAVE_MS);
+      const current = noteRef.current;
+      if (current && value !== current.title) onChange({ title: value || "Untitled" });
+    }, TITLE_AUTOSAVE_MS);
   };
 
-  const scheduleBodySave = (body: string) => {
-    if (bodyTimer.current) clearTimeout(bodyTimer.current);
-    bodyTimer.current = setTimeout(() => {
-      if (body !== note.body) onChange({ body });
-    }, AUTOSAVE_MS);
+  const flushTitleNow = () => {
+    if (titleTimer.current) {
+      clearTimeout(titleTimer.current);
+      titleTimer.current = null;
+    }
+    const current = noteRef.current;
+    if (current && title !== current.title) onChange({ title: title || "Untitled" });
   };
+
+  // Bind the persist callback to this specific note's id + initial body.
+  // Editor unmount may flush after a note switch — without binding, the
+  // flush would write the old note's body onto the new active note.
+  const noteId = note?._id ?? null;
+  const initialBody = note?.body ?? "";
+  const persistBody = useCallback(
+    (body: string) => {
+      if (!noteId) return;
+      if (body === initialBody) return;
+      onChange({ body });
+    },
+    // onChange captures activeNote via parent closure; it's safe here because
+    // we only fire when noteId is set, and Notes.tsx guards on activeNote.
+    [noteId, initialBody, onChange]
+  );
+
+  const focusToggle = (
+    <Button
+      size="icon-sm"
+      variant="ghost"
+      onClick={onToggleFocusMode}
+      title={focusMode ? "Exit focus mode" : "Focus mode (hide sidebars)"}
+    >
+      {focusMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+    </Button>
+  );
+
+  if (!note) {
+    return (
+      <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex items-center px-4 py-3 border-b border-border">
+          {focusToggle}
+        </div>
+        <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
+          Select or create a note to get started.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex flex-col min-w-0">
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+        {focusToggle}
         <Input
           value={title}
           onChange={(e) => {
             setTitle(e.target.value);
             scheduleTitleSave(e.target.value);
           }}
+          onBlur={flushTitleNow}
           placeholder="Title"
           className="h-9 text-base font-semibold border-transparent focus-visible:border-input bg-transparent"
         />
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto">
-        <NoteEditor key={note._id} initialBody={note.body} onChange={scheduleBodySave} />
+        <NoteEditor key={note._id} initialBody={note.body} onChange={persistBody} />
       </div>
     </div>
   );

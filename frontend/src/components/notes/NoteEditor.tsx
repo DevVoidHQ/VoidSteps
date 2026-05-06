@@ -9,6 +9,11 @@ import "./note-editor.css";
 
 const schema = BlockNoteSchema.create({ blockSpecs: defaultBlockSpecs });
 
+// Debounce body persistence aggressively. Saves only fire after a 2s typing
+// pause, on blur, or on unmount — keeps the sync queue from churning on every
+// keystroke pause.
+const BODY_AUTOSAVE_MS = 2000;
+
 type Doc = PartialBlock[];
 
 export function NoteEditor({
@@ -56,29 +61,48 @@ function MountedEditor({
     initialContent: seed && seed.length > 0 ? seed : undefined,
   });
 
-  // Debounced change reporter
   const lastSerialized = useRef<string>("");
+  const pendingSerialized = useRef<string | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
-  const emit = useMemo(() => {
-    let t: ReturnType<typeof setTimeout> | null = null;
-    return (blocks: unknown) => {
+  const flush = useMemo(
+    () => () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      const pending = pendingSerialized.current;
+      if (pending !== null && pending !== lastSerialized.current) {
+        lastSerialized.current = pending;
+        pendingSerialized.current = null;
+        onChangeRef.current(pending);
+      }
+    },
+    []
+  );
+
+  const schedule = useMemo(
+    () => (blocks: unknown) => {
       const serialized = JSON.stringify(blocks);
       if (serialized === lastSerialized.current) return;
-      if (t) clearTimeout(t);
-      t = setTimeout(() => {
-        lastSerialized.current = serialized;
-        onChangeRef.current(serialized);
-      }, 250);
-    };
-  }, []);
+      pendingSerialized.current = serialized;
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(flush, BODY_AUTOSAVE_MS);
+    },
+    [flush]
+  );
+
+  // Flush pending edits on unmount (note switch, page leave).
+  useEffect(() => flush, [flush]);
 
   return (
     <BlockNoteView
       editor={editor}
       theme="light"
-      onChange={() => emit(editor.document)}
+      onChange={() => schedule(editor.document)}
+      onBlur={flush}
       className="voidsteps-editor"
     />
   );
