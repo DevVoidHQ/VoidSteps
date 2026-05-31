@@ -100,6 +100,9 @@ export default defineSchema({
     // TEMPORARY: Legacy fields to be removed after migration
     recurring: v.optional(v.any()),
     recurringSourceId: v.optional(v.any()),
+    // Deprecated: sub-steps removed. Kept optional so existing docs validate;
+    // nothing writes it anymore.
+    parentId: v.optional(v.id("steps")),
   }).index("by_user", ["userId"])
     .index("by_path", ["pathId"])
     .index("by_routine", ["routineId"]),
