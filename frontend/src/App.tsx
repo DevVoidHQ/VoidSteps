@@ -12,11 +12,12 @@ import Login from '@/pages/Login';
 import Steps from '@/pages/Steps';
 import Paths from '@/pages/Paths';
 import Routines from '@/pages/Routines';
+import Reminders from '@/pages/Reminders';
 import Analytics from '@/pages/Analytics';
 import Calendar from '@/pages/Calendar';
 import Settings from '@/pages/Settings';
 
-// Lazy — Notes pulls in BlockNote (~1.4MB). Keeps main bundle lean.
+// Lazy - Notes pulls in BlockNote (~1.4MB). Keeps main bundle lean.
 const Notes = lazy(() => import('@/pages/Notes'));
 
 function AppRoutes() {
@@ -37,7 +38,7 @@ function AppRoutes() {
     );
   }
 
-  // Authenticated routes — wrapped in sync providers
+  // Authenticated routes - wrapped in sync providers
   return (
     <ErrorBoundary>
       <OfflineProvider>
@@ -48,6 +49,7 @@ function AppRoutes() {
             <Route path="/steps" element={<Layout key={location.pathname}><Steps /></Layout>} />
             <Route path="/paths" element={<Layout key={location.pathname}><Paths /></Layout>} />
             <Route path="/routines" element={<Layout key={location.pathname}><Routines /></Layout>} />
+            <Route path="/reminders" element={<Layout key={location.pathname}><Reminders /></Layout>} />
             <Route
               path="/notes"
               element={

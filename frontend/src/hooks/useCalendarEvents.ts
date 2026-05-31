@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
-import type { Step, Routine } from '@/types';
-import { getStartOfDay, projectRoutineOccurrences } from '@/lib/calendar-utils';
+import type { Step, Routine, Reminder } from '@/types';
+import { getStartOfDay, projectRoutineOccurrences, projectReminderOccurrences } from '@/lib/calendar-utils';
 import { isOverdue } from '@/lib/date-utils';
 
-export type CalendarEventType = 'due' | 'start' | 'completed' | 'failed' | 'routine';
+export type CalendarEventType = 'due' | 'start' | 'completed' | 'failed' | 'routine' | 'reminder';
 
 export interface CalendarEvent {
   id: string;
@@ -12,6 +12,7 @@ export interface CalendarEvent {
   timestamp: number;
   step?: Step;
   routine?: Routine;
+  reminder?: Reminder;
   pathTitle?: string;
   isOverdue?: boolean;
 }
@@ -33,6 +34,7 @@ function toNumber(v: string | number | undefined): number | undefined {
 export function useCalendarEvents(
   allSteps: Step[],
   routines: Routine[],
+  reminders: Reminder[],
   rangeStart: number,
   rangeEnd: number,
   currentMonth?: number // 0-indexed, for isCurrentMonth calculation
@@ -100,18 +102,34 @@ export function useCalendarEvents(
       }
     }
 
-    // Sort events within each day: due first, then start, routine, completed, failed
+    // Project reminder occurrences
+    for (const reminder of reminders) {
+      const occurrences = projectReminderOccurrences(reminder, rangeStart, rangeEnd);
+      for (const ts of occurrences) {
+        const day = getOrCreateDay(ts);
+        day.events.push({
+          id: `reminder-${reminder._id}-${ts}`,
+          type: 'reminder',
+          title: reminder.title,
+          timestamp: ts,
+          reminder,
+        });
+      }
+    }
+
+    // Sort events within each day: reminder, due, start, routine, completed, failed
     const typeOrder: Record<CalendarEventType, number> = {
-      due: 0,
-      start: 1,
-      routine: 2,
-      completed: 3,
-      failed: 4,
+      reminder: 0,
+      due: 1,
+      start: 2,
+      routine: 3,
+      completed: 4,
+      failed: 5,
     };
     for (const day of map.values()) {
       day.events.sort((a, b) => typeOrder[a.type] - typeOrder[b.type]);
     }
 
     return map;
-  }, [allSteps, routines, rangeStart, rangeEnd, currentMonth]);
+  }, [allSteps, routines, reminders, rangeStart, rangeEnd, currentMonth]);
 }

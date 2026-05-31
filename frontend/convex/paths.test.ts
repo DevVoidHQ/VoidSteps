@@ -77,7 +77,7 @@ describe("paths", () => {
           createdAt: now,
           updatedAt: now,
         });
-        // Different user's child — should not appear
+        // Different user's child - should not appear
         await ctx.db.insert("paths", {
           userId: "other-user",
           title: "Other child",

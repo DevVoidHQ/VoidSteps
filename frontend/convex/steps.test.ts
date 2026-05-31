@@ -270,67 +270,6 @@ describe("steps", () => {
     });
   });
 
-  describe("getChildSteps", () => {
-    it("returns children sorted by sortOrder, scoped to user", async () => {
-      const t = convexTest(schema, modules);
-      const asUser = t.withIdentity(testUser);
-      const now = Date.now();
-
-      let parentId!: Id<"steps">;
-      await t.run(async (ctx) => {
-        parentId = await ctx.db.insert("steps", {
-          userId: "user-123",
-          title: "Parent",
-          completed: false,
-          failed: false,
-          prioritizedToday: false,
-          sortOrder: 0,
-          createdAt: now,
-          updatedAt: now,
-        });
-        await ctx.db.insert("steps", {
-          userId: "user-123",
-          title: "Child B",
-          completed: false,
-          failed: false,
-          parentId,
-          prioritizedToday: false,
-          sortOrder: 20,
-          createdAt: now,
-          updatedAt: now,
-        });
-        await ctx.db.insert("steps", {
-          userId: "user-123",
-          title: "Child A",
-          completed: false,
-          failed: false,
-          parentId,
-          prioritizedToday: false,
-          sortOrder: 10,
-          createdAt: now,
-          updatedAt: now,
-        });
-        // Different user's child — should not appear
-        await ctx.db.insert("steps", {
-          userId: "other-user",
-          title: "Other child",
-          completed: false,
-          failed: false,
-          parentId,
-          prioritizedToday: false,
-          sortOrder: 5,
-          createdAt: now,
-          updatedAt: now,
-        });
-      });
-
-      const result = await asUser.query(api.steps.getChildSteps, { parentId });
-      expect(result).toHaveLength(2);
-      expect(result.map((s) => s.title)).toEqual(["Child A", "Child B"]);
-
-    });
-  });
-
   // Mutations
   describe("createStep", () => {
     it("inserts step and returns with path populated", async () => {
@@ -357,47 +296,6 @@ describe("steps", () => {
       expect(result.completed).toBe(false);
       expect(result.path).not.toBeNull();
       expect(result.path?.title).toBe("Test Path");
-
-    });
-
-    it("validates parent exists and rejects nesting >1 level", async () => {
-      const t = convexTest(schema, modules);
-      const asUser = t.withIdentity(testUser);
-      const now = Date.now();
-
-      let grandparentId!: Id<"steps">;
-      let parentId!: Id<"steps">;
-      await t.run(async (ctx) => {
-        grandparentId = await ctx.db.insert("steps", {
-          userId: "user-123",
-          title: "Grandparent",
-          completed: false,
-          failed: false,
-          prioritizedToday: false,
-          sortOrder: 0,
-          createdAt: now,
-          updatedAt: now,
-        });
-        parentId = await ctx.db.insert("steps", {
-          userId: "user-123",
-          title: "Parent",
-          completed: false,
-          failed: false,
-          parentId: grandparentId,
-          prioritizedToday: false,
-          sortOrder: 1,
-          createdAt: now,
-          updatedAt: now,
-        });
-      });
-
-      // Nesting under a child (level 2) should fail
-      await expect(
-        asUser.mutation(api.steps.createStep, {
-          title: "Too Deep",
-          parentId,
-        })
-      ).rejects.toThrow("Cannot nest more than 1 level deep");
 
     });
 
@@ -589,17 +487,16 @@ describe("steps", () => {
   });
 
   describe("deleteStep", () => {
-    it("cascade deletes children", async () => {
+    it("deletes the step", async () => {
       const t = convexTest(schema, modules);
       const asUser = t.withIdentity(testUser);
       const now = Date.now();
 
-      let parentId!: Id<"steps">;
-      let childId!: Id<"steps">;
+      let stepId!: Id<"steps">;
       await t.run(async (ctx) => {
-        parentId = await ctx.db.insert("steps", {
+        stepId = await ctx.db.insert("steps", {
           userId: "user-123",
-          title: "Parent",
+          title: "To delete",
           completed: false,
           failed: false,
           prioritizedToday: false,
@@ -607,29 +504,13 @@ describe("steps", () => {
           createdAt: now,
           updatedAt: now,
         });
-        childId = await ctx.db.insert("steps", {
-          userId: "user-123",
-          title: "Child",
-          completed: false,
-          failed: false,
-          parentId,
-          prioritizedToday: false,
-          sortOrder: 1,
-          createdAt: now,
-          updatedAt: now,
-        });
       });
 
-      await asUser.mutation(api.steps.deleteStep, { id: parentId });
+      await asUser.mutation(api.steps.deleteStep, { id: stepId });
 
-      // Verify both parent and child are deleted
       await t.run(async (ctx) => {
-        const parent = await ctx.db.get(parentId);
-        const child = await ctx.db.get(childId);
-        expect(parent).toBeNull();
-        expect(child).toBeNull();
+        expect(await ctx.db.get(stepId)).toBeNull();
       });
-
     });
   });
 
@@ -709,137 +590,6 @@ describe("steps", () => {
       });
       expect(result2.failed).toBe(false);
       expect(result2.failedAt).toBeUndefined();
-
-    });
-  });
-
-  describe("updateStepParent", () => {
-    it("rejects self-parent", async () => {
-      const t = convexTest(schema, modules);
-      const asUser = t.withIdentity(testUser);
-      const now = Date.now();
-
-      let stepId!: Id<"steps">;
-      await t.run(async (ctx) => {
-        stepId = await ctx.db.insert("steps", {
-          userId: "user-123",
-          title: "Step",
-          completed: false,
-          failed: false,
-          prioritizedToday: false,
-          sortOrder: 0,
-          createdAt: now,
-          updatedAt: now,
-        });
-      });
-
-      await expect(
-        asUser.mutation(api.steps.updateStepParent, {
-          id: stepId,
-          parentId: stepId,
-        })
-      ).rejects.toThrow("Step cannot be its own parent");
-
-    });
-
-    it("rejects nesting >1 level deep", async () => {
-      const t = convexTest(schema, modules);
-      const asUser = t.withIdentity(testUser);
-      const now = Date.now();
-
-      let grandparentId!: Id<"steps">;
-      let parentId!: Id<"steps">;
-      let stepId!: Id<"steps">;
-      await t.run(async (ctx) => {
-        grandparentId = await ctx.db.insert("steps", {
-          userId: "user-123",
-          title: "Grandparent",
-          completed: false,
-          failed: false,
-          prioritizedToday: false,
-          sortOrder: 0,
-          createdAt: now,
-          updatedAt: now,
-        });
-        parentId = await ctx.db.insert("steps", {
-          userId: "user-123",
-          title: "Parent",
-          completed: false,
-          failed: false,
-          parentId: grandparentId,
-          prioritizedToday: false,
-          sortOrder: 1,
-          createdAt: now,
-          updatedAt: now,
-        });
-        stepId = await ctx.db.insert("steps", {
-          userId: "user-123",
-          title: "Step",
-          completed: false,
-          failed: false,
-          prioritizedToday: false,
-          sortOrder: 2,
-          createdAt: now,
-          updatedAt: now,
-        });
-      });
-
-      await expect(
-        asUser.mutation(api.steps.updateStepParent, {
-          id: stepId,
-          parentId,
-        })
-      ).rejects.toThrow("Cannot nest more than 1 level deep");
-
-    });
-
-    it("rejects nesting a step that has children", async () => {
-      const t = convexTest(schema, modules);
-      const asUser = t.withIdentity(testUser);
-      const now = Date.now();
-
-      let parentWithChildrenId!: Id<"steps">;
-      let targetParentId!: Id<"steps">;
-      await t.run(async (ctx) => {
-        parentWithChildrenId = await ctx.db.insert("steps", {
-          userId: "user-123",
-          title: "Has children",
-          completed: false,
-          failed: false,
-          prioritizedToday: false,
-          sortOrder: 0,
-          createdAt: now,
-          updatedAt: now,
-        });
-        await ctx.db.insert("steps", {
-          userId: "user-123",
-          title: "Child",
-          completed: false,
-          failed: false,
-          parentId: parentWithChildrenId,
-          prioritizedToday: false,
-          sortOrder: 1,
-          createdAt: now,
-          updatedAt: now,
-        });
-        targetParentId = await ctx.db.insert("steps", {
-          userId: "user-123",
-          title: "Target parent",
-          completed: false,
-          failed: false,
-          prioritizedToday: false,
-          sortOrder: 2,
-          createdAt: now,
-          updatedAt: now,
-        });
-      });
-
-      await expect(
-        asUser.mutation(api.steps.updateStepParent, {
-          id: parentWithChildrenId,
-          parentId: targetParentId,
-        })
-      ).rejects.toThrow("Cannot nest a step that has children");
 
     });
   });

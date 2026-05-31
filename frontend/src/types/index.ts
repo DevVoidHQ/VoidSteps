@@ -32,7 +32,6 @@ export interface Step {
   failedAt?: string | number;
   pathId?: Path | string | null;
   path?: Path | null; // Populated path from Convex
-  parentId?: string | null;
   routineId?: string; // If this step was spawned from a routine
   prioritizedToday: boolean;
   dueDate?: number;
@@ -60,6 +59,20 @@ export interface Routine {
   dayOfYear?: number; // For yearly: day of the month (1-31)
   nextOccurrence: number;
   autoPrioritize?: boolean;
+  createdAt: string | number;
+  updatedAt: string | number;
+}
+
+export type ReminderRecurrence = 'once' | 'yearly' | 'monthly';
+
+export interface Reminder {
+  _id: string;
+  title: string;
+  note?: string;
+  recurrence: ReminderRecurrence;
+  date?: number; // once: start-of-day timestamp
+  month?: number; // yearly: 1-12
+  day?: number; // yearly + monthly: 1-31
   createdAt: string | number;
   updatedAt: string | number;
 }

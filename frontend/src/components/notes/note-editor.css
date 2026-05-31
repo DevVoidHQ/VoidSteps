@@ -1,4 +1,4 @@
-/* BlockNote theme overrides — map BlockNote CSS variables onto the
+/* BlockNote theme overrides - map BlockNote CSS variables onto the
    DevVoid 6-color brand palette. All base colors derive from our tokens. */
 
 .voidsteps-editor {
@@ -25,7 +25,7 @@
   color: hsl(var(--foreground) / 0.35) !important;
 }
 
-/* BlockNote popovers / menus — slash menu, formatting toolbar, side menu */
+/* BlockNote popovers / menus - slash menu, formatting toolbar, side menu */
 .bn-mantine-root,
 .bn-ui-container {
   --bn-colors-editor-background: hsl(var(--background));
@@ -59,6 +59,52 @@
 .bn-mantine-root .mantine-Menu-item:hover {
   background: hsl(var(--primary-light));
   color: hsl(var(--primary));
+}
+
+/* Slash (suggestion) menu - portaled outside .bn-mantine-root, so target it
+   globally and drive every surface from the brand tokens. */
+.bn-suggestion-menu {
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--foreground) / 0.1);
+  border-radius: 0.75rem;
+  box-shadow: 0 8px 24px hsl(var(--foreground) / 0.18);
+  color: hsl(var(--foreground));
+  font-family: "Satoshi", system-ui, sans-serif;
+}
+
+.bn-suggestion-menu-label {
+  color: hsl(var(--foreground) / 0.45);
+}
+
+.bn-suggestion-menu-item {
+  color: hsl(var(--foreground));
+}
+
+.bn-suggestion-menu-item .bn-mt-suggestion-menu-item-title {
+  color: hsl(var(--foreground));
+}
+
+.bn-suggestion-menu-item .bn-mt-suggestion-menu-item-subtitle {
+  color: hsl(var(--foreground) / 0.55);
+}
+
+/* Hovered / keyboard-selected slash item uses the brand accent surface. */
+.bn-suggestion-menu-item:hover,
+.bn-suggestion-menu-item[aria-selected="true"],
+.bn-suggestion-menu-item[data-selected="true"] {
+  background: hsl(var(--primary-light));
+}
+
+.bn-suggestion-menu-item:hover .bn-mt-suggestion-menu-item-title,
+.bn-suggestion-menu-item[aria-selected="true"] .bn-mt-suggestion-menu-item-title,
+.bn-suggestion-menu-item[data-selected="true"] .bn-mt-suggestion-menu-item-title {
+  color: hsl(var(--primary));
+}
+
+/* Icon chip on each slash item. */
+.bn-suggestion-menu-item .bn-mt-suggestion-menu-item-section[data-position="left"] {
+  background: hsl(var(--foreground) / 0.06);
+  color: hsl(var(--foreground) / 0.8);
 }
 
 /* Headings and inline text */

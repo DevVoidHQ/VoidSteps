@@ -1,13 +1,11 @@
 import { useState, useCallback } from "react";
-import type { Routine, Path } from "@/types/index";
-import { useUpdateRoutine, useDeleteRoutine, MAX_TITLE_LENGTH, MAX_DESCRIPTION_LENGTH } from "@/lib/local-mutations";
+import type { Routine } from "@/types/index";
+import { useDeleteRoutine } from "@/lib/local-mutations";
 import { useData } from "@/contexts/DataContext";
 import { reportError } from "@/lib/error-store";
 import { useToast } from "@/contexts/ToastContext";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
-import { Input } from "@/components/ui/Input";
-import { Textarea } from "@/components/ui/Textarea";
 import {
   Plus,
   X,
@@ -16,13 +14,11 @@ import {
   Pencil,
   Repeat,
   Calendar,
-  Check,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import QuickCreateRoutineDialog from "@/components/QuickCreateRoutineDialog";
 import { getKeybinds, formatKeybindDisplay } from "@/lib/keybind-config";
 
-type Frequency = 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'yearly';
 
 const DAYS_OF_WEEK = [
   { value: 0, label: 'Sun' },
@@ -87,85 +83,25 @@ function formatNextOccurrence(timestamp: number | string | null | undefined): st
   }
 }
 
-interface RoutineFormData {
-  title: string;
-  description: string;
-  pathId: string;
-  frequency: Frequency;
-  daysOfWeek: number[];
-  dayOfMonth: number;
-  month: number;
-  dayOfYear: number;
-  autoPrioritize: boolean;
-}
-
-const defaultFormData: RoutineFormData = {
-  title: '',
-  description: '',
-  pathId: '',
-  frequency: 'daily',
-  daysOfWeek: [1], // Monday by default
-  dayOfMonth: 1,
-  month: 1,
-  dayOfYear: 1,
-  autoPrioritize: true,
-};
 
 export default function Routines() {
   const toast = useToast();
-  const { paths, routines } = useData();
+  const { routines } = useData();
 
-  const updateRoutineMutation = useUpdateRoutine();
   const deleteRoutineMutation = useDeleteRoutine();
 
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<RoutineFormData>(defaultFormData);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
 
-  const resetForm = useCallback(() => {
-    setFormData(defaultFormData);
-    setIsCreateDialogOpen(false);
-    setEditingId(null);
+  const openCreate = useCallback(() => {
+    setEditingRoutine(null);
+    setIsDialogOpen(true);
   }, []);
 
-  const startEditing = useCallback((routine: Routine) => {
-    setEditingId(routine._id);
-    setIsCreateDialogOpen(false);
-    setFormData({
-      title: routine.title,
-      description: routine.description || '',
-      pathId: routine.path?._id || (typeof routine.pathId === 'string' ? routine.pathId : '') || '',
-      frequency: routine.frequency,
-      daysOfWeek: routine.daysOfWeek || [1],
-      dayOfMonth: routine.dayOfMonth || 1,
-      month: routine.month || 1,
-      dayOfYear: routine.dayOfYear || 1,
-      autoPrioritize: routine.autoPrioritize ?? true,
-    });
+  const openEdit = useCallback((routine: Routine) => {
+    setEditingRoutine(routine);
+    setIsDialogOpen(true);
   }, []);
-
-  const handleUpdate = useCallback(async () => {
-    if (!editingId || !formData.title.trim()) return;
-
-    try {
-      await updateRoutineMutation({
-        id: editingId,
-        title: formData.title.trim(),
-        description: formData.description.trim() || undefined,
-        pathId: formData.pathId || null,
-        frequency: formData.frequency,
-        daysOfWeek: formData.frequency === 'weekly' ? formData.daysOfWeek : null,
-        dayOfMonth: formData.frequency === 'monthly' ? formData.dayOfMonth : null,
-        month: formData.frequency === 'yearly' ? formData.month : null,
-        dayOfYear: formData.frequency === 'yearly' ? formData.dayOfYear : null,
-        autoPrioritize: formData.autoPrioritize,
-      });
-      resetForm();
-    } catch (error) {
-      reportError('mutation', error, { action: 'updateRoutine', routineId: editingId });
-      toast.error("Failed to update routine");
-    }
-  }, [editingId, formData, updateRoutineMutation, resetForm, toast]);
 
   const handleDelete = useCallback(async (id: string) => {
     try {
@@ -176,162 +112,11 @@ export default function Routines() {
     }
   }, [deleteRoutineMutation, toast]);
 
-  const toggleDayOfWeek = useCallback((day: number) => {
-    setFormData(prev => {
-      const newDays = prev.daysOfWeek.includes(day)
-        ? prev.daysOfWeek.filter(d => d !== day)
-        : [...prev.daysOfWeek, day];
-      // Ensure at least one day is selected
-      return { ...prev, daysOfWeek: newDays.length > 0 ? newDays : prev.daysOfWeek };
-    });
-  }, []);
-
-  const renderForm = () => (
-    <Card className="border-accent">
-      <CardContent className="p-4 space-y-4">
-        <Input
-          placeholder="Routine title"
-          value={formData.title}
-          onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-          autoFocus
-          maxLength={MAX_TITLE_LENGTH}
-        />
-        <Textarea
-          placeholder="Description (optional)"
-          value={formData.description}
-          onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-          rows={2}
-          maxLength={MAX_DESCRIPTION_LENGTH}
-        />
-        <select
-          className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-          value={formData.pathId}
-          onChange={(e) => setFormData(prev => ({ ...prev, pathId: e.target.value }))}
-        >
-          <option value="">No Path</option>
-          {paths?.map((path: Path) => (
-            <option key={path._id} value={path._id}>
-              {path.title}
-            </option>
-          ))}
-        </select>
-
-        {/* Frequency selection */}
-        <div>
-          <label className="text-sm font-medium mb-2 block">Frequency</label>
-          <select
-            className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-            value={formData.frequency}
-            onChange={(e) => setFormData(prev => ({ ...prev, frequency: e.target.value as Frequency }))}
-          >
-            <option value="daily">Daily</option>
-            <option value="weekdays">Weekdays (Mon-Fri)</option>
-            <option value="weekly">Weekly (specific days)</option>
-            <option value="monthly">Monthly</option>
-            <option value="yearly">Yearly</option>
-          </select>
-        </div>
-
-        {/* Weekly: Day selection */}
-        {formData.frequency === 'weekly' && (
-          <div>
-            <label className="text-sm font-medium mb-2 block">Days of Week</label>
-            <div className="flex flex-wrap gap-2">
-              {DAYS_OF_WEEK.map(day => (
-                <button
-                  key={day.value}
-                  type="button"
-                  onClick={() => toggleDayOfWeek(day.value)}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium border transition-colors ${
-                    formData.daysOfWeek.includes(day.value)
-                      ? 'bg-accent text-accent-foreground border-accent'
-                      : 'bg-background border-input hover:bg-accent-light'
-                  }`}
-                >
-                  {day.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Monthly: Day of month */}
-        {formData.frequency === 'monthly' && (
-          <div>
-            <label className="text-sm font-medium mb-2 block">Day of Month</label>
-            <select
-              className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={formData.dayOfMonth}
-              onChange={(e) => setFormData(prev => ({ ...prev, dayOfMonth: Number(e.target.value) }))}
-            >
-              {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
-                <option key={day} value={day}>{day}</option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Yearly: Month and day */}
-        {formData.frequency === 'yearly' && (
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <label className="text-sm font-medium mb-2 block">Month</label>
-              <select
-                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={formData.month}
-                onChange={(e) => setFormData(prev => ({ ...prev, month: Number(e.target.value) }))}
-              >
-                {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((name, i) => (
-                  <option key={i + 1} value={i + 1}>{name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex-1">
-              <label className="text-sm font-medium mb-2 block">Day</label>
-              <select
-                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={formData.dayOfYear}
-                onChange={(e) => setFormData(prev => ({ ...prev, dayOfYear: Number(e.target.value) }))}
-              >
-                {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
-                  <option key={day} value={day}>{day}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        )}
-
-        {/* Priority toggle */}
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={formData.autoPrioritize}
-            onChange={(e) => setFormData(prev => ({ ...prev, autoPrioritize: e.target.checked }))}
-            className="rounded border-input"
-          />
-          <Star className={`w-4 h-4 ${formData.autoPrioritize ? 'fill-primary text-primary' : ''}`} />
-          <span className="text-sm">Add to Today's Focus when spawned</span>
-        </label>
-
-        {/* Actions */}
-        <div className="flex gap-2">
-          <Button onClick={handleUpdate} disabled={!formData.title.trim()}>
-            <Check className="w-4 h-4 mr-2" />
-            Save
-          </Button>
-          <Button variant="outline" onClick={resetForm}>
-            Cancel
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Routines</h1>
-        <Button onClick={() => setIsCreateDialogOpen(true)} size="sm">
+        <Button onClick={openCreate} size="sm">
           <Plus className="w-4 h-4 mr-2" />
           New Routine
           <kbd className="ml-2 hidden sm:inline-flex h-5 items-center rounded border border-primary-foreground/30 bg-primary-foreground/10 px-1.5 font-mono text-[10px]">
@@ -340,16 +125,13 @@ export default function Routines() {
         </Button>
       </div>
 
-      {/* Edit Form (inline) */}
-      {editingId && renderForm()}
-
       {/* Routines List */}
       {routines && routines.length > 0 ? (
         <div className="space-y-3">
           {routines.map((routine: Routine) => (
             <Card
               key={routine._id}
-              className={`hover:border-primary/50 transition-colors ${editingId === routine._id ? 'hidden' : ''}`}
+              className="hover:border-primary/50 transition-colors"
             >
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
@@ -388,7 +170,7 @@ export default function Routines() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => startEditing(routine)}
+                      onClick={() => openEdit(routine)}
                       className="h-7 w-7 p-0"
                     >
                       <Pencil className="w-4 h-4" />
@@ -415,7 +197,14 @@ export default function Routines() {
         />
       )}
 
-      <QuickCreateRoutineDialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} />
+      <QuickCreateRoutineDialog
+        open={isDialogOpen}
+        routine={editingRoutine}
+        onOpenChange={(o) => {
+          setIsDialogOpen(o);
+          if (!o) setEditingRoutine(null);
+        }}
+      />
     </div>
   );
 }

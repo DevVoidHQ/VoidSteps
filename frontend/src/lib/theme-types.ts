@@ -1,5 +1,5 @@
 /**
- * DevVoid brand model — every theme is 6 colors.
+ * DevVoid brand model - every theme is 6 colors.
  *
  * Source of truth per theme:
  *   background, foreground, primary, accent, primaryLight, accentLight

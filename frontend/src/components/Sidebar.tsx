@@ -1,9 +1,12 @@
 import { useClerk, useUser } from '@clerk/clerk-react';
 import { motion } from 'framer-motion';
-import { LogOut, Settings, Calendar, ListTodo, Target, Zap, BookOpen, BarChart3, X, ChevronsLeft, ChevronsRight, MessageSquare } from 'lucide-react';
+import { LogOut, Settings, Calendar, ListTodo, Target, Zap, Bell, BookOpen, BarChart3, X, ChevronsLeft, ChevronsRight, MessageSquare } from 'lucide-react';
 import { getKeybinds, formatKeybindDisplay, type KeybindMap } from '@/lib/keybind-config';
 import type { LucideIcon } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useMemo } from 'react';
+import { useData } from '@/contexts/DataContext';
+import { getStartOfDay, projectReminderOccurrences } from '@/lib/calendar-utils';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -23,9 +26,10 @@ interface SidebarItemProps {
   onClick?: () => void;
   href?: string;
   className?: string;
+  dot?: boolean;
 }
 
-function SidebarItem({ icon: Icon, label, isCollapsed, active, showActiveIndicator, iconOnly, shortcut, onClick, href, className }: SidebarItemProps) {
+function SidebarItem({ icon: Icon, label, isCollapsed, active, showActiveIndicator, iconOnly, shortcut, onClick, href, className, dot }: SidebarItemProps) {
   const hideLabel = isCollapsed || iconOnly;
   const baseClass = `relative w-full flex items-center ${
     hideLabel ? 'justify-center px-2 py-3' : 'gap-3 px-4 py-3 text-left'
@@ -45,7 +49,14 @@ function SidebarItem({ icon: Icon, label, isCollapsed, active, showActiveIndicat
         />
       )}
       <Icon className="relative z-10 w-5 h-5 shrink-0" />
+      {/* Collapsed: dot on the icon corner. Expanded: dot is rendered inline after the label. */}
+      {dot && hideLabel && (
+        <span className="absolute top-1.5 right-1.5 z-10 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-card" title="Reminder today" />
+      )}
       {!hideLabel && <span className="relative z-10 flex-1">{label}</span>}
+      {!hideLabel && dot && (
+        <span className="relative z-10 h-2 w-2 rounded-full bg-amber-500 shrink-0" title="Reminder today" />
+      )}
       {!hideLabel && shortcut && (
         <kbd className={`relative z-10 hidden sm:inline-flex h-5 items-center rounded border px-1.5 font-mono text-[10px] ${
           active
@@ -88,6 +99,14 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
   const { user } = useUser();
   const navigate = useNavigate();
   const location = useLocation();
+  const { reminders } = useData();
+
+  const hasTodayReminder = useMemo(() => {
+    if (!reminders) return false;
+    const start = getStartOfDay(new Date());
+    const end = start + 86400000 - 1;
+    return reminders.some((r) => projectReminderOccurrences(r, start, end).length > 0);
+  }, [reminders]);
 
   const keybinds = getKeybinds();
 
@@ -96,6 +115,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
     { path: '/steps', label: 'Steps', icon: ListTodo, keybindKey: 'navSteps' },
     { path: '/paths', label: 'Paths', icon: Target, keybindKey: 'navPaths' },
     { path: '/routines', label: 'Routines', icon: Zap, keybindKey: 'navRoutines' },
+    { path: '/reminders', label: 'Reminders', icon: Bell, keybindKey: 'navReminders' },
     { path: '/notes', label: 'Notes', icon: BookOpen, keybindKey: 'navNotes' },
     { path: '/analytics', label: 'Analytics', icon: BarChart3, keybindKey: 'navAnalytics' },
     { path: '/settings', label: 'Settings', icon: Settings, keybindKey: 'navSettings' },
@@ -138,7 +158,9 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
         <div className={`border-b border-border ${isCollapsed ? 'p-3' : 'p-6'}`}>
           {isCollapsed ? (
             <div className="flex items-center justify-center">
-              <span className="text-lg font-bold">V</span>
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary-light text-lg font-bold tracking-tight">
+                <span className="text-primary">V</span><span className="text-accent">S</span>
+              </span>
             </div>
           ) : (
             <>
@@ -177,6 +199,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
               active={isActive(item.path)}
               showActiveIndicator
               shortcut={item.keybindKey ? formatKeybindDisplay(keybinds[item.keybindKey]) : undefined}
+              dot={item.path === '/reminders' && hasTodayReminder}
               onClick={() => handleNavigate(item.path)}
             />
           ))}

@@ -4,11 +4,13 @@ export interface KeybindMap {
   quickCreate: string;
   quickCreateRoutine: string;
   quickCreatePath: string;
+  quickCreateReminder: string;
   toggleSidebar: string;
   navToday: string;
   navSteps: string;
   navPaths: string;
   navRoutines: string;
+  navReminders: string;
   navNotes: string;
   navAnalytics: string;
   navSettings: string;
@@ -18,25 +20,29 @@ export const DEFAULT_KEYBINDS: KeybindMap = {
   quickCreate: "n",
   quickCreateRoutine: "r",
   quickCreatePath: "p",
+  quickCreateReminder: "m",
   toggleSidebar: "meta+b",
   navToday: "1",
   navSteps: "2",
   navPaths: "3",
   navRoutines: "4",
-  navNotes: "5",
-  navAnalytics: "6",
-  navSettings: "7",
+  navReminders: "5",
+  navNotes: "6",
+  navAnalytics: "7",
+  navSettings: "8",
 };
 
 export const KEYBIND_LABELS: Record<keyof KeybindMap, string> = {
   quickCreate: "New Step",
   quickCreateRoutine: "New Routine",
   quickCreatePath: "New Path",
+  quickCreateReminder: "New Reminder",
   toggleSidebar: "Toggle Sidebar",
   navToday: "Go to Today",
   navSteps: "Go to Steps",
   navPaths: "Go to Paths",
   navRoutines: "Go to Routines",
+  navReminders: "Go to Reminders",
   navNotes: "Go to Notes",
   navAnalytics: "Go to Analytics",
   navSettings: "Go to Settings",

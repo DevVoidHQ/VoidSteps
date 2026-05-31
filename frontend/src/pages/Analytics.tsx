@@ -5,11 +5,11 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { CheckCircle2, Clock, TrendingUp, Flame } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  CartesianGrid, Legend,
+  CartesianGrid,
 } from 'recharts';
 import { useData } from '@/contexts/DataContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import type { Step, Routine } from '@/types';
+import type { Step } from '@/types';
 import {
   type RangeKey,
   getEffectiveTimeMs,
@@ -20,7 +20,7 @@ import {
 } from '@/lib/analytics-utils';
 
 // ---------------------------------------------------------------------------
-// Theme colour helper — re-resolves CSS variables when theme changes
+// Theme colour helper - re-resolves CSS variables when theme changes
 // ---------------------------------------------------------------------------
 function useChartColors() {
   const { theme } = useTheme();
@@ -56,9 +56,20 @@ const TIME_BY_PATH_TOP_N = 8;
 // Component
 // ---------------------------------------------------------------------------
 export default function Analytics() {
-  const { allSteps, routines, isLoading } = useData();
+  const { allSteps, isLoading } = useData();
   const [selectedRange, setSelectedRange] = useState<RangeKey>('30d');
   const colors = useChartColors();
+
+  // Solid, readable tooltip box. NOTE: only --background/--foreground/etc. exist
+  // as CSS vars here - `--card`/`--border` do not, so referencing them yields a
+  // transparent box (the old bug). Stick to the real variables.
+  const tooltipStyle = {
+    backgroundColor: 'hsl(var(--background))',
+    border: '1px solid hsl(var(--foreground) / 0.12)',
+    borderRadius: 8,
+    boxShadow: '0 6px 20px hsl(var(--foreground) / 0.15)',
+    padding: '8px 12px',
+  } as const;
 
   // ---- Range cutoff -------------------------------------------------------
   const rangeCutoff = useMemo(() => {
@@ -193,44 +204,7 @@ export default function Analytics() {
       .sort((a, b) => b.done - a.done);
   }, [allSteps, rangeCutoff]);
 
-  // ---- Section 5: Routine adherence ----------------------------------------
-  const routineData = useMemo(() => {
-    const routineSteps = completedInRange.filter((s) => s.routineId).length +
-      failedInRange.filter((s) => s.routineId).length;
-    const manualSteps = completedInRange.filter((s) => !s.routineId).length +
-      failedInRange.filter((s) => !s.routineId).length;
-    return { routineSteps, manualSteps };
-  }, [completedInRange, failedInRange]);
-
-  const perRoutineData = useMemo(() => {
-    const routineMap = new Map<string, { done: number; total: number }>();
-    const allInRange = [...completedInRange, ...failedInRange];
-    allInRange.forEach((s) => {
-      if (!s.routineId) return;
-      const entry = routineMap.get(s.routineId) ?? { done: 0, total: 0 };
-      entry.total++;
-      if (s.completed) entry.done++;
-      routineMap.set(s.routineId, entry);
-    });
-    return [...routineMap.entries()].map(([id, { done, total }]) => {
-      const routine = (routines ?? []).find((r: Routine) => r._id === id);
-      return {
-        name: routine?.title ?? 'Unknown routine',
-        done,
-        total,
-        rate: total > 0 ? Math.round((done / total) * 100) : 0,
-      };
-    }).sort((a, b) => b.total - a.total);
-  }, [completedInRange, failedInRange, routines]);
-
-  const stackedRoutineData = useMemo(() => {
-    return [
-      { label: 'Routine', completed: completedInRange.filter((s) => s.routineId).length, failed: failedInRange.filter((s) => s.routineId).length },
-      { label: 'Manual', completed: completedInRange.filter((s) => !s.routineId).length, failed: failedInRange.filter((s) => !s.routineId).length },
-    ];
-  }, [completedInRange, failedInRange]);
-
-  // ---- Section 6: Time log -------------------------------------------------
+  // ---- Section: Time log ---------------------------------------------------
   const TIME_LOG_CAP = 50;
   const timeLogData = useMemo(() => {
     return [...completedInRange]
@@ -298,8 +272,9 @@ export default function Analytics() {
               <XAxis dataKey="day" tick={{ fontSize: 12, fill: colors.mutedForeground }} interval="preserveStartEnd" />
               <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: colors.mutedForeground }} />
               <Tooltip
-                contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8 }}
-                labelStyle={{ color: colors.foreground }}
+                cursor={{ fill: 'hsl(var(--foreground) / 0.06)' }}
+                contentStyle={tooltipStyle}
+                labelStyle={{ color: colors.foreground, fontWeight: 600 }}
                 itemStyle={{ color: colors.primary }}
               />
               <Bar dataKey="completed" fill={colors.primary} radius={[4, 4, 0, 0]} />
@@ -317,8 +292,10 @@ export default function Analytics() {
               <XAxis dataKey="day" tick={{ fontSize: 12, fill: colors.mutedForeground }} interval="preserveStartEnd" />
               <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: colors.mutedForeground }} unit="h" />
               <Tooltip
-                contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8 }}
-                labelStyle={{ color: colors.foreground }}
+                cursor={{ fill: 'hsl(var(--foreground) / 0.06)' }}
+                contentStyle={tooltipStyle}
+                labelStyle={{ color: colors.foreground, fontWeight: 600 }}
+                itemStyle={{ color: colors.accent }}
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 formatter={(_v: any, _n: any, props: any) => [formatDurationHM(props.payload.ms), 'Time']}
               />
@@ -328,105 +305,61 @@ export default function Analytics() {
         </div>
       </Section>
 
-      {/* Section 3: Time Tracking by Path */}
-      {timeByPathData.length > 0 && (
-        <Section title="Time Tracking by Path" subtitle="Steps without tracked time counted as 15 min">
-          <div className="space-y-2">
-            {timeByPathData.map((row, i) => (
-              <div key={row.name} className="space-y-1">
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="w-5 text-right text-muted-foreground text-xs shrink-0">{i + 1}</span>
-                  <span className="font-medium truncate min-w-0 flex-1">{row.name}</span>
-                  <span className="text-muted-foreground whitespace-nowrap shrink-0">{formatDurationHM(row.ms)}</span>
-                </div>
-                <div className="ml-7 h-2 rounded-full bg-muted overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-accent transition-all"
-                    style={{
-                      width: `${row.percent}%`,
-                      opacity: 1 - (i / timeByPathData.length) * 0.6,
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </Section>
-      )}
-
-      {/* Section 4: Path Breakdown */}
-      {pathBreakdown.length > 0 && (
-        <Section title="Path Breakdown">
-          <div className="space-y-3">
-            {pathBreakdown.map((row) => (
-              <div key={row.name} className="space-y-1">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium truncate mr-4">{row.name}</span>
-                  <span className="text-muted-foreground whitespace-nowrap">
-                    {row.done}/{row.total}
-                    <span className={`ml-2 font-medium ${rateColor(row.rate)}`}>{row.rate}%</span>
-                  </span>
-                </div>
-                <div className="h-2 rounded-full bg-muted overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-accent transition-all"
-                    style={{ width: `${row.rate}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </Section>
-      )}
-
-      {/* Section 5: Routine Adherence */}
-      {(routineData.routineSteps > 0 || routineData.manualSteps > 0) && (
-        <Section title="Routine Adherence">
-          <div className="space-y-6">
-            {/* Stacked bar */}
-            <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stackedRoutineData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={colors.muted + '33'} />
-                  <XAxis dataKey="label" tick={{ fontSize: 12, fill: colors.mutedForeground }} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: colors.mutedForeground }} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8 }}
-                    labelStyle={{ color: colors.foreground }}
-                  />
-                  <Legend />
-                  <Bar dataKey="completed" stackId="a" fill={colors.primary} radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="failed" stackId="a" fill={colors.destructive} radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Per-routine progress bars */}
-            {perRoutineData.length > 0 && (
-              <div className="space-y-3">
-                <h3 className="text-sm font-medium text-muted-foreground">Per Routine</h3>
-                {perRoutineData.map((r) => (
-                  <div key={r.name} className="space-y-1">
-                    <div className="flex items-center justify-between text-sm">
-                      <span>{r.name}</span>
-                      <span className={`font-medium ${rateColor(r.rate)}`}>
-                        {r.done}/{r.total} ({r.rate}%)
-                      </span>
+      {/* Time Tracking by Path + Path Breakdown - side by side */}
+      {(timeByPathData.length > 0 || pathBreakdown.length > 0) && (
+        <div className="grid items-start gap-8 md:grid-cols-2">
+          {timeByPathData.length > 0 && (
+            <Section title="Time Tracking by Path" subtitle="Steps without tracked time counted as 15 min">
+              <div className="space-y-2">
+                {timeByPathData.map((row, i) => (
+                  <div key={row.name} className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="w-5 text-right text-muted-foreground text-xs shrink-0">{i + 1}</span>
+                      <span className="font-medium truncate min-w-0 flex-1">{row.name}</span>
+                      <span className="text-muted-foreground whitespace-nowrap shrink-0">{formatDurationHM(row.ms)}</span>
                     </div>
-                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div className="ml-7 h-2 rounded-full bg-muted overflow-hidden">
                       <div
                         className="h-full rounded-full bg-accent transition-all"
-                        style={{ width: `${r.rate}%` }}
+                        style={{
+                          width: `${row.percent}%`,
+                          opacity: 1 - (i / timeByPathData.length) * 0.6,
+                        }}
                       />
                     </div>
                   </div>
                 ))}
               </div>
-            )}
-          </div>
-        </Section>
+            </Section>
+          )}
+
+          {pathBreakdown.length > 0 && (
+            <Section title="Path Breakdown">
+              <div className="space-y-3">
+                {pathBreakdown.map((row) => (
+                  <div key={row.name} className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium truncate mr-4">{row.name}</span>
+                      <span className="text-muted-foreground whitespace-nowrap">
+                        {row.done}/{row.total}
+                        <span className={`ml-2 font-medium ${rateColor(row.rate)}`}>{row.rate}%</span>
+                      </span>
+                    </div>
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-accent transition-all"
+                        style={{ width: `${row.rate}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Section>
+          )}
+        </div>
       )}
-      {/* Section 6: Time Log */}
+
+      {/* Section: Time Log */}
       {timeLogData.length > 0 && (
         <Section title="Time Log" subtitle="Individual completed tasks, most recent first">
           <div className="overflow-x-auto">

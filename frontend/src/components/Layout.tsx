@@ -6,6 +6,8 @@ import FailedSyncReviewDialog from "./FailedSyncReviewDialog";
 import QuickCreateDialog from "./QuickCreateDialog";
 import QuickCreateRoutineDialog from "./QuickCreateRoutineDialog";
 import QuickCreatePathDialog from "./QuickCreatePathDialog";
+import QuickCreateReminderDialog from "./QuickCreateReminderDialog";
+import GlobalTimerBar from "./GlobalTimerBar";
 import { Button } from "@/components/ui/Button";
 import { Menu } from "lucide-react";
 import { useOffline } from "@/contexts/OfflineContext";
@@ -36,6 +38,7 @@ export default function Layout({
   const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
   const [isQuickCreateRoutineOpen, setIsQuickCreateRoutineOpen] = useState(false);
   const [isQuickCreatePathOpen, setIsQuickCreatePathOpen] = useState(false);
+  const [isQuickCreateReminderOpen, setIsQuickCreateReminderOpen] = useState(false);
   const { isOnline, pendingSyncCount, failedSyncCount } = useOffline();
 
   const toggleCollapse = useCallback(() => {
@@ -55,10 +58,12 @@ export default function Layout({
     onQuickAdd: () => setIsQuickCreateOpen(true),
     onQuickAddRoutine: () => setIsQuickCreateRoutineOpen(true),
     onQuickAddPath: () => setIsQuickCreatePathOpen(true),
+    onQuickAddReminder: () => setIsQuickCreateReminderOpen(true),
     onEscape: () => {
       if (isQuickCreateOpen) setIsQuickCreateOpen(false);
       else if (isQuickCreateRoutineOpen) setIsQuickCreateRoutineOpen(false);
       else if (isQuickCreatePathOpen) setIsQuickCreatePathOpen(false);
+      else if (isQuickCreateReminderOpen) setIsQuickCreateReminderOpen(false);
     },
   });
 
@@ -100,6 +105,9 @@ export default function Layout({
         </div>
       )}
 
+      {/* Global running-timer bar (central, persists across pages) */}
+      <GlobalTimerBar />
+
       {/* Sidebar */}
       <Sidebar
         isOpen={isMobileMenuOpen}
@@ -135,6 +143,7 @@ export default function Layout({
       <QuickCreateDialog open={isQuickCreateOpen} onOpenChange={setIsQuickCreateOpen} />
       <QuickCreateRoutineDialog open={isQuickCreateRoutineOpen} onOpenChange={setIsQuickCreateRoutineOpen} />
       <QuickCreatePathDialog open={isQuickCreatePathOpen} onOpenChange={setIsQuickCreatePathOpen} />
+      <QuickCreateReminderDialog open={isQuickCreateReminderOpen} onOpenChange={setIsQuickCreateReminderOpen} />
     </div>
   );
 }

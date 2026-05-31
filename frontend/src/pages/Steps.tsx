@@ -1,12 +1,19 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import type { Step } from "@/types/index";
+import { useSearchHotkey } from "@/hooks/useSearchHotkey";
+import { useStepsClickAction } from "@/lib/preferences";
+
+// Shared with the Today view so the path filter stays in sync across both.
+const STEPS_PATH_FILTER_KEY = "voidsteps-path-filter";
 import {
   useUpdateStep,
   useDeleteStep,
   useToggleStepCompletion,
   useToggleStepFailed,
   useReorderSteps,
-  useUpdateStepParent,
+  useStartTimer,
+  useStopTimer,
+  useSetTotalTime,
 } from "@/lib/local-mutations";
 import { useData } from "@/contexts/DataContext";
 import { reportError } from "@/lib/error-store";
@@ -37,6 +44,7 @@ export default function Steps() {
     allSteps,
     failedSteps,
     upcomingSteps,
+    activeTimerStepId,
   } = useData();
 
   // Mutations
@@ -45,7 +53,28 @@ export default function Steps() {
   const toggleStepMutation = useToggleStepCompletion();
   const toggleFailedMutation = useToggleStepFailed();
   const reorderStepsMutation = useReorderSteps();
-  const updateStepParentMutation = useUpdateStepParent();
+  const startTimerMutation = useStartTimer();
+  const stopTimerMutation = useStopTimer();
+  const setTotalTimeMutation = useSetTotalTime();
+
+  const toggleTimer = useCallback(async (id: string) => {
+    try {
+      if (activeTimerStepId === id) {
+        await stopTimerMutation({ id });
+      } else {
+        if (activeTimerStepId) await stopTimerMutation({ id: activeTimerStepId });
+        await startTimerMutation({ id });
+      }
+    } catch (error) {
+      reportError('mutation', error, { action: 'toggleTimer', stepId: id });
+      toast.error("Failed to toggle timer");
+    }
+  }, [activeTimerStepId, startTimerMutation, stopTimerMutation, toast]);
+
+  const setTotalTime = useCallback(async (id: string, totalTimeMs: number) => {
+    try { await setTotalTimeMutation({ id, totalTimeSpentMs: totalTimeMs }); }
+    catch (error) { reportError('mutation', error, { action: 'setTotalTime', stepId: id }); toast.error("Failed to set time"); }
+  }, [setTotalTimeMutation, toast]);
 
   // UI state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -53,10 +82,31 @@ export default function Steps() {
   const [showFailedSteps, setShowFailedSteps] = useState(false);
   const [showUpcomingSteps, setShowUpcomingSteps] = useState(true);
   const [searchQuerySteps, setSearchQuerySteps] = useState("");
-  const [selectedPathFilterSteps, setSelectedPathFilterSteps] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+  useSearchHotkey(searchRef);
+  const stepsClickAction = useStepsClickAction();
+  const [selectedPathFilterSteps, setSelectedPathFilterSteps] = useState<string>(() => {
+    try { return localStorage.getItem(STEPS_PATH_FILTER_KEY) || ""; } catch { return ""; }
+  });
+
+  // Persist the path filter so it stays locked in until changed/cleared.
+  useEffect(() => {
+    try {
+      if (selectedPathFilterSteps) localStorage.setItem(STEPS_PATH_FILTER_KEY, selectedPathFilterSteps);
+      else localStorage.removeItem(STEPS_PATH_FILTER_KEY);
+    } catch { /* ignore */ }
+  }, [selectedPathFilterSteps]);
 
   // Memoize paths for stable reference
   const memoizedPaths = useMemo(() => activePaths || [], [activePaths]);
+
+  // Drop a stale filter if its path no longer exists (e.g. deleted).
+  useEffect(() => {
+    if (selectedPathFilterSteps && memoizedPaths.length > 0 &&
+        !memoizedPaths.some((p) => p._id === selectedPathFilterSteps)) {
+      setSelectedPathFilterSteps("");
+    }
+  }, [selectedPathFilterSteps, memoizedPaths]);
 
   const descendantPathIds = useMemo(
     () => getDescendantPathIds(selectedPathFilterSteps, memoizedPaths),
@@ -186,29 +236,14 @@ export default function Steps() {
     }
   }, [deleteStepMutation, toast]);
 
-  const handleReorder = useCallback(async (stepIds: string[], parentId?: string) => {
+  const handleReorder = useCallback(async (stepIds: string[]) => {
     try {
-      await reorderStepsMutation({
-        stepIds,
-        parentId,
-      });
+      await reorderStepsMutation({ stepIds });
     } catch (error) {
       reportError('mutation', error, { action: 'reorderSteps' });
       toast.error("Failed to reorder steps");
     }
   }, [reorderStepsMutation, toast]);
-
-  const handleUpdateParent = useCallback(async (stepId: string, newParentId: string | undefined) => {
-    try {
-      await updateStepParentMutation({
-        id: stepId,
-        parentId: newParentId,
-      });
-    } catch (error) {
-      reportError('mutation', error, { action: 'updateStepParent', stepId });
-      toast.error("Failed to update step parent");
-    }
-  }, [updateStepParentMutation, toast]);
 
   const updateStep = useCallback(async (id: string, updates: Partial<Step>) => {
     try {
@@ -256,6 +291,7 @@ export default function Steps() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
+            ref={searchRef}
             placeholder="Search steps..."
             value={searchQuerySteps}
             onChange={(e) => setSearchQuerySteps(e.target.value)}
@@ -274,7 +310,7 @@ export default function Steps() {
 
       {/* Due Steps - Pinned at top */}
       {dueSteps.length > 0 && (
-        <div className="space-y-3 p-4 -mx-4 bg-accent/5 border-y border-accent/20">
+        <div className="space-y-3">
           <h2 className="text-lg font-semibold flex items-center space-x-2 text-accent">
             <Calendar className="w-5 h-5" />
             <span>Due ({dueSteps.length})</span>
@@ -291,6 +327,10 @@ export default function Steps() {
                 onDelete={deleteStep}
                 onTogglePriority={togglePriority}
                 onSaveEdit={updateStep}
+                onToggleTimer={toggleTimer}
+                activeTimerStepId={activeTimerStepId}
+                onSetTotalTime={setTotalTime}
+                clickAction={stepsClickAction}
               />
             ))}
           </div>
@@ -314,7 +354,10 @@ export default function Steps() {
             onDelete={deleteStep}
             onTogglePriority={togglePriority}
             onSaveEdit={updateStep}
-            onUpdateParent={handleUpdateParent}
+            onToggleTimer={toggleTimer}
+            activeTimerStepId={activeTimerStepId}
+            onSetTotalTime={setTotalTime}
+            clickAction={stepsClickAction}
           />
         </div>
       )}
@@ -333,7 +376,10 @@ export default function Steps() {
             onDelete={deleteStep}
             onTogglePriority={togglePriority}
             onSaveEdit={updateStep}
-            onUpdateParent={handleUpdateParent}
+            onToggleTimer={toggleTimer}
+            activeTimerStepId={activeTimerStepId}
+            onSetTotalTime={setTotalTime}
+            clickAction={stepsClickAction}
           />
         </div>
       )}
@@ -379,6 +425,10 @@ export default function Steps() {
                   onDelete={deleteStep}
                   onTogglePriority={togglePriority}
                   onSaveEdit={updateStep}
+                onToggleTimer={toggleTimer}
+                activeTimerStepId={activeTimerStepId}
+                onSetTotalTime={setTotalTime}
+                clickAction={stepsClickAction}
                   showStartDateBadge
                 />
               ))}
@@ -425,6 +475,10 @@ export default function Steps() {
                 onDelete={deleteStep}
                 onTogglePriority={togglePriority}
                 onSaveEdit={updateStep}
+                onToggleTimer={toggleTimer}
+                activeTimerStepId={activeTimerStepId}
+                onSetTotalTime={setTotalTime}
+                clickAction={stepsClickAction}
               />
             ))}
           </div>
@@ -449,6 +503,10 @@ export default function Steps() {
                 onDelete={deleteStep}
                 onTogglePriority={togglePriority}
                 onSaveEdit={updateStep}
+                onToggleTimer={toggleTimer}
+                activeTimerStepId={activeTimerStepId}
+                onSetTotalTime={setTotalTime}
+                clickAction={stepsClickAction}
               />
             ))}
           </div>

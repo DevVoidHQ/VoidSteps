@@ -1,4 +1,4 @@
-import { useState, useCallback, memo } from "react";
+import { useState, useCallback, useRef, useEffect, memo } from "react";
 import type { Step, Path } from "@/types/index";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -22,8 +22,6 @@ import {
   Target,
   Pencil,
   XCircle,
-  ChevronRight,
-  ChevronDown,
   Clock,
   Calendar,
   Play,
@@ -31,6 +29,7 @@ import {
   Timer,
   Trash2,
   Repeat,
+  MoreHorizontal,
 } from "lucide-react";
 import { useElapsedTime, formatDuration } from "@/hooks/useTimer";
 import { TimeEditDialog } from "@/components/TimeEditDialog";
@@ -43,6 +42,8 @@ import {
 } from "@/lib/date-utils";
 import { HierarchicalPathSelector } from "@/components/HierarchicalPathSelector";
 import { MAX_TITLE_LENGTH, MAX_DESCRIPTION_LENGTH } from "@/lib/local-mutations";
+import { useDeferDatesMode, useDueDatesMode, useStepActions, STEP_ACTION_ORDER, type StepActionKey, type StepClickAction } from "@/lib/preferences";
+import type { ReactNode } from "react";
 
 export interface StepCardProps {
   step: Step;
@@ -53,19 +54,14 @@ export interface StepCardProps {
   onDelete: (id: string) => void;
   onTogglePriority: (id: string, current: boolean) => void;
   onSaveEdit: (id: string, updates: Partial<Step>) => void;
-  // Hierarchy props
-  depth?: number;
-  hasChildren?: boolean;
-  isExpanded?: boolean;
-  childProgress?: { completed: number; total: number };
-  onToggleExpand?: (id: string) => void;
-  isDropTarget?: boolean;
   // Date display context
   showStartDateBadge?: boolean;
   // Timer props
   onToggleTimer?: (id: string) => void;
   activeTimerStepId?: string | null;
   onSetTotalTime?: (id: string, totalTimeMs: number) => void;
+  // What clicking the step's title/body does (page-configurable). Undefined = no-op.
+  clickAction?: StepClickAction;
 }
 
 function StepCardComponent({
@@ -76,18 +72,16 @@ function StepCardComponent({
   onDelete,
   onTogglePriority,
   onSaveEdit,
-  depth = 0,
-  hasChildren = false,
-  isExpanded = false,
-  childProgress,
-  onToggleExpand,
-  isDropTarget = false,
   showStartDateBadge = false,
   onToggleTimer,
   activeTimerStepId,
   onSetTotalTime,
+  clickAction,
 }: StepCardProps) {
   const { success } = useToast();
+  const deferEnabled = useDeferDatesMode() !== "off";
+  const dueEnabled = useDueDatesMode() !== "off";
+  const actionCfg = useStepActions();
 
   // Local edit state - changes here don't re-render other cards
   const [isEditing, setIsEditing] = useState(false);
@@ -104,6 +98,40 @@ function StepCardComponent({
 
   // Time edit dialog state
   const [showTimeEdit, setShowTimeEdit] = useState(false);
+
+  // "More" menu state for compact-mode actions
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Two-click confirm for destructive-ish actions (marking a step failed), so a
+  // single stray click can't fail a task. Auto-disarms after a few seconds.
+  const [confirmAction, setConfirmAction] = useState<StepActionKey | null>(null);
+  const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const resetConfirm = useCallback(() => {
+    if (confirmTimer.current) {
+      clearTimeout(confirmTimer.current);
+      confirmTimer.current = null;
+    }
+    setConfirmAction(null);
+  }, []);
+  const armConfirm = useCallback((key: StepActionKey) => {
+    setConfirmAction(key);
+    if (confirmTimer.current) clearTimeout(confirmTimer.current);
+    confirmTimer.current = setTimeout(() => setConfirmAction(null), 3000);
+  }, []);
+  useEffect(() => () => { if (confirmTimer.current) clearTimeout(confirmTimer.current); }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+        resetConfirm();
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen, resetConfirm]);
 
   const handleStartEdit = useCallback(() => {
     setIsEditing(true);
@@ -162,31 +190,95 @@ function StepCardComponent({
   const cardClasses = [
     "group hover:bg-muted/30 transition-all",
     step.failed === true ? "border-destructive/50" : "",
-    isDropTarget ? "ring-2 ring-accent ring-offset-2 ring-offset-background" : "",
   ].filter(Boolean).join(" ");
+
+  // Per-action descriptors. Each action is placed inline ("open") or inside the
+  // "more" menu ("compact") per the user's Settings, independently.
+  type ActionDesc = { key: StepActionKey; available: boolean; label: string; icon: ReactNode; onClick: () => void; confirm?: boolean };
+  const descriptors: ActionDesc[] = [
+    {
+      key: "failed",
+      available: !!onToggleFailed,
+      // Confirm only when marking failed; unmarking is harmless.
+      confirm: !step.failed,
+      label: step.failed ? "Unmark failed" : "Mark failed",
+      icon: (
+        <XCircle
+          className={`w-4 h-4 ${step.failed === true ? "fill-destructive text-destructive" : "text-muted-foreground"}`}
+        />
+      ),
+      onClick: () => onToggleFailed?.(step._id),
+    },
+    {
+      key: "timer",
+      available: !!onToggleTimer && !step.completed,
+      label: isTimerActive ? "Stop timer" : "Start timer",
+      icon: isTimerActive ? <Pause className="w-4 h-4 text-primary" /> : <Play className="w-4 h-4" />,
+      onClick: () => onToggleTimer?.(step._id),
+    },
+    {
+      key: "priority",
+      available: true,
+      label: step.prioritizedToday ? "Remove priority" : "Prioritize",
+      icon: (
+        <Star
+          className={`w-4 h-4 ${step.prioritizedToday ? "fill-primary text-primary" : "text-muted-foreground"}`}
+        />
+      ),
+      onClick: () => onTogglePriority(step._id, step.prioritizedToday),
+    },
+    {
+      key: "time",
+      available: !!onSetTotalTime && !step.completed,
+      label: "Edit time",
+      icon: <Clock className="w-4 h-4" />,
+      onClick: () => setShowTimeEdit(true),
+    },
+    {
+      key: "edit",
+      available: true,
+      label: "Edit step",
+      icon: <Pencil className="w-4 h-4" />,
+      onClick: handleStartEdit,
+    },
+    {
+      key: "delete",
+      available: true,
+      label: "Delete step",
+      icon: <Trash2 className="w-4 h-4" />,
+      onClick: () => setShowDeleteConfirm(true),
+    },
+  ];
+  const ordered = STEP_ACTION_ORDER.map((k) => descriptors.find((d) => d.key === k)!).filter((d) => d.available);
+  const inlineActions = ordered.filter((d) => actionCfg[d.key] === "open");
+  const menuActions = ordered.filter((d) => actionCfg[d.key] === "compact");
+
+  // First click on a confirm action arms it; second click runs it. Other clicks
+  // run immediately and disarm any pending confirm.
+  const runAction = (d: ActionDesc, fromMenu: boolean) => {
+    if (d.confirm && confirmAction !== d.key) {
+      armConfirm(d.key);
+      return; // keep the menu open so the second click is reachable
+    }
+    resetConfirm();
+    if (fromMenu) setMenuOpen(false);
+    d.onClick();
+  };
+
+  // Clicking the step body runs the page-configured action.
+  const handleStepClick = clickAction
+    ? () => {
+        if (clickAction === "prioritize") onTogglePriority(step._id, step.prioritizedToday);
+        else if (clickAction === "play") { if (onToggleTimer && !step.completed) onToggleTimer(step._id); }
+        else if (clickAction === "complete") onToggle(step._id);
+      }
+    : undefined;
 
   return (
     <>
       <Card className={cardClasses}>
         <CardContent className="p-3">
           <div className="flex items-center space-x-3">
-            {/* Left: Expand button */}
-            {hasChildren ? (
-              <button
-                onClick={() => onToggleExpand?.(step._id)}
-                className="flex-shrink-0 p-0.5 hover:bg-muted rounded"
-              >
-                {isExpanded ? (
-                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                ) : (
-                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                )}
-              </button>
-            ) : (
-              // Spacer for alignment when no children
-              depth === 0 && <div className="w-5 flex-shrink-0" />
-            )}
-
             {/* Checkbox - larger, vertically centered */}
             <button
               onClick={() => onToggle(step._id)}
@@ -206,9 +298,13 @@ function StepCardComponent({
               </div>
             </button>
 
-            {/* Middle: Content area (title + description + path) */}
-            <div className="flex-1 min-w-0">
-              {/* Row 1: Title + progress */}
+            {/* Middle: Content area (title + description + path). Clicking it
+                runs the page-configured action (prioritize / play / complete). */}
+            <div
+              className={`flex-1 min-w-0 ${handleStepClick ? "cursor-pointer select-none" : ""}`}
+              onClick={handleStepClick}
+            >
+              {/* Row 1: Title */}
               <div className="flex items-center space-x-2">
                 <span
                   className={`font-medium ${
@@ -221,12 +317,6 @@ function StepCardComponent({
                 >
                   {step.title}
                 </span>
-                {/* Progress indicator for collapsed parents */}
-                {hasChildren && !isExpanded && childProgress && childProgress.total > 0 && (
-                  <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                    {childProgress.completed}/{childProgress.total}
-                  </span>
-                )}
               </div>
 
               {/* Row 2: Description (if any) */}
@@ -236,7 +326,7 @@ function StepCardComponent({
                 </p>
               )}
 
-              {/* Badges row — all metadata tags in one wrapping line */}
+              {/* Badges row - all metadata tags in one wrapping line */}
               {(step.pathId || step.path || step.routineId || (!step.completed && (step.dueDate || (showStartDateBadge && step.startDate) || (onToggleTimer && (isTimerActive || (step.totalTimeSpentMs && step.totalTimeSpentMs > 0)))))) && (
                 <div className="flex flex-wrap items-center gap-1.5 mt-1">
                   {/* Path badge */}
@@ -273,7 +363,7 @@ function StepCardComponent({
                       {formatRelativeDate(step.startDate, true)}
                     </Badge>
                   )}
-                  {/* Timer badge — clickable to open time edit dialog */}
+                  {/* Timer badge - clickable to open time edit dialog */}
                   {!step.completed && onToggleTimer && (isTimerActive || (step.totalTimeSpentMs && step.totalTimeSpentMs > 0)) && (
                     onSetTotalTime ? (
                       <button
@@ -295,78 +385,61 @@ function StepCardComponent({
               )}
             </div>
 
-            {/* Right: Action buttons - vertically centered, visible on hover */}
-            <div className="flex items-center space-x-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-              {/* Clock icon for manual time entry */}
-              {onSetTotalTime && !step.completed && (
-                <IconButton
-                  icon={<Clock className="w-4 h-4" />}
-                  aria-label="Edit time"
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => setShowTimeEdit(true)}
-                />
-              )}
-              {/* Timer button */}
-              {onToggleTimer && !step.completed && (
-                <IconButton
-                  icon={isTimerActive ? <Pause className="w-4 h-4 text-primary" /> : <Play className="w-4 h-4" />}
-                  aria-label={isTimerActive ? "Stop timer" : "Start timer"}
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => onToggleTimer(step._id)}
-                />
-              )}
-              {/* Failed toggle button */}
-              {onToggleFailed && (
-                <IconButton
-                  icon={
-                    <XCircle
-                      className={`w-4 h-4 ${
-                        step.failed === true
-                          ? "fill-destructive text-destructive"
-                          : "text-muted-foreground"
-                      }`}
-                    />
-                  }
-                  aria-label={step.failed ? "Unmark failed" : "Mark failed"}
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => onToggleFailed(step._id)}
-                />
-              )}
-              {/* Priority toggle button */}
-              <IconButton
-                icon={
-                  <Star
-                    className={`w-4 h-4 ${
-                      step.prioritizedToday
-                        ? "fill-primary text-primary"
-                        : "text-muted-foreground"
-                    }`}
+            {/* Right: Action buttons. Each action is inline or in the "more"
+                menu per Settings, independently. */}
+            <div className="flex items-center space-x-1 flex-shrink-0">
+              {inlineActions.map((d) => {
+                const armed = confirmAction === d.key;
+                return (
+                  <IconButton
+                    key={d.key}
+                    icon={
+                      armed ? (
+                        <XCircle className="w-4 h-4 fill-destructive text-destructive" />
+                      ) : (
+                        d.icon
+                      )
+                    }
+                    aria-label={armed ? "Click again to mark failed" : d.label}
+                    title={armed ? "Click again to mark failed" : undefined}
+                    variant="ghost"
+                    size="icon-sm"
+                    className={armed ? "ring-1 ring-destructive" : undefined}
+                    onClick={() => runAction(d, false)}
                   />
-                }
-                aria-label={step.prioritizedToday ? "Remove priority" : "Prioritize"}
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => onTogglePriority(step._id, step.prioritizedToday)}
-              />
-              {/* Edit button */}
-              <IconButton
-                icon={<Pencil className="w-4 h-4" />}
-                aria-label="Edit step"
-                variant="ghost"
-                size="icon-sm"
-                onClick={handleStartEdit}
-              />
-              {/* Delete button */}
-              <IconButton
-                icon={<Trash2 className="w-4 h-4" />}
-                aria-label="Delete step"
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setShowDeleteConfirm(true)}
-              />
+                );
+              })}
+
+              {menuActions.length > 0 && (
+                <div className="relative" ref={menuRef}>
+                  <IconButton
+                    icon={<MoreHorizontal className="w-4 h-4 text-muted-foreground" />}
+                    aria-label="More actions"
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => setMenuOpen((o) => !o)}
+                  />
+                  {menuOpen && (
+                    <div className="absolute right-0 top-full z-50 mt-1 min-w-[10rem] rounded-lg border border-border bg-card py-1 shadow-lg">
+                      {menuActions.map((d) => {
+                        const armed = confirmAction === d.key;
+                        return (
+                          <button
+                            key={d.key}
+                            onClick={() => runAction(d, true)}
+                            className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-sm outline-none transition-colors focus-visible:bg-muted ${
+                              armed ? "text-destructive hover:bg-destructive/10" : "text-foreground hover:bg-muted"
+                            }`}
+                          >
+                            <span className="flex h-4 w-4 items-center justify-center">{d.icon}</span>
+                            {armed ? "Click again to fail" : d.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
@@ -398,20 +471,26 @@ function StepCardComponent({
               placeholder="No Path"
               allowEmpty={true}
             />
-            <div className="flex gap-2">
-              <DatePicker
-                label="Due Date"
-                value={editForm.dueDate}
-                onChange={(val) => handleEditFormChange({ dueDate: val })}
-                className="flex-1"
-              />
-              <DatePicker
-                label="Start Date"
-                value={editForm.startDate}
-                onChange={(val) => handleEditFormChange({ startDate: val })}
-                className="flex-1"
-              />
-            </div>
+            {(dueEnabled || step.dueDate || deferEnabled || step.startDate) && (
+              <div className="flex gap-2">
+                {(dueEnabled || step.dueDate) && (
+                  <DatePicker
+                    label="Due Date"
+                    value={editForm.dueDate}
+                    onChange={(val) => handleEditFormChange({ dueDate: val })}
+                    className="flex-1"
+                  />
+                )}
+                {(deferEnabled || step.startDate) && (
+                  <DatePicker
+                    label="Defer until"
+                    value={editForm.startDate}
+                    onChange={(val) => handleEditFormChange({ startDate: val })}
+                    className="flex-1"
+                  />
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={handleCancelEdit}>Cancel</Button>
@@ -468,18 +547,11 @@ export const StepCard = memo(StepCardComponent, (prevProps, nextProps) => {
     prevProps.onDelete === nextProps.onDelete &&
     prevProps.onTogglePriority === nextProps.onTogglePriority &&
     prevProps.onSaveEdit === nextProps.onSaveEdit &&
-    // Hierarchy props
-    prevProps.depth === nextProps.depth &&
-    prevProps.hasChildren === nextProps.hasChildren &&
-    prevProps.isExpanded === nextProps.isExpanded &&
-    prevProps.childProgress?.completed === nextProps.childProgress?.completed &&
-    prevProps.childProgress?.total === nextProps.childProgress?.total &&
-    prevProps.onToggleExpand === nextProps.onToggleExpand &&
-    prevProps.isDropTarget === nextProps.isDropTarget &&
     prevProps.showStartDateBadge === nextProps.showStartDateBadge &&
     // Timer props
     prevProps.onToggleTimer === nextProps.onToggleTimer &&
     prevProps.activeTimerStepId === nextProps.activeTimerStepId &&
-    prevProps.onSetTotalTime === nextProps.onSetTotalTime
+    prevProps.onSetTotalTime === nextProps.onSetTotalTime &&
+    prevProps.clickAction === nextProps.clickAction
   );
 });

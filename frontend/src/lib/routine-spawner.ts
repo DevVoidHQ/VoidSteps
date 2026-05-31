@@ -95,7 +95,6 @@ async function spawnDueRoutines() {
         completed: false,
         failed: false,
         pathId: routine.pathId,
-        parentId: undefined,
         routineId: routine._id,
         prioritizedToday: routine.autoPrioritize ?? false,
         sortOrder: now,

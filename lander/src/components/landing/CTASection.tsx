@@ -1,65 +1,27 @@
-import { useRef } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
-import { Button } from "@/components/ui/Button";
+import Reveal from "./Reveal";
+
+const APP_URL = "https://app.voidsteps.com/login";
 
 export default function CTASection() {
-  const ref = useRef<HTMLElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start end", "center center"],
-  });
-
-  const textScale = useTransform(scrollYProgress, [0, 1], [0.92, 1]);
-  const textOpacity = useTransform(scrollYProgress, [0, 0.6, 1], [0, 0.5, 1]);
-  const glowScale = useTransform(scrollYProgress, [0, 1], [0.3, 1.5]);
-  const glowOpacity = useTransform(scrollYProgress, [0, 0.5, 1], [0, 0.3, 0.8]);
-
   return (
-    <section
-      ref={ref}
-      className="min-h-screen flex items-center justify-center px-6 text-center relative overflow-hidden snap-section"
-    >
-      <div className="absolute inset-0 dot-pattern opacity-30 pointer-events-none" />
-
-      <motion.div
-        className="absolute inset-0 flex items-center justify-center pointer-events-none"
-        style={{ scale: glowScale, opacity: glowOpacity, willChange: "transform" }}
-      >
-        <div
-          className="w-[600px] h-[400px] rounded-full blur-3xl"
-          style={{
-            background: "radial-gradient(circle, hsl(var(--accent) / 0.12), hsl(var(--primary) / 0.08))",
-          }}
-        />
-      </motion.div>
-
-      <motion.div
-        className="relative z-10"
-        style={{ scale: textScale, opacity: textOpacity }}
-      >
-        <h2 className="text-3xl md:text-4xl font-bold mb-4">
-          Ready to take your{" "}
-          <span className="gradient-shimmer">first step?</span>
-        </h2>
-        <p className="text-lg md:text-xl text-muted-foreground mb-3 max-w-lg mx-auto">
-          Join the beta and start building your paths today.
-        </p>
-        <p className="text-sm text-muted-foreground/60 mb-10">
-          Free during beta. No credit card required.
-        </p>
-        <a href="https://app.voidsteps.com/login">
-          <motion.div
-            className="inline-block"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.98 }}
-            transition={{ type: "spring", stiffness: 400, damping: 15 }}
+    <section className="px-6 pb-28">
+      <div className="dot-grid relative mx-auto max-w-5xl overflow-hidden rounded-3xl border border-foreground/10 bg-accent-light px-8 py-20 text-center md:py-24">
+        <Reveal>
+          <h2 className="mx-auto max-w-2xl text-3xl font-bold leading-tight md:text-[2.75rem]">
+            Take the first step today.
+          </h2>
+          <p className="mx-auto mt-4 max-w-md text-lg text-foreground/55">
+            Your goals, one clear path at a time. Free to start, no account, no
+            credit card.
+          </p>
+          <a
+            href={APP_URL}
+            className="mt-8 inline-flex items-center justify-center rounded-lg bg-primary px-8 py-3.5 text-base font-semibold text-primary-foreground transition-all hover:bg-primary/90 hover:-translate-y-0.5 active:translate-y-0"
           >
-            <Button size="xl" className="btn-glow">
-              Get Started
-            </Button>
-          </motion.div>
-        </a>
-      </motion.div>
+            Start free
+          </a>
+        </Reveal>
+      </div>
     </section>
   );
 }

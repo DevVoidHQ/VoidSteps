@@ -1,4 +1,4 @@
-import type { Routine } from '@/types';
+import type { Routine, Reminder } from '@/types';
 
 // --- Date arithmetic ---
 
@@ -170,4 +170,58 @@ function findFirstOccurrenceInRange(
   }
 
   return d;
+}
+
+/**
+ * Projects reminder occurrences within a date range.
+ * - once: the single date (if in range)
+ * - yearly: month + day, once per year in range (day clamped to month length)
+ * - monthly: day of every month in range (clamped to month length)
+ */
+export function projectReminderOccurrences(
+  reminder: Reminder,
+  rangeStart: number,
+  rangeEnd: number
+): number[] {
+  const out: number[] = [];
+  const { recurrence, date, month, day } = reminder;
+
+  if (recurrence === 'once') {
+    if (date != null) {
+      const ts = getStartOfDay(new Date(date));
+      if (ts >= rangeStart && ts <= rangeEnd) out.push(ts);
+    }
+    return out;
+  }
+
+  if (recurrence === 'yearly') {
+    if (month == null || day == null) return out;
+    const startYear = new Date(rangeStart).getFullYear();
+    const endYear = new Date(rangeEnd).getFullYear();
+    for (let y = startYear; y <= endYear; y++) {
+      const dim = new Date(y, month, 0).getDate(); // days in target month
+      const dd = Math.min(day, dim);
+      const ts = getStartOfDay(new Date(y, month - 1, dd));
+      if (ts >= rangeStart && ts <= rangeEnd) out.push(ts);
+    }
+    return out;
+  }
+
+  if (recurrence === 'monthly') {
+    if (day == null) return out;
+    let cursor = new Date(rangeStart);
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+    while (cursor.getTime() <= rangeEnd) {
+      const y = cursor.getFullYear();
+      const m = cursor.getMonth();
+      const dim = new Date(y, m + 1, 0).getDate();
+      const dd = Math.min(day, dim);
+      const ts = getStartOfDay(new Date(y, m, dd));
+      if (ts >= rangeStart && ts <= rangeEnd) out.push(ts);
+      cursor = new Date(y, m + 1, 1);
+    }
+    return out;
+  }
+
+  return out;
 }

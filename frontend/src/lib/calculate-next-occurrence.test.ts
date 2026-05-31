@@ -79,7 +79,7 @@ describe('weekly', () => {
 
 describe('monthly', () => {
   it('returns this month if the day has not passed yet', () => {
-    // June 10, 2025 — dayOfMonth = 20
+    // June 10, 2025 - dayOfMonth = 20
     vi.setSystemTime(new Date(2025, 5, 10, 12, 0, 0))
     expect(calculateNextOccurrence('monthly', undefined, 20)).toBe(
       midnight(2025, 5, 20)
@@ -87,7 +87,7 @@ describe('monthly', () => {
   })
 
   it('returns next month if the day already passed', () => {
-    // June 25, 2025 — dayOfMonth = 10
+    // June 25, 2025 - dayOfMonth = 10
     vi.setSystemTime(new Date(2025, 5, 25, 12, 0, 0))
     expect(calculateNextOccurrence('monthly', undefined, 10)).toBe(
       midnight(2025, 6, 10)
@@ -95,7 +95,7 @@ describe('monthly', () => {
   })
 
   it('defaults to current day when dayOfMonth is not provided', () => {
-    // June 15, 2025 noon — default day = 15, but date (June 15 midnight) <= now
+    // June 15, 2025 noon - default day = 15, but date (June 15 midnight) <= now
     vi.setSystemTime(new Date(2025, 5, 15, 12, 0, 0))
     // next = June 15 midnight which is <= now → bumps to July 15
     expect(calculateNextOccurrence('monthly')).toBe(midnight(2025, 6, 15))
@@ -106,7 +106,7 @@ describe('monthly', () => {
 
 describe('yearly', () => {
   it('returns this year if the date has not passed yet', () => {
-    // March 1, 2025 — month 6 (June), dayOfYear 15
+    // March 1, 2025 - month 6 (June), dayOfYear 15
     vi.setSystemTime(new Date(2025, 2, 1, 12, 0, 0))
     expect(calculateNextOccurrence('yearly', undefined, undefined, 6, 15)).toBe(
       midnight(2025, 5, 15)
@@ -114,7 +114,7 @@ describe('yearly', () => {
   })
 
   it('returns next year if the date already passed', () => {
-    // Sept 1, 2025 — month 6 (June), dayOfYear 15
+    // Sept 1, 2025 - month 6 (June), dayOfYear 15
     vi.setSystemTime(new Date(2025, 8, 1, 12, 0, 0))
     expect(calculateNextOccurrence('yearly', undefined, undefined, 6, 15)).toBe(
       midnight(2026, 5, 15)

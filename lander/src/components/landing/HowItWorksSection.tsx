@@ -1,80 +1,45 @@
-import { useRef } from "react";
-import { motion, useScroll, useTransform, useSpring } from "framer-motion";
+import Reveal from "./Reveal";
 
 const steps = [
   {
-    title: "Define your paths",
-    description:
-      "Create paths that represent your goals — career, fitness, learning, or anything you want to pursue. Each path becomes a container for focused progress.",
+    n: "01",
+    title: "Create a path",
+    body: "Pick a goal: learn a language, ship a project, get fit. Each path is a focused container for everything it takes.",
   },
   {
-    title: "Break them into steps",
-    description:
-      "Add actionable steps to each path. Set priorities, due dates, and organize with drag-and-drop. Nest steps for complex goals that need structure.",
+    n: "02",
+    title: "Break it into steps",
+    body: "Add ordered steps, set priorities and due dates, drag to reorder. Nest steps for the goals that need more structure.",
   },
   {
-    title: "Track & stay focused",
-    description:
-      "Use the focus timer, build routines, and watch your progress grow — even offline. Stay in the zone with a distraction-free interface.",
+    n: "03",
+    title: "Show up and track",
+    body: "Run a focus session, check off steps, keep your routines. Progress fills in automatically, online or off.",
   },
 ];
 
-const STEP_COUNT = steps.length;
-
 export default function HowItWorksSection() {
-  const ref = useRef<HTMLElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start start", "end end"],
-  });
-
-  const snappedX = useTransform(scrollYProgress, (v: number) => {
-    const stepProgress = v * (STEP_COUNT - 1);
-    const snappedStep = Math.round(stepProgress);
-    return -snappedStep * 100;
-  });
-
-  const smoothX = useSpring(snappedX, {
-    stiffness: 60,
-    damping: 25,
-    mass: 1,
-  });
-
-  const x = useTransform(smoothX, (v: number) => `${v}vw`);
-
   return (
-    <section ref={ref} id="how-it-works" className="h-[200vh] md:h-[300vh] relative">
-      {steps.map((_, i) => (
-        <div
-          key={i}
-          className="absolute w-full h-px snap-section"
-          style={{ top: `${(i / STEP_COUNT) * 100}%` }}
-        />
-      ))}
-      <div className="sticky top-0 h-screen overflow-hidden">
-        <motion.div
-          className="flex h-full items-center"
-          style={{ x, willChange: "transform" }}
-        >
-          {steps.map((step, i) => (
-            <div
-              key={i}
-              className="w-screen flex-shrink-0 h-full flex items-center px-6 md:px-12 lg:px-20"
-            >
-              <div className="max-w-7xl mx-auto w-full">
-                <p className="text-sm uppercase tracking-widest mb-2" style={{ color: "hsl(var(--primary) / 0.6)" }} >
-                  How it works
-                </p>
-                <h3 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4">
-                  {step.title}
-                </h3>
-                <p className="text-lg md:text-xl text-muted-foreground max-w-lg">
-                  {step.description}
-                </p>
-              </div>
-            </div>
+    <section id="how" className="px-6 py-24 md:py-32">
+      <div className="mx-auto max-w-6xl">
+        <Reveal className="max-w-2xl">
+          <p className="text-sm font-semibold uppercase tracking-widest text-primary/60">
+            How it works
+          </p>
+          <h2 className="mt-3 text-3xl font-bold md:text-4xl">
+            From a vague goal to your next step, in under a minute.
+          </h2>
+        </Reveal>
+
+        <div className="mt-14 grid gap-px overflow-hidden rounded-2xl border border-foreground/10 bg-foreground/10 md:grid-cols-3">
+          {steps.map((s, i) => (
+            <Reveal key={s.n} delay={i * 90} className="bg-background p-8 md:p-10">
+              <span className="text-sm font-bold text-accent">{s.n}</span>
+              <h3 className="mt-4 text-xl font-bold">{s.title}</h3>
+              <p className="mt-2.5 leading-relaxed text-foreground/55">{s.body}</p>
+            </Reveal>
           ))}
-        </motion.div>
+        </div>
       </div>
     </section>
   );
