@@ -7,8 +7,15 @@ import type { ThemeTokens } from '@/lib/theme-types';
 export type ThemeColors = ThemeTokens;
 export const DEFAULT_THEME = themePresets.devvoid;
 export const DEFAULT_DARK_THEME = themePresets.dark;
-export const DEFAULT_LIGHT_THEME = themePresets.light;
 export const PRESET_THEMES = themePresets;
+
+const SAVED_THEMES_KEY = "savedThemes";
+
+export interface SavedTheme {
+  id: string;
+  name: string;
+  colors: ThemeColors;
+}
 
 interface ThemeContextType {
   theme: ThemeColors;
@@ -17,12 +24,16 @@ interface ThemeContextType {
   resetToDefault: () => void;
   exportTheme: () => string;
   importTheme: (jsonString: string) => boolean;
+  savedThemes: SavedTheme[];
+  saveCurrentTheme: (name: string) => void;
+  deleteSavedTheme: (id: string) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<ThemeColors>(DEFAULT_THEME);
+  const [savedThemes, setSavedThemes] = useState<SavedTheme[]>([]);
 
   // Load theme from localStorage on mount
   useEffect(() => {
@@ -38,7 +49,36 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } else {
       applyTheme(DEFAULT_THEME);
     }
+
+    const stored = localStorage.getItem(SAVED_THEMES_KEY);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) setSavedThemes(parsed);
+      } catch (error) {
+        console.error('Failed to parse saved themes', error);
+      }
+    }
   }, []);
+
+  const persistSavedThemes = (next: SavedTheme[]) => {
+    setSavedThemes(next);
+    localStorage.setItem(SAVED_THEMES_KEY, JSON.stringify(next));
+  };
+
+  const saveCurrentTheme = (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const id =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `theme-${Date.now()}`;
+    persistSavedThemes([...savedThemes, { id, name: trimmed, colors: theme }]);
+  };
+
+  const deleteSavedTheme = (id: string) => {
+    persistSavedThemes(savedThemes.filter((t) => t.id !== id));
+  };
 
   const setTheme = (newTheme: ThemeColors) => {
     setThemeState(newTheme);
@@ -89,6 +129,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         resetToDefault,
         exportTheme,
         importTheme,
+        savedThemes,
+        saveCurrentTheme,
+        deleteSavedTheme,
       }}
     >
       {children}

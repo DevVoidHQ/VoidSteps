@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/Dialog";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { Toggle } from "@/components/ui/Toggle";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { HierarchicalPathSelector } from "@/components/HierarchicalPathSelector";
 import { useCreateStep } from "@/lib/local-mutations";
@@ -15,6 +16,7 @@ import { useData } from "@/contexts/DataContext";
 import { useToast } from "@/contexts/ToastContext";
 import { reportError } from "@/lib/error-store";
 import { parseDateInput, parseStartDateInput } from "@/lib/date-utils";
+import { useDeferDatesMode, useDueDatesMode, getPrioritizeDefault } from "@/lib/preferences";
 import { Plus } from "lucide-react";
 
 interface QuickCreateDialogProps {
@@ -27,16 +29,19 @@ export default function QuickCreateDialog({ open, onOpenChange }: QuickCreateDia
   const { activePaths } = useData();
   const createStepMutation = useCreateStep();
   const titleRef = useRef<HTMLInputElement>(null);
+  const deferEnabled = useDeferDatesMode() === "both";
+  const dueEnabled = useDueDatesMode() === "both";
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [pathId, setPathId] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [startDate, setStartDate] = useState("");
-  const [prioritize, setPrioritize] = useState(false);
+  const [prioritize, setPrioritize] = useState(getPrioritizeDefault);
 
   useEffect(() => {
     if (open) {
+      setPrioritize(getPrioritizeDefault());
       setTimeout(() => titleRef.current?.focus(), 50);
     }
   }, [open]);
@@ -47,7 +52,7 @@ export default function QuickCreateDialog({ open, onOpenChange }: QuickCreateDia
     setPathId("");
     setDueDate("");
     setStartDate("");
-    setPrioritize(false);
+    setPrioritize(getPrioritizeDefault());
   }, []);
 
   const handleSubmit = useCallback(async () => {
@@ -87,7 +92,7 @@ export default function QuickCreateDialog({ open, onOpenChange }: QuickCreateDia
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) resetForm(); onOpenChange(o); }}>
-      <DialogContent size="md">
+      <DialogContent size="md" className="w-[28rem] max-w-[calc(100vw-2rem)]">
         <DialogHeader>
           <DialogTitle>New Step</DialogTitle>
         </DialogHeader>
@@ -116,28 +121,23 @@ export default function QuickCreateDialog({ open, onOpenChange }: QuickCreateDia
             allowEmpty
           />
 
-          <div className="grid grid-cols-2 gap-3">
-            <DatePicker
-              label="Due Date"
-              value={dueDate}
-              onChange={setDueDate}
-            />
-            <DatePicker
-              label="Start Date"
-              value={startDate}
-              onChange={setStartDate}
-            />
-          </div>
+          {(dueEnabled || deferEnabled) && (
+            <div className={dueEnabled && deferEnabled ? "grid grid-cols-2 gap-3" : ""}>
+              {dueEnabled && (
+                <DatePicker label="Due Date" value={dueDate} onChange={setDueDate} />
+              )}
+              {deferEnabled && (
+                <DatePicker label="Defer until" value={startDate} onChange={setStartDate} />
+              )}
+            </div>
+          )}
 
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <input
-              type="checkbox"
-              checked={prioritize}
-              onChange={(e) => setPrioritize(e.target.checked)}
-              className="rounded border-input"
-            />
-            Prioritize for today
-          </label>
+          <Toggle
+            size="sm"
+            checked={prioritize}
+            onChange={(e) => setPrioritize(e.target.checked)}
+            label="Prioritize for today"
+          />
         </div>
 
         <DialogFooter>

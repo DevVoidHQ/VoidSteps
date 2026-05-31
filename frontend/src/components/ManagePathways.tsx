@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Plus, Pencil } from "lucide-react";
 import type { Pathway, Path } from "@/types";
@@ -170,18 +171,17 @@ export default function ManagePathways({
             className="flex-1"
             maxLength={MAX_DESCRIPTION_LENGTH}
           />
-          <select
+          <Select
+            className="w-44"
+            triggerClassName="h-10"
             value={parentIdValue}
-            onChange={(e) => setParentIdValue(e.target.value)}
-            className="px-3 py-2 bg-background border border-input rounded-md text-sm"
-          >
-            <option value="">Root</option>
-            {pathways.map((pw) => (
-              <option key={pw._id} value={pw._id}>
-                {pw.title}
-              </option>
-            ))}
-          </select>
+            onValueChange={setParentIdValue}
+            placeholder="Root"
+            options={[
+              { value: "", label: "Root" },
+              ...pathways.map((pw) => ({ value: pw._id, label: pw.title })),
+            ]}
+          />
           <Button onClick={createPathway} disabled={!titleValue.trim()}>
             <Plus className="w-4 h-4" />
           </Button>
@@ -228,22 +228,18 @@ export default function ManagePathways({
                         }
                         maxLength={MAX_DESCRIPTION_LENGTH}
                       />
-                      <select
+                      <Select
+                        triggerClassName="h-10"
                         value={editForm.parentId}
-                        onChange={(e) =>
-                          setEditForm({ ...editForm, parentId: e.target.value })
-                        }
-                        className="w-full px-3 py-2 bg-background border border-input rounded-md text-sm"
-                      >
-                        <option value="">Root Pathway</option>
-                        {pathways
-                          .filter((p) => p._id !== pathway._id)
-                          .map((pw) => (
-                            <option key={pw._id} value={pw._id}>
-                              {pw.title}
-                            </option>
-                          ))}
-                      </select>
+                        onValueChange={(v) => setEditForm({ ...editForm, parentId: v })}
+                        placeholder="Root Pathway"
+                        options={[
+                          { value: "", label: "Root Pathway" },
+                          ...pathways
+                            .filter((p) => p._id !== pathway._id)
+                            .map((pw) => ({ value: pw._id, label: pw.title })),
+                        ]}
+                      />
                       <PathSelector
                         paths={paths}
                         selectedPathIds={editForm.pathIds}

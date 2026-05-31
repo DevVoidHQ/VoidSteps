@@ -55,6 +55,26 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),
 
+  // Reminders: passive date markers (birthdays, anniversaries, holidays). No
+  // completion or steps - they only surface on the calendar.
+  reminders: defineTable({
+    userId: v.optional(v.string()),
+    title: v.string(),
+    note: v.optional(v.string()),
+    recurrence: v.union(
+      v.literal("once"),
+      v.literal("yearly"),
+      v.literal("monthly")
+    ),
+    // once: start-of-day timestamp of the exact date
+    date: v.optional(v.number()),
+    // yearly: month (1-12) + day (1-31); monthly: day (1-31)
+    month: v.optional(v.number()),
+    day: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"]),
+
   steps: defineTable({
     userId: v.optional(v.string()),
     title: v.string(),
@@ -64,7 +84,6 @@ export default defineSchema({
     failed: v.optional(v.boolean()),
     failedAt: v.optional(v.number()),
     pathId: v.optional(v.id("paths")),
-    parentId: v.optional(v.id("steps")),
     // For steps spawned from a routine, track the source
     routineId: v.optional(v.id("routines")),
     prioritizedToday: v.boolean(),
@@ -81,12 +100,14 @@ export default defineSchema({
     // TEMPORARY: Legacy fields to be removed after migration
     recurring: v.optional(v.any()),
     recurringSourceId: v.optional(v.any()),
+    // Deprecated: sub-steps removed. Kept optional so existing docs validate;
+    // nothing writes it anymore.
+    parentId: v.optional(v.id("steps")),
   }).index("by_user", ["userId"])
     .index("by_path", ["pathId"])
-    .index("by_parent", ["parentId"])
     .index("by_routine", ["routineId"]),
 
-  // Notebooks — top-level container for notes. 2-level hierarchy: notebooks → notes.
+  // Notebooks - top-level container for notes. 2-level hierarchy: notebooks → notes.
   notebooks: defineTable({
     userId: v.optional(v.string()),
     title: v.string(),
@@ -98,7 +119,7 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),
 
-  // Notes — markdown content inside a notebook. Optionally linked to a path.
+  // Notes - markdown content inside a notebook. Optionally linked to a path.
   notes: defineTable({
     userId: v.optional(v.string()),
     notebookId: v.id("notebooks"),

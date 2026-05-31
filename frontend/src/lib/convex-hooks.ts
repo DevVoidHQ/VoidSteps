@@ -10,7 +10,6 @@ const transformStep = (step: any): Step => ({
   _id: step._id.toString(),
   pathId: step.pathId?.toString() || null,
   path: step.path ? transformPath(step.path) : null,
-  parentId: step.parentId?.toString() || null,
 });
 
 const transformPath = (path: any): Path => ({
@@ -74,14 +73,6 @@ export const useStep = (id: string | null) => {
   return step ? transformStep(step) : undefined;
 };
 
-export const useChildSteps = (parentId: string | null) => {
-  const steps = useQuery(
-    api.steps.getChildSteps,
-    parentId ? { parentId: parentId as Id<"steps"> } : "skip"
-  );
-  return steps?.map(transformStep);
-};
-
 export const useCreateStep = () => useMutation(api.steps.createStep);
 export const useUpdateStep = () => useMutation(api.steps.updateStep);
 export const useDeleteStep = () => useMutation(api.steps.deleteStep);
@@ -89,8 +80,6 @@ export const useToggleStepCompletion = () =>
   useMutation(api.steps.toggleStepCompletion);
 export const useToggleStepFailed = () =>
   useMutation(api.steps.toggleStepFailed);
-export const useUpdateStepParent = () =>
-  useMutation(api.steps.updateStepParent);
 
 // Paths
 export const usePaths = () => {

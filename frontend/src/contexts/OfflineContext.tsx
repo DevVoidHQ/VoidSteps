@@ -17,6 +17,8 @@ interface OfflineContextType {
   lastSyncTime: number | null;
   isInitialSyncing: boolean;
   initialSyncFailed: boolean;
+  /** Force an immediate push + pull. Resolves when both complete. */
+  syncNow: () => Promise<void>;
 }
 
 const OfflineContext = createContext<OfflineContextType | undefined>(undefined);
@@ -65,7 +67,7 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   );
   const lastSyncTime = (lastSyncMeta?.value as number) ?? null;
 
-  // Initialize on mount — wait for Convex auth, check if user changed
+  // Initialize on mount - wait for Convex auth, check if user changed
   useEffect(() => {
     if (!userId || !isSignedIn) return;
     let mounted = true;
@@ -145,13 +147,20 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [isOnline]);
 
+  const syncNow = async () => {
+    const engine = syncEngineRef.current;
+    if (!engine) return;
+    await engine.pushSync();
+    await engine.pullSync();
+  };
+
   // Show loading during first-ever sync
   if (isInitialSyncing) {
     return <LoadingScreen message="Syncing data..." />;
   }
 
   return (
-    <OfflineContext.Provider value={{ isOnline, pendingSyncCount, failedSyncCount, lastSyncTime, isInitialSyncing, initialSyncFailed }}>
+    <OfflineContext.Provider value={{ isOnline, pendingSyncCount, failedSyncCount, lastSyncTime, isInitialSyncing, initialSyncFailed, syncNow }}>
       {children}
     </OfflineContext.Provider>
   );

@@ -24,7 +24,6 @@ export async function performInitialSync(client: ConvexReactClient): Promise<boo
           ...s,
           _id: s._id.toString(),
           pathId: s.pathId?.toString(),
-          parentId: s.parentId?.toString(),
           routineId: s.routineId?.toString(),
           path: undefined, // Don't store enriched path object
           _localOnly: false,

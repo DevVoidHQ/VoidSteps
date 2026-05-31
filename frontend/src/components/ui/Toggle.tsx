@@ -8,21 +8,25 @@ export interface ToggleProps
   size?: "sm" | "md" | "lg";
 }
 
+// NOTE: the `translate` values must be full literal class names (including the
+// `peer-checked:` prefix) so Tailwind's JIT can see them. Building the prefix
+// via string interpolation would silently drop the class and the thumb would
+// never move.
 const sizeClasses = {
   sm: {
     track: "h-5 w-9",
     thumb: "h-4 w-4",
-    translate: "translate-x-4",
+    translate: "peer-checked:translate-x-4",
   },
   md: {
     track: "h-6 w-11",
     thumb: "h-5 w-5",
-    translate: "translate-x-5",
+    translate: "peer-checked:translate-x-5",
   },
   lg: {
     track: "h-7 w-14",
     thumb: "h-6 w-6",
-    translate: "translate-x-7",
+    translate: "peer-checked:translate-x-7",
   },
 };
 
@@ -38,7 +42,7 @@ const Toggle = React.forwardRef<HTMLInputElement, ToggleProps>(
     const sizes = sizeClasses[size];
 
     return (
-      <div className={cn("flex items-start gap-3", className)}>
+      <div className={cn("flex items-center gap-3", className)}>
         <label
           htmlFor={inputId}
           className={cn(
@@ -70,13 +74,13 @@ const Toggle = React.forwardRef<HTMLInputElement, ToggleProps>(
               "transition-transform duration-200 ease-in-out",
               "peer-checked:bg-accent-foreground",
               sizes.thumb,
-              `peer-checked:${sizes.translate}`
+              sizes.translate
             )}
           />
         </label>
 
         {(label || description) && (
-          <div className="flex flex-col gap-0.5 pt-2.5">
+          <div className="flex flex-col gap-0.5">
             {label && (
               <span
                 className={cn(

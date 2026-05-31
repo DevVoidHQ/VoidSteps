@@ -4,7 +4,7 @@ import { getStartOfDay } from "@/lib/calendar-utils";
 import { StepCard } from "@/components/StepCard";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { CalendarDays, AlertCircle, PlayCircle, RefreshCw, CheckCircle2, XCircle } from "lucide-react";
+import { CalendarDays, AlertCircle, PlayCircle, RefreshCw, CheckCircle2, XCircle, Bell } from "lucide-react";
 
 export interface StepActions {
   onToggle: (id: string) => void;
@@ -71,6 +71,22 @@ function EventSection({
               activeTimerStepId={stepActions.activeTimerStepId}
               onSetTotalTime={(id, ms) => stepActions.onSetTotalTime(id, ms)}
             />
+          ) : event.type === "reminder" ? (
+            <div
+              key={event.id}
+              className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-border bg-muted/30"
+            >
+              <Bell className="w-4 h-4 text-amber-500 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-medium truncate block">{event.title}</span>
+                {event.reminder?.note && (
+                  <span className="text-xs text-muted-foreground truncate block">{event.reminder.note}</span>
+                )}
+              </div>
+              <Badge variant="outline" size="sm" className="capitalize">
+                {event.reminder?.recurrence ?? "reminder"}
+              </Badge>
+            </div>
           ) : (
             <div
               key={event.id}
@@ -109,6 +125,7 @@ export default function DayDetailPanel({ date, calendarDays, stepActions }: DayD
     );
   }
 
+  const reminderEvents = events.filter((e) => e.type === "reminder");
   const overdueEvents = events.filter((e) => e.type === "due" && e.isOverdue);
   const dueEvents = events.filter((e) => e.type === "due" && !e.isOverdue);
   const startEvents = events.filter((e) => e.type === "start");
@@ -118,6 +135,7 @@ export default function DayDetailPanel({ date, calendarDays, stepActions }: DayD
 
   return (
     <div className="space-y-4 max-h-96 overflow-y-auto scrollbar-hide">
+      <EventSection title="Reminders" icon={Bell} events={reminderEvents} stepActions={stepActions} />
       <EventSection title="Overdue" icon={AlertCircle} events={overdueEvents} stepActions={stepActions} variant="destructive" />
       <EventSection title="Due" icon={CalendarDays} events={dueEvents} stepActions={stepActions} />
       <EventSection title="Starting" icon={PlayCircle} events={startEvents} stepActions={stepActions} />

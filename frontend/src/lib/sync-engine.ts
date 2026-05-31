@@ -60,25 +60,195 @@ export class SyncEngine {
         .where('status')
         .equals('pending')
         .sortBy('createdAt');
+      if (entries.length === 0) return;
 
-      for (const entry of entries) {
-        try {
-          await db.syncQueue.update(entry.id!, { status: 'in-progress' });
-          await this.processSyncEntry(entry);
-          await db.syncQueue.delete(entry.id!);
-        } catch (error) {
-          reportError('sync', error, { entityType: entry.entityType, entityId: entry.entityId, operation: entry.operation, retryCount: entry.retryCount });
-          const newRetryCount = (entry.retryCount || 0) + 1;
-          const lastError = error instanceof Error ? error.message : String(error);
-          if (newRetryCount >= MAX_RETRIES) {
-            await db.syncQueue.update(entry.id!, { status: 'failed', retryCount: newRetryCount, lastError });
-          } else {
-            await db.syncQueue.update(entry.id!, { status: 'pending', retryCount: newRetryCount, lastError });
-          }
-        }
+      try {
+        // One round trip for the whole queue.
+        await this.pushBatch(entries);
+      } catch (error) {
+        // Network/transport failure on the batch call: fall back to the
+        // per-entry path so a single bad request can't stall everything.
+        reportError('sync', error, { phase: 'pushBatch' });
+        await this.pushPerEntry(entries);
       }
     } finally {
       this.isPushing = false;
+    }
+  }
+
+  /** Mark a queue entry failed/retry after an error (shared by both paths). */
+  private async failEntry(entry: SyncQueueEntry, error: unknown) {
+    reportError('sync', error, { entityType: entry.entityType, entityId: entry.entityId, operation: entry.operation, retryCount: entry.retryCount });
+    const newRetryCount = (entry.retryCount || 0) + 1;
+    const lastError = error instanceof Error ? error.message : String(error);
+    await db.syncQueue.update(entry.id!, {
+      status: newRetryCount >= MAX_RETRIES ? 'failed' : 'pending',
+      retryCount: newRetryCount,
+      lastError,
+    });
+  }
+
+  // ---- Legacy per-entry push, kept as a fallback for batch failures ----
+  private async pushPerEntry(entries: SyncQueueEntry[]) {
+    for (const entry of entries) {
+      const fresh = await db.syncQueue.get(entry.id!);
+      if (!fresh || fresh.status !== 'pending') continue;
+      try {
+        await db.syncQueue.update(entry.id!, { status: 'in-progress' });
+        await this.processSyncEntry(fresh);
+        await db.syncQueue.delete(entry.id!);
+      } catch (error) {
+        await this.failEntry(fresh, error);
+      }
+    }
+  }
+
+  // Build the create payload for a queue entry from its current local record.
+  private async buildCreateData(entry: SyncQueueEntry): Promise<Record<string, unknown> | null> {
+    const r = this.resolveId.bind(this);
+    switch (entry.entityType) {
+      case 'paths': {
+        const p = await db.paths.get(entry.entityId);
+        if (!p) return null;
+        return { title: p.title, description: p.description, parentId: r(p.parentId),
+          connectedPathIds: p.connectedPathIds?.map(r), connectedStepIds: p.connectedStepIds?.map(r) };
+      }
+      case 'steps': {
+        const s = await db.steps.get(entry.entityId);
+        if (!s) return null;
+        return { title: s.title, description: s.description, pathId: r(s.pathId),
+          routineId: r(s.routineId), prioritizedToday: s.prioritizedToday,
+          dueDate: s.dueDate, startDate: s.startDate, createdAt: s.createdAt,
+          // Carry completion/time so the server keeps it (single createStep drops these).
+          completed: s.completed, completedAt: s.completedAt, totalTimeSpentMs: s.totalTimeSpentMs };
+      }
+      case 'routines': {
+        const x = await db.routines.get(entry.entityId);
+        if (!x) return null;
+        return { title: x.title, description: x.description, pathId: r(x.pathId), frequency: x.frequency,
+          daysOfWeek: x.daysOfWeek, dayOfMonth: x.dayOfMonth, month: x.month, dayOfYear: x.dayOfYear,
+          autoPrioritize: x.autoPrioritize };
+      }
+      case 'reminders': {
+        const x = await db.reminders.get(entry.entityId);
+        if (!x) return null;
+        return { title: x.title, note: x.note, recurrence: x.recurrence, date: x.date, month: x.month, day: x.day };
+      }
+      case 'pathways': {
+        const x = await db.pathways.get(entry.entityId);
+        if (!x) return null;
+        return { title: x.title, description: x.description, parentId: r(x.parentId), pathIds: x.pathIds?.map(r) };
+      }
+      case 'notebooks': {
+        const x = await db.notebooks.get(entry.entityId);
+        if (!x) return null;
+        return { title: x.title, description: x.description, sortOrder: x.sortOrder };
+      }
+      case 'notes': {
+        const x = await db.notes.get(entry.entityId);
+        if (!x) return null;
+        return { notebookId: r(x.notebookId), pathId: r(x.pathId), title: x.title, body: x.body, sortOrder: x.sortOrder };
+      }
+      default:
+        return null;
+    }
+  }
+
+  private localTable(entityType: string) {
+    return (db as any)[entityType];
+  }
+
+  /** Batch push: group the queue and send it in a single mutation. */
+  private async pushBatch(entries: SyncQueueEntry[]) {
+    const creates: { tempId: string; type: string; data: Record<string, unknown> }[] = [];
+    const updates: { type: string; id: string; data: Record<string, unknown> }[] = [];
+    const deletes: { type: string; id: string }[] = [];
+
+    const createEntries = new Map<string, SyncQueueEntry>(); // tempId -> entry
+    const updateEntries = new Map<string, SyncQueueEntry>(); // sent id -> entry
+    const deleteEntries = new Map<string, SyncQueueEntry>(); // sent id -> entry
+    const timerEntries: SyncQueueEntry[] = [];               // step timer updates -> per-entry
+
+    for (const entry of entries) {
+      const { entityType, entityId, operation } = entry;
+
+      if (entityType === 'userSettings') {
+        // Rare + special-cased; handle individually.
+        timerEntries.push(entry);
+        continue;
+      }
+
+      if (operation === 'create') {
+        const data = await this.buildCreateData(entry);
+        if (!data) { await db.syncQueue.delete(entry.id!); continue; }
+        creates.push({ tempId: entityId, type: entityType, data });
+        createEntries.set(entityId, entry);
+      } else if (operation === 'update') {
+        const resolvedId = this.resolveId(entityId)!;
+        if (this.isLocalId(resolvedId)) { await db.syncQueue.delete(entry.id!); continue; }
+        // Step timer changes go through dedicated mutations (per-entry path).
+        if (entityType === 'steps' && entry.data &&
+            ('timerStartedAt' in entry.data || 'totalTimeSpentMs' in entry.data)) {
+          timerEntries.push(entry);
+          continue;
+        }
+        updates.push({ type: entityType, id: resolvedId, data: entry.data ?? {} });
+        updateEntries.set(resolvedId, entry);
+      } else if (operation === 'delete') {
+        const resolvedId = this.resolveId(entityId)!;
+        if (this.isLocalId(resolvedId)) {
+          await this.localTable(entityType).delete(entityId);
+          await db.syncQueue.delete(entry.id!);
+          continue;
+        }
+        deletes.push({ type: entityType, id: resolvedId });
+        deleteEntries.set(resolvedId, entry);
+      }
+    }
+
+    if (creates.length || updates.length || deletes.length) {
+      const result = await this.client.mutation(api.batch.pushBatch, { creates, updates, deletes } as any);
+
+      // Creates that succeeded: remap local→server, then drop the queue entry.
+      for (const { tempId, serverId } of result.created as { tempId: string; serverId: string }[]) {
+        const entry = createEntries.get(tempId);
+        if (!entry) continue;
+        await this.remapId(tempId, serverId, entry.entityType as any);
+        await db.syncQueue.delete(entry.id!);
+        createEntries.delete(tempId);
+      }
+      // Updates that succeeded.
+      for (const id of result.updatedIds as string[]) {
+        const entry = updateEntries.get(id);
+        if (!entry) continue;
+        await db.syncQueue.delete(entry.id!);
+        updateEntries.delete(id);
+      }
+      // Deletes that succeeded: remove the local row too.
+      for (const id of result.deletedIds as string[]) {
+        const entry = deleteEntries.get(id);
+        if (!entry) continue;
+        await this.localTable(entry.entityType).delete(entry.entityId);
+        await db.syncQueue.delete(entry.id!);
+        deleteEntries.delete(id);
+      }
+
+      // Anything sent but not acknowledged → retry/fail.
+      const leftovers = [...createEntries.values(), ...updateEntries.values(), ...deleteEntries.values()];
+      for (const entry of leftovers) {
+        await this.failEntry(entry, new Error('Not acknowledged by batch'));
+      }
+    }
+
+    // Process special/timer entries individually.
+    for (const entry of timerEntries) {
+      try {
+        await db.syncQueue.update(entry.id!, { status: 'in-progress' });
+        await this.processSyncEntry(entry);
+        await db.syncQueue.delete(entry.id!);
+      } catch (error) {
+        await this.failEntry(entry, error);
+      }
     }
   }
 
@@ -94,6 +264,9 @@ export class SyncEngine {
         break;
       case 'routines':
         await this.syncRoutine(entityId, operation, entry.data);
+        break;
+      case 'reminders':
+        await this.syncReminder(entityId, operation, entry.data);
         break;
       case 'pathways':
         await this.syncPathway(entityId, operation, entry.data);
@@ -121,7 +294,6 @@ export class SyncEngine {
         title: localStep.title,
         description: localStep.description,
         pathId: this.resolveId(localStep.pathId) as Id<'paths'> | undefined,
-        parentId: this.resolveId(localStep.parentId) as Id<'steps'> | undefined,
         routineId: this.resolveId(localStep.routineId) as Id<'routines'> | undefined,
         prioritizedToday: localStep.prioritizedToday,
         dueDate: localStep.dueDate,
@@ -150,7 +322,7 @@ export class SyncEngine {
         if ('failed' in data) updateData.failed = data.failed;
         if (data.archived !== undefined) updateData.archived = data.archived;
         if ('archivedAt' in data) updateData.archivedAt = data.archivedAt ?? null;
-        // Timer fields — handle via dedicated mutations, don't pass to updateStep
+        // Timer fields - handle via dedicated mutations, don't pass to updateStep
         if ('timerStartedAt' in data && data.timerStartedAt !== undefined) {
           // Start timer
           await this.client.mutation(api.steps.startTimer, { id: resolvedId as Id<'steps'> });
@@ -164,11 +336,6 @@ export class SyncEngine {
             id: resolvedId as Id<'steps'>,
             totalTimeSpentMs: (data.totalTimeSpentMs as number) ?? 0,
           });
-        }
-        // sortOrder + parentId (reorder)
-        if ('sortOrder' in data && 'parentId' in data) {
-          // Individual reorder updates are already handled batch-wise by the page
-          // Just patch
         }
       }
 
@@ -296,6 +463,52 @@ export class SyncEngine {
     }
   }
 
+  private async syncReminder(entityId: string, operation: string, data?: Record<string, unknown>) {
+    const resolvedId = this.resolveId(entityId)!;
+
+    if (operation === 'create') {
+      const local = await db.reminders.get(entityId);
+      if (!local) return;
+
+      const result = await this.client.mutation(api.reminders.createReminder, {
+        title: local.title,
+        note: local.note,
+        recurrence: local.recurrence,
+        date: local.date,
+        month: local.month,
+        day: local.day,
+      });
+
+      if (result) {
+        const serverId = result.toString();
+        await this.remapId(entityId, serverId, 'reminders');
+      }
+    } else if (operation === 'update') {
+      if (this.isLocalId(resolvedId)) return;
+      if (!data) return;
+
+      const updateData: Record<string, unknown> = { id: resolvedId as Id<'reminders'> };
+      if (data.title !== undefined) updateData.title = data.title;
+      if ('note' in data) updateData.note = data.note ?? null;
+      if (data.recurrence !== undefined) updateData.recurrence = data.recurrence;
+      if ('date' in data) updateData.date = data.date ?? null;
+      if ('month' in data) updateData.month = data.month ?? null;
+      if ('day' in data) updateData.day = data.day ?? null;
+
+      const keys = Object.keys(updateData).filter(k => k !== 'id');
+      if (keys.length > 0) {
+        await this.client.mutation(api.reminders.updateReminder, updateData as any);
+      }
+    } else if (operation === 'delete') {
+      if (this.isLocalId(resolvedId)) {
+        await db.reminders.delete(entityId);
+        return;
+      }
+      await this.client.mutation(api.reminders.deleteReminder, { id: resolvedId as Id<'reminders'> });
+      await db.reminders.delete(entityId);
+    }
+  }
+
   private async syncPathway(entityId: string, operation: string, data?: Record<string, unknown>) {
     const resolvedId = this.resolveId(entityId)!;
 
@@ -389,7 +602,7 @@ export class SyncEngine {
 
       const notebookId = this.resolveId(local.notebookId);
       if (!notebookId || this.isLocalId(notebookId)) {
-        // Parent notebook hasn't synced yet — defer via error so we retry later.
+        // Parent notebook hasn't synced yet - defer via error so we retry later.
         throw new Error('Parent notebook not yet synced');
       }
 
@@ -458,10 +671,10 @@ export class SyncEngine {
   // ID REMAPPING
   // ========================
 
-  private async remapId(localId: string, serverId: string, table: 'steps' | 'paths' | 'routines' | 'pathways' | 'notebooks' | 'notes') {
+  private async remapId(localId: string, serverId: string, table: 'steps' | 'paths' | 'routines' | 'reminders' | 'pathways' | 'notebooks' | 'notes') {
     this.idMap.set(localId, serverId);
 
-    await db.transaction('rw', [db.steps, db.paths, db.routines, db.pathways, db.notebooks, db.notes, db.syncQueue], async () => {
+    await db.transaction('rw', [db.steps, db.paths, db.routines, db.reminders, db.pathways, db.notebooks, db.notes, db.syncQueue], async () => {
       // Get the local record to preserve its data
       const tableRef = db[table] as any;
       const localRecord = await tableRef.get(localId);
@@ -484,12 +697,6 @@ export class SyncEngine {
         const stepsWithPath = await db.steps.where('pathId').equals(localId).toArray();
         for (const step of stepsWithPath) {
           await db.steps.update(step._id, { pathId: serverId });
-        }
-      }
-      if (table === 'steps') {
-        const childSteps = await db.steps.where('parentId').equals(localId).toArray();
-        for (const child of childSteps) {
-          await db.steps.update(child._id, { parentId: serverId });
         }
       }
       if (table === 'routines') {
@@ -515,7 +722,7 @@ export class SyncEngine {
           }
         }
       }
-      // connectedStepIds — update when a step ID is remapped
+      // connectedStepIds - update when a step ID is remapped
       if (table === 'steps') {
         const allPaths = await db.paths.toArray();
         for (const p of allPaths) {
@@ -589,17 +796,18 @@ export class SyncEngine {
       const pendingEntityIds = new Set(pendingEntries.map(e => e.entityId));
 
       // Fetch all data from Convex
-      const [serverSteps, serverPaths, serverRoutines, serverPathways, serverNotebooks, serverNotes, serverUserSettings] = await Promise.all([
+      const [serverSteps, serverPaths, serverRoutines, serverReminders, serverPathways, serverNotebooks, serverNotes, serverUserSettings] = await Promise.all([
         this.client.query(api.steps.getSteps),
         this.client.query(api.paths.getPaths),
         this.client.query(api.routines.getRoutines),
+        this.client.query(api.reminders.getReminders),
         this.client.query(api.pathways.getPathways),
         this.client.query(api.notebooks.getNotebooks),
         this.client.query(api.notes.getNotes),
         this.client.query(api.userSettings.getAllUserSettings),
       ]);
 
-      await db.transaction('rw', [db.steps, db.paths, db.routines, db.pathways, db.notebooks, db.notes, db.userSettings, db.syncMeta], async () => {
+      await db.transaction('rw', [db.steps, db.paths, db.routines, db.reminders, db.pathways, db.notebooks, db.notes, db.userSettings, db.syncMeta], async () => {
         // Merge steps
         if (serverSteps) {
           await this.mergeEntities(
@@ -608,7 +816,6 @@ export class SyncEngine {
               ...s,
               _id: s._id.toString(),
               pathId: s.pathId?.toString(),
-              parentId: s.parentId?.toString(),
               routineId: s.routineId?.toString(),
             })),
             pendingEntityIds
@@ -639,6 +846,18 @@ export class SyncEngine {
               _id: r._id.toString(),
               pathId: r.pathId?.toString(),
               path: undefined, // Don't store enriched path object
+            })),
+            pendingEntityIds
+          );
+        }
+
+        // Merge reminders
+        if (serverReminders) {
+          await this.mergeEntities(
+            'reminders',
+            serverReminders.map((r: any) => ({
+              ...r,
+              _id: r._id.toString(),
             })),
             pendingEntityIds
           );
@@ -708,7 +927,7 @@ export class SyncEngine {
   }
 
   private async mergeEntities(
-    tableName: 'steps' | 'paths' | 'routines' | 'pathways' | 'notebooks' | 'notes' | 'userSettings',
+    tableName: 'steps' | 'paths' | 'routines' | 'reminders' | 'pathways' | 'notebooks' | 'notes' | 'userSettings',
     serverRecords: any[],
     pendingEntityIds: Set<string>
   ) {

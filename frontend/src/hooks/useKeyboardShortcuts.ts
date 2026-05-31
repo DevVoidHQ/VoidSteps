@@ -7,6 +7,7 @@ const NAV_ACTIONS = [
   "navSteps",
   "navPaths",
   "navRoutines",
+  "navReminders",
   "navNotes",
   "navAnalytics",
   "navSettings",
@@ -17,6 +18,7 @@ const NAV_ROUTES: Record<string, string> = {
   navSteps: "/steps",
   navPaths: "/paths",
   navRoutines: "/routines",
+  navReminders: "/reminders",
   navNotes: "/notes",
   navAnalytics: "/analytics",
   navSettings: "/settings",
@@ -27,6 +29,7 @@ interface ShortcutHandlers {
   onQuickAdd?: () => void;
   onQuickAddRoutine?: () => void;
   onQuickAddPath?: () => void;
+  onQuickAddReminder?: () => void;
   onEscape?: () => void;
 }
 
@@ -77,6 +80,13 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
       if (matchesKeybind(e, keybinds.quickCreatePath)) {
         e.preventDefault();
         handlers.onQuickAddPath?.();
+        return;
+      }
+
+      // Quick create reminder
+      if (matchesKeybind(e, keybinds.quickCreateReminder)) {
+        e.preventDefault();
+        handlers.onQuickAddReminder?.();
         return;
       }
 

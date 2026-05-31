@@ -1,4 +1,9 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { useSearchHotkey } from "@/hooks/useSearchHotkey";
+import { useTodayClickAction } from "@/lib/preferences";
+
+// Shared with the Steps page so the path filter stays in sync across both.
+const TODAY_PATH_FILTER_KEY = "voidsteps-path-filter";
 import type { Step } from "@/types/index";
 import {
   useUpdateStep,
@@ -6,7 +11,6 @@ import {
   useToggleStepCompletion,
   useToggleStepFailed,
   useReorderSteps,
-  useUpdateStepParent,
   useStartTimer,
   useStopTimer,
   useSetTotalTime,
@@ -16,20 +20,13 @@ import { reportError } from "@/lib/error-store";
 import { getDescendantPathIds } from "@/lib/path-utils";
 import { useToast } from "@/contexts/ToastContext";
 import { Input } from "@/components/ui/Input";
-import { Button } from "@/components/ui/Button";
 import {
   Star,
   Search,
-  ChevronsDownUp,
-  ChevronsUpDown,
   Calendar,
-  Timer,
-  Square,
 } from "lucide-react";
-import { useElapsedTime } from "@/hooks/useTimer";
 import { StepCard } from "@/components/StepCard";
 import { DraggableStepList } from "@/components/DraggableStepList";
-import { useStepHierarchy } from "@/hooks/useStepHierarchy";
 import { HierarchicalPathSelector } from "@/components/HierarchicalPathSelector";
 import { EmptyState } from "@/components/ui/EmptyState";
 
@@ -47,37 +44,35 @@ export default function TodayView() {
   const toggleStepMutation = useToggleStepCompletion();
   const toggleFailedMutation = useToggleStepFailed();
   const reorderStepsMutation = useReorderSteps();
-  const updateStepParentMutation = useUpdateStepParent();
   const startTimerMutation = useStartTimer();
   const stopTimerMutation = useStopTimer();
   const setTotalTimeMutation = useSetTotalTime();
 
   const [searchQueryToday, setSearchQueryToday] = useState("");
-  const [selectedPathFilterToday, setSelectedPathFilterToday] = useState("");
-  const [expandedStepIds, setExpandedStepIds] = useState<Set<string>>(new Set());
+  const searchRef = useRef<HTMLInputElement>(null);
+  useSearchHotkey(searchRef);
+  const todayClickAction = useTodayClickAction();
+  const [selectedPathFilterToday, setSelectedPathFilterToday] = useState<string>(() => {
+    try { return localStorage.getItem(TODAY_PATH_FILTER_KEY) || ""; } catch { return ""; }
+  });
+
+  // Persist the path filter so it stays locked in until changed/cleared.
+  useEffect(() => {
+    try {
+      if (selectedPathFilterToday) localStorage.setItem(TODAY_PATH_FILTER_KEY, selectedPathFilterToday);
+      else localStorage.removeItem(TODAY_PATH_FILTER_KEY);
+    } catch { /* ignore */ }
+  }, [selectedPathFilterToday]);
 
   const memoizedPaths = useMemo(() => activePaths || [], [activePaths]);
 
-  const { rootSteps, hasChildren } = useStepHierarchy(
-    useMemo(() => activeSteps?.filter((s: Step) => s.prioritizedToday) || [], [activeSteps])
-  );
-
-  const stepsWithChildren = useMemo(() => {
-    return rootSteps.filter((step) => hasChildren(step._id)).map((step) => step._id);
-  }, [rootSteps, hasChildren]);
-
-  const allExpanded = useMemo(() => {
-    if (stepsWithChildren.length === 0) return false;
-    return stepsWithChildren.every((id) => expandedStepIds.has(id));
-  }, [stepsWithChildren, expandedStepIds]);
-
-  const toggleAllExpanded = useCallback(() => {
-    if (allExpanded) {
-      setExpandedStepIds(new Set());
-    } else {
-      setExpandedStepIds(new Set(stepsWithChildren));
+  // Drop a stale filter if its path no longer exists (e.g. deleted).
+  useEffect(() => {
+    if (selectedPathFilterToday && memoizedPaths.length > 0 &&
+        !memoizedPaths.some((p) => p._id === selectedPathFilterToday)) {
+      setSelectedPathFilterToday("");
     }
-  }, [allExpanded, stepsWithChildren]);
+  }, [selectedPathFilterToday, memoizedPaths]);
 
   const descendantPathIds = useMemo(
     () => getDescendantPathIds(selectedPathFilterToday, memoizedPaths),
@@ -151,15 +146,10 @@ export default function TodayView() {
     catch (error) { reportError('mutation', error, { action: 'deleteStep', stepId: id }); toast.error("Failed to delete step"); }
   }, [deleteStepMutation, toast]);
 
-  const handleReorder = useCallback(async (stepIds: string[], parentId?: string) => {
-    try { await reorderStepsMutation({ stepIds, parentId }); }
+  const handleReorder = useCallback(async (stepIds: string[]) => {
+    try { await reorderStepsMutation({ stepIds }); }
     catch (error) { reportError('mutation', error, { action: 'reorderSteps' }); toast.error("Failed to reorder steps"); }
   }, [reorderStepsMutation, toast]);
-
-  const handleUpdateParent = useCallback(async (stepId: string, newParentId: string | undefined) => {
-    try { await updateStepParentMutation({ id: stepId, parentId: newParentId }); }
-    catch (error) { reportError('mutation', error, { action: 'updateStepParent', stepId }); toast.error("Failed to update step parent"); }
-  }, [updateStepParentMutation, toast]);
 
   const updateStep = useCallback(async (id: string, updates: Partial<Step>) => {
     try {
@@ -182,18 +172,6 @@ export default function TodayView() {
     }
   }, [updateStepMutation, toast]);
 
-  const activeTimerStep = useMemo(() => {
-    if (!activeTimerStepId) return null;
-    return activeSteps?.find(s => s._id === activeTimerStepId) ||
-           completedStepsToday?.find(s => s._id === activeTimerStepId) ||
-           null;
-  }, [activeTimerStepId, activeSteps, completedStepsToday]);
-
-  const globalTimerElapsed = useElapsedTime(
-    activeTimerStep?.timerStartedAt,
-    activeTimerStep?.totalTimeSpentMs || 0
-  );
-
   const toggleTimer = useCallback(async (id: string) => {
     try {
       if (activeTimerStepId === id) {
@@ -215,26 +193,12 @@ export default function TodayView() {
 
   return (
     <div className="space-y-6">
-      {/* Timer banner */}
-      {activeTimerStep && (
-        <div className="flex justify-end">
-          <button
-            onClick={() => toggleTimer(activeTimerStep._id)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-muted-foreground hover:bg-muted transition-colors"
-          >
-            <Timer className="w-4 h-4 text-primary" />
-            <span className="text-foreground font-medium truncate max-w-[150px]">{activeTimerStep.title}</span>
-            <span className="font-mono text-primary">{globalTimerElapsed}</span>
-            <Square className="w-3 h-3 fill-current" />
-          </button>
-        </div>
-      )}
-
       {/* Search and Filter */}
       <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
+            ref={searchRef}
             placeholder="Search steps..."
             value={searchQueryToday}
             onChange={(e) => setSearchQueryToday(e.target.value)}
@@ -249,22 +213,11 @@ export default function TodayView() {
           allowEmpty={true}
           className="sm:w-48"
         />
-        {stepsWithChildren.length > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleAllExpanded}
-            className="h-10 w-10 p-0"
-            title={allExpanded ? "Collapse All" : "Expand All"}
-          >
-            {allExpanded ? <ChevronsDownUp className="w-4 h-4" /> : <ChevronsUpDown className="w-4 h-4" />}
-          </Button>
-        )}
       </div>
 
       {/* Due Priority Steps */}
       {duePrioritySteps.length > 0 && (
-        <div className="space-y-3 p-4 -mx-4 bg-accent/5 border-y border-accent/20">
+        <div className="space-y-3">
           <h2 className="text-lg font-semibold flex items-center space-x-2 text-accent">
             <Calendar className="w-5 h-5" />
             <span>Due ({duePrioritySteps.length})</span>
@@ -283,6 +236,7 @@ export default function TodayView() {
                 onToggleTimer={toggleTimer}
                 activeTimerStepId={activeTimerStepId}
                 onSetTotalTime={setTotalTime}
+                clickAction={todayClickAction}
               />
             ))}
           </div>
@@ -300,13 +254,10 @@ export default function TodayView() {
           onDelete={deleteStep}
           onTogglePriority={togglePriority}
           onSaveEdit={updateStep}
-          onUpdateParent={handleUpdateParent}
-          expandedStepIds={expandedStepIds}
-          onExpandedChange={setExpandedStepIds}
-          hideExpandAllButton
           onToggleTimer={toggleTimer}
           activeTimerStepId={activeTimerStepId}
           onSetTotalTime={setTotalTime}
+          clickAction={todayClickAction}
         />
       ) : duePrioritySteps.length === 0 ? (
         <EmptyState

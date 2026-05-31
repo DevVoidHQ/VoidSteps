@@ -2,7 +2,7 @@ import React, { createContext, useContext, useMemo, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
 import { isUpcoming as isStepUpcomingUtil } from '@/lib/date-utils';
-import type { Path, Pathway, Step, Routine } from '@/types';
+import type { Path, Pathway, Step, Routine, Reminder } from '@/types';
 import type { LocalUserSettings } from '@/lib/db';
 
 interface DataContextType {
@@ -12,6 +12,7 @@ interface DataContextType {
   archivedPaths: Path[] | undefined;
   rootPaths: Path[] | undefined;
   routines: Routine[] | undefined;
+  reminders: Reminder[] | undefined;
   allSteps: Step[] | undefined;
   activeSteps: Step[] | undefined;
   failedSteps: Step[] | undefined;
@@ -88,6 +89,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     []
   );
 
+  const localReminders = useLiveQuery(
+    () => db.reminders.filter(r => !r._deleted).toArray(),
+    []
+  );
+
   const localPathways = useLiveQuery(
     () => db.pathways.filter(pw => !pw._deleted).toArray(),
     []
@@ -149,6 +155,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!localRoutines) return undefined;
     return localRoutines.map(r => enrichRoutineWithPath(r, pathsMap));
   }, [localRoutines, pathsMap]);
+
+  // Reminders need no enrichment - they're standalone date markers.
+  const reminders = useMemo(
+    () => (localReminders ? (localReminders as unknown as Reminder[]) : undefined),
+    [localReminders]
+  );
 
   // All enriched steps
   const allSteps = useMemo(() => {
@@ -244,6 +256,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       archivedPaths,
       rootPaths,
       routines,
+      reminders,
       allSteps,
       activeSteps,
       failedSteps,
@@ -258,7 +271,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isStepUpcoming,
       activeTimerStepId,
     }),
-    [pathways, paths, activePaths, archivedPaths, rootPaths, routines, allSteps, activeSteps, failedSteps, completedStepsToday, upcomingSteps, userSettings, isLoading,
+    [pathways, paths, activePaths, archivedPaths, rootPaths, routines, reminders, allSteps, activeSteps, failedSteps, completedStepsToday, upcomingSteps, userSettings, isLoading,
      applyOptimisticUpdate, applyOptimisticDelete, clearOptimisticUpdate, clearOptimisticDelete, isStepUpcoming, activeTimerStepId]
   );
 

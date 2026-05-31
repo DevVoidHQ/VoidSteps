@@ -1,5 +1,5 @@
-import { Handle, Position } from 'reactflow';
 import { Circle, CheckCircle2 } from 'lucide-react';
+import HiddenHandles from './HiddenHandles';
 
 interface StepNodeData {
   label: string;
@@ -13,11 +13,7 @@ export default function StepNode({ data }: { data: StepNodeData }) {
       px-3 py-2 rounded border shadow-sm min-w-[120px] text-xs
       ${data.prioritized ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950' : 'border-border bg-background'}
     `}>
-      <Handle
-        type="target"
-        position={Position.Top}
-        className="!bg-muted-foreground !w-1.5 !h-1.5"
-      />
+      <HiddenHandles />
       <div className="flex items-center space-x-1.5">
         {data.completed ? (
           <CheckCircle2 className="w-3 h-3 text-green-600 flex-shrink-0" />

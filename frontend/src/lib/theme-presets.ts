@@ -5,7 +5,7 @@ import type { ThemeTokens } from "./theme-types";
  * Values are HSL strings without the `hsl()` wrapper.
  */
 
-// DevVoid brand — default
+// DevVoid brand - default
 export const devVoidTheme: ThemeTokens = {
   background: "44 10% 97%",
   foreground: "43 8% 10%",
@@ -15,17 +15,7 @@ export const devVoidTheme: ThemeTokens = {
   accentLight: "348 83% 95%",  // #fce8ed
 };
 
-// Minimal light — pure black/white + brand
-export const lightTheme: ThemeTokens = {
-  background: "0 0% 100%",
-  foreground: "0 0% 4%",
-  primary: "222 90% 30%",
-  accent: "348 42% 58%",
-  primaryLight: "221 83% 95%",
-  accentLight: "348 83% 95%",
-};
-
-// Minimal dark — pure black/white + brand
+// Minimal dark - pure black/white + brand
 export const darkTheme: ThemeTokens = {
   background: "0 0% 4%",
   foreground: "0 0% 96%",
@@ -199,7 +189,6 @@ export const synthwaveTheme: ThemeTokens = {
 
 export const themePresets = {
   devvoid: devVoidTheme,
-  light: lightTheme,
   dark: darkTheme,
   ocean: oceanTheme,
   forest: forestTheme,

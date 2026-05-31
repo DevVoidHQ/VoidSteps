@@ -1,28 +1,32 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
-import ScrollProgressBar from "../components/landing/ScrollProgressBar";
-import FloatingOrbs from "../components/landing/FloatingOrbs";
+import Navbar from "../components/landing/Navbar";
 import HeroSection from "../components/landing/HeroSection";
+import TrustBar from "../components/landing/TrustBar";
+import ProblemSection from "../components/landing/ProblemSection";
+import BenefitsSection from "../components/landing/BenefitsSection";
 import HowItWorksSection from "../components/landing/HowItWorksSection";
-import ShowcaseSection from "../components/landing/ShowcaseSection";
-import FeaturesSection from "../components/landing/FeaturesSection";
-import SocialProofSection from "../components/landing/SocialProofSection";
+import PrinciplesSection from "../components/landing/PrinciplesSection";
+import PricingSection from "../components/landing/PricingSection";
+import FAQSection from "../components/landing/FAQSection";
 import CTASection from "../components/landing/CTASection";
 import LandingFooter from "../components/landing/LandingFooter";
 ---
 
 <BaseLayout>
-  <div class="min-h-screen bg-background text-foreground relative scroll-smooth noise-overlay" style="overflow-x: clip; scroll-snap-type: y mandatory;">
-    <ScrollProgressBar client:load />
-    <FloatingOrbs client:load />
-    <div class="relative z-[1]">
+  <div class="min-h-screen bg-background text-foreground">
+    <Navbar />
+    <main>
       <HeroSection client:load />
-      <HowItWorksSection client:load />
-      <ShowcaseSection client:load />
-      <FeaturesSection client:visible />
-      <SocialProofSection client:visible />
+      <TrustBar client:visible />
+      <ProblemSection client:visible />
+      <BenefitsSection client:visible />
+      <HowItWorksSection client:visible />
+      <PrinciplesSection client:visible />
+      <PricingSection client:visible />
+      <FAQSection client:visible />
       <CTASection client:visible />
-      <LandingFooter client:visible />
-    </div>
+    </main>
+    <LandingFooter client:visible />
   </div>
 </BaseLayout>

@@ -17,12 +17,9 @@
 }
 
 /*
- * DevVoid theme model — 6 colors only.
+ * DevVoid theme model: 6 colors only.
  * Source of truth: --background, --foreground, --primary, --accent,
  *                  --primary-light, --accent-light.
- * All UI tokens (card/popover/muted/border/input/destructive/secondary)
- * are derived in tailwind.config.js via alpha over --foreground or by
- * aliasing one of the six.
  */
 :root {
   --background: 44 10% 97%;
@@ -34,15 +31,19 @@
 
   --primary-foreground: 0 0% 100%;
   --accent-foreground: 0 0% 100%;
-  --radius: 0.5rem;
+  --radius: 0.625rem;
+}
+
+html {
+  scroll-behavior: smooth;
+  /* offset anchor targets below the sticky navbar */
+  scroll-padding-top: 5rem;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 html, body {
   font-family: "Satoshi", system-ui, sans-serif;
-}
-
-* {
-  border-color: hsl(var(--foreground) / 0.1);
 }
 
 body {
@@ -50,140 +51,47 @@ body {
   color: hsl(var(--foreground));
 }
 
+* {
+  border-color: hsl(var(--foreground) / 0.1);
+}
+
+/* Tighter, calmer headline tracking */
+h1, h2, h3 {
+  letter-spacing: -0.02em;
+}
+
 /* Custom scrollbar */
 * {
   scrollbar-width: thin;
-  scrollbar-color: hsl(var(--primary) / 0.3) transparent;
+  scrollbar-color: hsl(var(--primary) / 0.25) transparent;
 }
-
-*::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-*::-webkit-scrollbar-track {
-  background: transparent;
-}
-
+*::-webkit-scrollbar { width: 7px; height: 7px; }
+*::-webkit-scrollbar-track { background: transparent; }
 *::-webkit-scrollbar-thumb {
-  background: hsl(var(--primary) / 0.3);
-  border-radius: 3px;
+  background: hsl(var(--primary) / 0.25);
+  border-radius: 4px;
+}
+*::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary) / 0.4); }
+
+/* Single, subtle reveal-on-scroll. JS adds .is-visible via IntersectionObserver. */
+.reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+  will-change: opacity, transform;
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
 }
 
-*::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--primary) / 0.5);
+/* Faint dot texture for section accents (used sparingly) */
+.dot-grid {
+  background-image: radial-gradient(circle, hsl(var(--foreground) / 0.07) 1px, transparent 1px);
+  background-size: 22px 22px;
 }
 
-/* Hide scrollbar but keep functionality */
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-
-/* Gradient shimmer text */
-@keyframes gradient-shimmer {
-  0% { background-position: 0% 50%; }
-  100% { background-position: 200% 50%; }
-}
-.gradient-shimmer {
-  background: linear-gradient(
-    90deg,
-    hsl(var(--primary)) 0%,
-    hsl(var(--accent)) 40%,
-    hsl(var(--primary)) 80%,
-    hsl(var(--accent)) 100%
-  );
-  background-size: 200% auto;
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: gradient-shimmer 3s linear infinite;
-}
-
-/* Dot pattern background */
-.dot-pattern {
-  background-image: radial-gradient(circle, hsl(var(--foreground) / 0.12) 1px, transparent 1px);
-  background-size: 24px 24px;
-}
-
-/* Button glow pulse */
-@keyframes btn-glow {
-  0%, 100% { box-shadow: 0 0 20px hsl(var(--accent) / 0.30); }
-  50% { box-shadow: 0 0 35px hsl(var(--accent) / 0.45); }
-}
-.btn-glow {
-  animation: btn-glow 3s ease-in-out infinite;
-}
-
-/* Marquee animations */
-@keyframes marquee-left {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
-}
-@keyframes marquee-right {
-  0% { transform: translateX(-50%); }
-  100% { transform: translateX(0); }
-}
-.animate-marquee-left {
-  animation: marquee-left 30s linear infinite;
-}
-.animate-marquee-right {
-  animation: marquee-right 30s linear infinite;
-}
-
-/* Scroll snap for sections */
-.snap-section {
-  scroll-snap-align: start;
-}
-
-/* Noise texture overlay */
-.noise-overlay::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  pointer-events: none;
-  opacity: 0.03;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-repeat: repeat;
-  background-size: 256px 256px;
-  mix-blend-mode: multiply;
-}
-
-/* Orb drift animations — ambient movement per blob */
-@keyframes orb-drift-1 {
-  0%, 100% { transform: translate3d(-60px, -30px, 0); }
-  50%      { transform: translate3d(50px, 40px, 0); }
-}
-@keyframes orb-drift-2 {
-  0%, 100% { transform: translate3d(80px, 50px, 0); }
-  50%      { transform: translate3d(-40px, -30px, 0); }
-}
-@keyframes orb-drift-3 {
-  0%, 100% { transform: translate3d(30px, -20px, 0); }
-  50%      { transform: translate3d(-40px, 50px, 0); }
-}
-@keyframes orb-drift-4 {
-  0%, 100% { transform: translate3d(-50px, 30px, 0); }
-  50%      { transform: translate3d(60px, -40px, 0); }
-}
-@keyframes orb-drift-5 {
-  0%, 100% { transform: translate3d(40px, 20px, 0); }
-  50%      { transform: translate3d(-30px, -50px, 0); }
-}
-@keyframes orb-drift-6 {
-  0%, 100% { transform: translate3d(-30px, -40px, 0); }
-  50%      { transform: translate3d(50px, 30px, 0); }
-}
-@keyframes orb-drift-7 {
-  0%, 100% { transform: translate3d(20px, 40px, 0); }
-  50%      { transform: translate3d(-40px, -20px, 0); }
-}
-@keyframes orb-drift-8 {
-  0%, 100% { transform: translate3d(-40px, 20px, 0); }
-  50%      { transform: translate3d(30px, -30px, 0); }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .reveal { opacity: 1; transform: none; transition: none; }
 }

@@ -1,17 +1,19 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useTheme, PRESET_THEMES } from "@/contexts/ThemeContext";
 import type { ThemeColors } from "@/contexts/ThemeContext";
 import { useOffline } from "@/contexts/OfflineContext";
+import { useToast } from "@/contexts/ToastContext";
+import { useUser } from "@clerk/clerk-react";
+import { THEME_AI_PROMPT } from "@/lib/theme-ai-prompt";
+import { seedDemoData, isSeedAdmin } from "@/lib/seed-demo";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Toggle } from "@/components/ui/Toggle";
+import { Select } from "@/components/ui/Select";
+import { getDeferDatesMode, setDeferDatesMode, getDueDatesMode, setDueDatesMode, getPrioritizeDefault, setPrioritizeDefault, getStepActions, setStepActionMode, STEP_ACTION_ORDER, STEP_ACTION_LABELS, getStepsClickAction, setStepsClickAction, getTodayClickAction, setTodayClickAction, resetGeneralPreferences, type DeferDatesMode, type StepActionsConfig, type StepClickAction } from "@/lib/preferences";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
-import { Download, Upload, RotateCcw, Shuffle, Dices, Check, Wifi, WifiOff, RefreshCw, Trash2, Bug, Eye } from "lucide-react";
-import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "@/lib/db";
-import { reportError } from "@/lib/error-store";
-import { retryAllFailed, discardAllFailed } from "@/lib/sync-queue-actions";
-import FailedSyncReviewDialog from "@/components/FailedSyncReviewDialog";
+import { Copy, Sparkles, Save, RotateCcw, Shuffle, Dices, Check, Trash2 } from "lucide-react";
 import {
   getKeybinds,
   setKeybind,
@@ -106,98 +108,127 @@ const hexToHsl = (hex: string): string => {
   return `${h} ${s}% ${l}%`;
 };
 
-function SyncAndErrors() {
-  const { isOnline, pendingSyncCount, failedSyncCount } = useOffline();
-  const [isReviewOpen, setIsReviewOpen] = useState(false);
-
-  const recentErrors = useLiveQuery(
-    () => db.errorLog.orderBy('timestamp').reverse().limit(20).toArray(),
-    []
-  );
-
-  const clearErrorLog = async () => {
-    await db.errorLog.clear();
+function GeneralSettings() {
+  const [deferMode, setDeferMode] = useState<DeferDatesMode>(getDeferDatesMode());
+  const [dueMode, setDueMode] = useState<DeferDatesMode>(getDueDatesMode());
+  const [prioritizeDefault, setPrioritizeDefaultState] = useState(getPrioritizeDefault());
+  const [stepActions, setStepActions] = useState<StepActionsConfig>(getStepActions());
+  const [stepsClick, setStepsClick] = useState<StepClickAction>(getStepsClickAction());
+  const [todayClick, setTodayClick] = useState<StepClickAction>(getTodayClickAction());
+  const modeOptions = [
+    { value: "off", label: "Off (not at all)" },
+    { value: "edit", label: "Edit only" },
+    { value: "both", label: "Create & edit" },
+  ];
+  const clickOptions = [
+    { value: "prioritize", label: "Prioritize / deprioritize" },
+    { value: "play", label: "Start / stop timer" },
+    { value: "complete", label: "Mark complete" },
+  ];
+  const handleResetGeneral = () => {
+    resetGeneralPreferences();
+    setDeferMode(getDeferDatesMode());
+    setDueMode(getDueDatesMode());
+    setPrioritizeDefaultState(getPrioritizeDefault());
+    setStepActions(getStepActions());
+    setStepsClick(getStepsClickAction());
+    setTodayClick(getTodayClickAction());
   };
-
-  const formatTimestamp = (ts: number) => {
-    const d = new Date(ts);
-    return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-  };
-
   return (
     <div className="space-y-6">
-      {/* Status */}
       <Card>
-        <CardContent className="p-6 space-y-4">
-          <h2 className="text-xl font-semibold">Sync Status</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center gap-2">
-              {isOnline ? <Wifi className="w-4 h-4 text-green-500" /> : <WifiOff className="w-4 h-4 text-destructive" />}
-              <span className="text-sm">{isOnline ? 'Online' : 'Offline'}</span>
-            </div>
-            <div className="text-sm text-muted-foreground">
-              Pending: {pendingSyncCount}
-            </div>
-            <div className="text-sm text-muted-foreground">
-              Failed: {failedSyncCount}
-            </div>
+        <CardContent className="p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">General</h2>
+            <Button variant="outline" size="sm" onClick={handleResetGeneral}>
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Reset All
+            </Button>
           </div>
-          <div className="flex gap-2 flex-wrap">
-            {failedSyncCount > 0 && (
-              <>
-                <Button variant="outline" size="sm" onClick={() => setIsReviewOpen(true)}>
-                  <Eye className="w-4 h-4 mr-2" />
-                  Review failed ({failedSyncCount})
-                </Button>
-                <Button variant="outline" size="sm" onClick={retryAllFailed}>
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Retry all
-                </Button>
-                <Button variant="outline" size="sm" onClick={discardAllFailed}>
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Discard all
-                </Button>
-              </>
-            )}
-            {import.meta.env.DEV && (
-              <Button
-                variant="outline"
+
+          <Toggle
+            size="sm"
+            checked={prioritizeDefault}
+            onChange={(e) => { setPrioritizeDefaultState(e.target.checked); setPrioritizeDefault(e.target.checked); }}
+            label="Prioritize new steps for today by default"
+            description="Pre-checks 'Prioritize for today' when creating a step. Off by default."
+          />
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Clicking a step on the Steps page</label>
+            <p className="text-sm text-muted-foreground">
+              What happens when you click a step's title or body on the Steps page.
+            </p>
+            <Select
+              className="max-w-xs"
+              value={stepsClick}
+              onValueChange={(v) => { const a = v as StepClickAction; setStepsClick(a); setStepsClickAction(a); }}
+              options={clickOptions}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Clicking a step on Today</label>
+            <p className="text-sm text-muted-foreground">
+              What happens when you click a step's title or body on the Today page.
+            </p>
+            <Select
+              className="max-w-xs"
+              value={todayClick}
+              onValueChange={(v) => { const a = v as StepClickAction; setTodayClick(a); setTodayClickAction(a); }}
+              options={clickOptions}
+            />
+          </div>
+
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Step actions</label>
+              <p className="text-sm text-muted-foreground">
+                Each action shows as its own inline button when on, or moves into the step's "more" menu when off.
+              </p>
+            </div>
+            {STEP_ACTION_ORDER.map((key) => (
+              <Toggle
+                key={key}
                 size="sm"
-                onClick={() => reportError('mutation', new Error('Test error from Settings'), { action: 'sentryTest' })}
-              >
-                <Bug className="w-4 h-4 mr-2" />
-                Test Sentry
-              </Button>
-            )}
+                checked={stepActions[key] === "open"}
+                onChange={(e) => {
+                  const mode = e.target.checked ? "open" : "compact";
+                  setStepActions((prev) => ({ ...prev, [key]: mode }));
+                  setStepActionMode(key, mode);
+                }}
+                label={STEP_ACTION_LABELS[key]}
+              />
+            ))}
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Due date</label>
+            <p className="text-sm text-muted-foreground">
+              A deadline for the step. Choose where it can be set.
+            </p>
+            <Select
+              className="max-w-xs"
+              value={dueMode}
+              onValueChange={(v) => { const m = v as DeferDatesMode; setDueMode(m); setDueDatesMode(m); }}
+              options={modeOptions}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Defer steps to a later date</label>
+            <p className="text-sm text-muted-foreground">
+              A "Defer until" date hides a step until that day. Choose where it can be set.
+            </p>
+            <Select
+              className="max-w-xs"
+              value={deferMode}
+              onValueChange={(v) => { const m = v as DeferDatesMode; setDeferMode(m); setDeferDatesMode(m); }}
+              options={modeOptions}
+            />
           </div>
         </CardContent>
       </Card>
-
-      {/* Error log — only visible in dev mode */}
-      {import.meta.env.DEV && recentErrors && recentErrors.length > 0 && (
-        <Card>
-          <CardContent className="p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-medium text-muted-foreground">Error Log (dev only)</h2>
-              <Button variant="ghost" size="sm" onClick={clearErrorLog}>
-                <Trash2 className="w-3.5 h-3.5 mr-1" />
-                Clear
-              </Button>
-            </div>
-            <div className="space-y-1 max-h-64 overflow-y-auto">
-              {recentErrors.map((entry) => (
-                <div key={entry.id} className="flex items-center gap-2 px-2 py-1 rounded bg-muted/30 text-xs text-muted-foreground">
-                  <span className="font-mono">{entry.category}</span>
-                  <span className="truncate flex-1">{entry.message}</span>
-                  <span className="shrink-0">{formatTimestamp(entry.timestamp)}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <FailedSyncReviewDialog open={isReviewOpen} onOpenChange={setIsReviewOpen} />
     </div>
   );
 }
@@ -244,7 +275,7 @@ function KeybindSettings() {
   return (
     <div className="space-y-6">
       <Card>
-        <CardContent className="p-6 space-y-4">
+        <CardContent className="p-6 space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">Keyboard Shortcuts</h2>
             <Button variant="outline" size="sm" onClick={handleResetAll}>
@@ -305,9 +336,29 @@ function KeybindSettings() {
 }
 
 export default function Settings() {
-  const { theme, setTheme, applyPreset, resetToDefault, exportTheme, importTheme } = useTheme();
+  const {
+    theme,
+    setTheme,
+    applyPreset,
+    resetToDefault,
+    importTheme,
+    savedThemes,
+    saveCurrentTheme,
+    deleteSavedTheme,
+  } = useTheme();
+  const toast = useToast();
+  const { user } = useUser();
+  const { syncNow } = useOffline();
+  const canSeed = isSeedAdmin(user?.primaryEmailAddress?.emailAddress);
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState("");
+  const [promptCopied, setPromptCopied] = useState(false);
+  const [saveName, setSaveName] = useState("");
+  const [seeding, setSeeding] = useState(false);
+  const [seedSync, setSeedSync] = useState(false);
+  const [seedStatus, setSeedStatus] = useState<string>("");
+  const [seedArmed, setSeedArmed] = useState(false);
+  const armRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleColorChange = (key: keyof ThemeColors, hexValue: string) => {
     const hslValue = hexToHsl(hexValue);
@@ -353,40 +404,94 @@ export default function Settings() {
     });
   }, [setTheme]);
 
-  const handleExport = () => {
-    const json = exportTheme();
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'theme.json';
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleCopyPrompt = async () => {
+    try {
+      await navigator.clipboard.writeText(THEME_AI_PROMPT);
+      setPromptCopied(true);
+      toast.success("Prompt copied. Paste it into your favorite AI.");
+      setTimeout(() => setPromptCopied(false), 2000);
+    } catch {
+      toast.error("Couldn't copy. Select the text and copy manually.");
+    }
   };
 
-  const handleImport = () => {
+  const handleApplyPasted = () => {
     const success = importTheme(importText);
     if (success) {
       setImportText("");
       setImportError("");
+      toast.success("Theme applied.");
     } else {
-      setImportError("Invalid theme JSON. Please check the format.");
+      setImportError("That doesn't look like a valid theme. Check the JSON and try again.");
+    }
+  };
+
+  const handleSaveTheme = () => {
+    const name = saveName.trim();
+    if (!name) return;
+    saveCurrentTheme(name);
+    setSaveName("");
+    toast.success(`Saved "${name}".`);
+  };
+
+  // Two-click confirm (native window.confirm is suppressed in some browsers).
+  const handleSeed = () => {
+    if (seeding) return;
+    if (!seedArmed) {
+      setSeedArmed(true);
+      setSeedStatus(
+        seedSync
+          ? "Click again to confirm - this wipes ALL data, then seeds and syncs."
+          : "Click again to confirm - this wipes ALL current data, then seeds.",
+      );
+      if (armRef.current) clearTimeout(armRef.current);
+      armRef.current = setTimeout(() => { setSeedArmed(false); setSeedStatus(""); }, 5000);
+      return;
+    }
+    if (armRef.current) clearTimeout(armRef.current);
+    setSeedArmed(false);
+    void runSeed();
+  };
+
+  const runSeed = async () => {
+    setSeeding(true);
+    setSeedStatus("Seeding…");
+    try {
+      // Write local data first - this is what shows up in the UI immediately.
+      const r = await seedDemoData({ sync: seedSync });
+      const summary = `Seeded ${r.paths} paths, ${r.steps} steps, ${r.routines} routines, ${r.notes} notes.`;
+      toast.success(summary);
+      setSeedStatus(summary);
+      // Push in the background so the button never blocks on the network.
+      if (seedSync) {
+        setSeedStatus(summary + " Syncing…");
+        syncNow()
+          .then(() => setSeedStatus(summary + " Synced ✓"))
+          .catch((e) => { console.error(e); setSeedStatus(summary + " Sync failed (see console)"); toast.error("Sync failed."); });
+      }
+    } catch (e) {
+      console.error(e);
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error("Seeding failed. Check the console.");
+      setSeedStatus("Seeding failed: " + msg);
+    } finally {
+      setSeeding(false);
     }
   };
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      <h1 className="text-2xl font-bold tracking-tight text-center">Settings</h1>
+      <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
 
       <Tabs defaultValue="theme">
         <TabsList className="mb-4">
           <TabsTrigger value="theme">Theme</TabsTrigger>
+          <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="keybinds">Keybinds</TabsTrigger>
-          <TabsTrigger value="sync">Sync & Errors</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="sync">
-          <SyncAndErrors />
+        <TabsContent value="general">
+          <GeneralSettings />
         </TabsContent>
 
         <TabsContent value="keybinds">
@@ -398,7 +503,7 @@ export default function Settings() {
 
       {/* Preset Themes */}
       <Card>
-        <CardContent className="p-6 space-y-4">
+        <CardContent className="p-6 space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">Preset Themes</h2>
             <div className="flex gap-2">
@@ -461,11 +566,11 @@ export default function Settings() {
         </CardContent>
       </Card>
 
-      {/* Custom Colors — Tab-grouped */}
+      {/* Custom Colors - Tab-grouped */}
       <Card>
-        <CardContent className="p-4 space-y-4">
+        <CardContent className="p-6 space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold">Custom Colors</h2>
+            <h2 className="text-xl font-semibold">Custom Colors</h2>
             <Button variant="outline" size="sm" onClick={resetToDefault}>
               <RotateCcw className="w-4 h-4 mr-2" />
               Reset
@@ -473,8 +578,7 @@ export default function Settings() {
           </div>
 
           <p className="text-xs text-muted-foreground">
-            Every theme is 6 colors. Borders, cards, muted surfaces, destructive and secondary
-            all derive from these automatically.
+            Pick your colors. Everything else in the app adjusts to match.
           </p>
           <ColorGroup
             keys={["background", "foreground", "primary", "accent", "primaryLight", "accentLight"]}
@@ -483,71 +587,173 @@ export default function Settings() {
             onColorChange={handleColorChange}
             onHslChange={(key, val) => setTheme({ ...theme, [key]: val })}
           />
-        </CardContent>
-      </Card>
 
-      {/* Import/Export */}
-      <Card>
-        <CardContent className="p-6 space-y-4">
-          <h2 className="text-xl font-semibold">Import/Export Theme</h2>
-
-          <div className="space-y-3">
-            <div className="flex space-x-2">
-              <Button variant="outline" onClick={handleExport} className="flex-1">
-                <Download className="w-4 h-4 mr-2" />
-                Export Theme
-              </Button>
-            </div>
-
-            <div className="space-y-2">
-              <textarea
-                value={importText}
-                onChange={(e) => {
-                  setImportText(e.target.value);
-                  setImportError("");
-                }}
-                placeholder="Paste theme JSON here..."
-                className="w-full h-32 p-3 rounded-md border border-input bg-background text-sm font-mono resize-none"
+          <div className="flex flex-col gap-2 border-t border-border pt-4 sm:flex-row sm:items-center">
+            <div className="flex-1">
+              <Input
+                value={saveName}
+                onChange={(e) => setSaveName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSaveTheme()}
+                placeholder="Name this theme to save it"
               />
-              {importError && (
-                <p className="text-sm text-destructive">{importError}</p>
-              )}
-              <Button
-                variant="outline"
-                onClick={handleImport}
-                disabled={!importText.trim()}
-                className="w-full"
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                Import Theme
-              </Button>
             </div>
+            <Button onClick={handleSaveTheme} disabled={!saveName.trim()} className="shrink-0">
+              <Save className="mr-2 h-4 w-4" />
+              Save theme
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Preview */}
-      <Card>
-        <CardContent className="p-6 space-y-4">
-          <h2 className="text-xl font-semibold">Preview</h2>
-          <div className="space-y-3">
-            <div className="flex space-x-2">
-              <Button>Primary</Button>
-              <Button variant="secondary">Secondary</Button>
-              <Button variant="destructive">Destructive</Button>
-              <Button variant="outline">Outline</Button>
-              <Button variant="ghost">Ghost</Button>
+      {/* My Themes - saved custom themes */}
+      {savedThemes.length > 0 && (
+        <Card>
+          <CardContent className="p-6 space-y-6">
+            <h2 className="text-xl font-semibold">My Themes</h2>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+              {savedThemes.map((saved) => {
+                const c = saved.colors;
+                const isActive = (Object.keys(c) as Array<keyof ThemeColors>).every(
+                  (k) => c[k] === theme[k],
+                );
+                return (
+                  <div
+                    key={saved.id}
+                    className={`group relative rounded-lg border-2 p-3 transition-all ${
+                      isActive
+                        ? "border-primary ring-2 ring-primary/30"
+                        : "border-border hover:border-muted-foreground/40"
+                    }`}
+                    style={{ backgroundColor: `hsl(${c.background})` }}
+                  >
+                    <button
+                      onClick={() => setTheme(c)}
+                      className="block w-full text-left transition-transform hover:scale-[1.02]"
+                    >
+                      <div className="mb-2 flex gap-1">
+                        {(["primary", "accent", "primaryLight", "accentLight"] as const).map((token) => (
+                          <div
+                            key={token}
+                            className="h-4 flex-1 rounded-sm"
+                            style={{ backgroundColor: `hsl(${c[token]})` }}
+                          />
+                        ))}
+                      </div>
+                      <div
+                        className="mb-2 h-1.5 rounded-sm"
+                        style={{ backgroundColor: `hsl(${c.foreground} / 0.15)` }}
+                      />
+                      <div className="flex items-center justify-between">
+                        <span
+                          className="truncate text-xs font-medium"
+                          style={{ color: `hsl(${c.foreground})` }}
+                        >
+                          {saved.name}
+                        </span>
+                        {isActive && (
+                          <Check className="h-3.5 w-3.5 shrink-0" style={{ color: `hsl(${c.primary})` }} />
+                        )}
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => deleteSavedTheme(saved.id)}
+                      aria-label={`Delete ${saved.name}`}
+                      className="absolute right-1.5 top-1.5 rounded-md bg-background/80 p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
-            <Card>
-              <CardContent className="p-4">
-                <p className="font-medium">Card Component</p>
-                <p className="text-sm text-muted-foreground">This is how cards will look with your theme</p>
-              </CardContent>
-            </Card>
-            <Input placeholder="Input field example" />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* AI Theme Designer */}
+      <Card>
+        <CardContent className="p-6 space-y-6">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            <h2 className="text-xl font-semibold">Design a theme with AI</h2>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Copy the prompt below, paste it into your favorite AI (ChatGPT, Claude, Gemini),
+            describe the vibe you want, then paste its JSON answer here to apply.
+          </p>
+
+          {/* Step 1 - copy prompt */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">1. Copy this prompt</span>
+              <Button variant="outline" size="sm" onClick={handleCopyPrompt}>
+                {promptCopied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
+                {promptCopied ? "Copied" : "Copy prompt"}
+              </Button>
+            </div>
+            <pre className="max-h-40 overflow-auto rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground whitespace-pre-wrap">
+              {THEME_AI_PROMPT}
+            </pre>
+          </div>
+
+          {/* Step 2 - paste result */}
+          <div className="space-y-2">
+            <span className="text-sm font-medium">2. Paste the AI's answer</span>
+            <textarea
+              value={importText}
+              onChange={(e) => {
+                setImportText(e.target.value);
+                setImportError("");
+              }}
+              placeholder='{ "background": "...", "foreground": "...", "primary": "..." }'
+              className="h-32 w-full resize-none rounded-md border border-input bg-background p-3 font-mono text-sm"
+            />
+            {importError && <p className="text-sm text-destructive">{importError}</p>}
+            <Button
+              onClick={handleApplyPasted}
+              disabled={!importText.trim()}
+              className="w-full"
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              Apply theme
+            </Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Demo data - owner only, for screenshots */}
+      {canSeed && (
+        <Card>
+          <CardContent className="p-6 space-y-6">
+            <h2 className="text-xl font-semibold">Demo data</h2>
+            <p className="text-sm text-muted-foreground">
+              Wipes everything, then populates this account with a polished set of paths, steps,
+              routines, and notes (with 30 days of history for analytics) for screenshots.
+            </p>
+            <Toggle
+              checked={seedSync}
+              onChange={(e) => setSeedSync(e.target.checked)}
+              size="sm"
+              label="Sync seeded data to the server"
+              description={seedSync
+                ? "On: pushed via batch sync (syncs across devices)."
+                : "Off: local-only (faster, best for screenshots)."}
+            />
+            <Button
+              variant={seedArmed ? "destructive" : "outline"}
+              onClick={handleSeed}
+              loading={seeding}
+              disabled={seeding}
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              {seeding ? "Seeding…" : seedArmed ? "Click again to confirm" : "Seed demo data"}
+            </Button>
+            {seedStatus && (
+              <p className="text-sm text-muted-foreground">{seedStatus}</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
         </div>
         </TabsContent>
       </Tabs>
@@ -578,7 +784,7 @@ function ColorGroup({
               type="color"
               value={hslToHex(theme[key] ?? "0 0% 0%")}
               onChange={(e) => onColorChange(key, e.target.value)}
-              className="w-12 h-10 rounded border border-input cursor-pointer"
+              className="swatch-input h-11 w-12 cursor-pointer overflow-hidden rounded-md border border-input"
             />
             <input
               value={theme[key] ?? ""}

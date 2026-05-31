@@ -10,6 +10,7 @@ const EVENT_COLORS: Record<string, string> = {
   completed: "bg-green-500",
   failed: "bg-destructive",
   routine: "bg-violet-500",
+  reminder: "bg-amber-500",
 };
 
 interface MonthViewProps {

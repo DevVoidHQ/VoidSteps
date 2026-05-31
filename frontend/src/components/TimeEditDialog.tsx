@@ -86,7 +86,7 @@ export function TimeEditDialog({
   const isApplyDisabled = isTimerRunning || (mode === "add" && inputMs === 0);
 
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="sm">
         <DialogHeader className="flex items-center justify-between">
           <DialogTitle>Time Tracked</DialogTitle>

@@ -59,7 +59,7 @@ export function calculateNextOccurrence(
     }
 
     case 'yearly': {
-      // Edge case: Feb 29 on non-leap years — JavaScript Date rolls over to Mar 1.
+      // Edge case: Feb 29 on non-leap years - JavaScript Date rolls over to Mar 1.
       // This means a yearly routine set to Feb 29 fires on Mar 1 in non-leap years.
       const m = (month || 1) - 1;
       const d = dayOfYear || 1;

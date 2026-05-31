@@ -41,7 +41,6 @@ function Dialog({ open, onOpenChange, children }: DialogProps) {
           "fixed inset-0 bg-black/80",
           "animate-in fade-in-0 duration-200"
         )}
-        onClick={() => onOpenChange(false)}
         aria-hidden="true"
       />
       <div

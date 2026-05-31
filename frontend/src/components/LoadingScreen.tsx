@@ -28,7 +28,7 @@ export default function LoadingScreen({
           VoidSteps
         </motion.span>
 
-        {/* Stepping dots — each "step" lights up in sequence */}
+        {/* Stepping dots - each "step" lights up in sequence */}
         <div className="flex items-end gap-2">
           {steps.map((i) => (
             <motion.div

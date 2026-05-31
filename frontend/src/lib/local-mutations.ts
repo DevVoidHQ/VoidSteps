@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { db } from './db';
-import type { LocalStep, LocalPath, LocalRoutine, LocalPathway, LocalNotebook, LocalNote, LocalUserSettings } from './db';
+import type { LocalStep, LocalPath, LocalRoutine, LocalReminder, LocalPathway, LocalNotebook, LocalNote, LocalUserSettings } from './db';
 import { calculateNextOccurrence } from './calculate-next-occurrence';
 
 // --- Validation constants ---
@@ -29,7 +29,7 @@ function generateLocalId(): string {
 // --- Sync queue helper ---
 
 async function enqueue(
-  entityType: 'steps' | 'paths' | 'routines' | 'pathways' | 'userSettings' | 'notebooks' | 'notes',
+  entityType: 'steps' | 'paths' | 'routines' | 'reminders' | 'pathways' | 'userSettings' | 'notebooks' | 'notes',
   entityId: string,
   operation: 'create' | 'update' | 'delete',
   data?: Record<string, unknown>
@@ -54,7 +54,6 @@ export function useCreateStep() {
     title: string;
     description?: string;
     pathId?: string;
-    parentId?: string;
     routineId?: string;
     prioritizedToday?: boolean;
     dueDate?: number;
@@ -65,26 +64,10 @@ export function useCreateStep() {
     const now = Date.now();
     const id = generateLocalId();
 
-    // Validate parent (enforce 1 level deep)
-    if (args.parentId) {
-      const parent = await db.steps.get(args.parentId);
-      if (!parent) throw new Error('Parent step not found');
-      if (parent.parentId) throw new Error('Cannot nest more than 1 level deep');
-    }
-
-    // Calculate sortOrder: find min among siblings
-    let siblingSteps: LocalStep[];
-    if (args.parentId) {
-      siblingSteps = await db.steps
-        .where('parentId')
-        .equals(args.parentId)
-        .filter(s => !s.completed && !s._deleted)
-        .toArray();
-    } else {
-      siblingSteps = await db.steps
-        .filter(s => !s.completed && !s._deleted && !s.parentId)
-        .toArray();
-    }
+    // Calculate sortOrder: find min among active steps.
+    const siblingSteps: LocalStep[] = await db.steps
+      .filter(s => !s.completed && !s._deleted)
+      .toArray();
 
     const minSortOrder = siblingSteps.reduce((min, step) => {
       const order = step.sortOrder ?? step.createdAt;
@@ -100,7 +83,6 @@ export function useCreateStep() {
       completed: false,
       failed: false,
       pathId: args.pathId,
-      parentId: args.parentId,
       routineId: args.routineId,
       prioritizedToday: args.prioritizedToday ?? false,
       sortOrder: newSortOrder,
@@ -187,17 +169,6 @@ export function useUpdateStep() {
 
 export function useDeleteStep() {
   return useCallback(async (args: { id: string }) => {
-    // Cascade delete children
-    const children = await db.steps
-      .where('parentId')
-      .equals(args.id)
-      .toArray();
-
-    for (const child of children) {
-      await db.steps.update(child._id, { _deleted: true, updatedAt: Date.now() });
-      await enqueue('steps', child._id, 'delete');
-    }
-
     await db.steps.update(args.id, { _deleted: true, updatedAt: Date.now() });
     await enqueue('steps', args.id, 'delete');
   }, []);
@@ -249,7 +220,6 @@ export function useToggleStepFailed() {
 export function useReorderSteps() {
   return useCallback(async (args: {
     stepIds: string[];
-    parentId?: string;
   }) => {
     const now = Date.now();
 
@@ -258,48 +228,14 @@ export function useReorderSteps() {
         const stepId = args.stepIds[i];
         await db.steps.update(stepId, {
           sortOrder: i,
-          parentId: args.parentId,
           updatedAt: now,
         });
         await enqueue('steps', stepId, 'update', {
           sortOrder: i,
-          parentId: args.parentId,
           updatedAt: now,
         });
       }
     });
-  }, []);
-}
-
-export function useUpdateStepParent() {
-  return useCallback(async (args: {
-    id: string;
-    parentId?: string;
-  }) => {
-    const step = await db.steps.get(args.id);
-    if (!step) throw new Error('Step not found');
-
-    // Validate new parent
-    if (args.parentId) {
-      const parent = await db.steps.get(args.parentId);
-      if (!parent) throw new Error('Parent step not found');
-      if (parent.parentId) throw new Error('Cannot nest more than 1 level deep');
-      if (args.parentId === args.id) throw new Error('Step cannot be its own parent');
-
-      // Check if this step has children
-      const existingChildren = await db.steps
-        .where('parentId')
-        .equals(args.id)
-        .filter(s => !s._deleted)
-        .toArray();
-      if (existingChildren.length > 0) {
-        throw new Error('Cannot nest a step that has children');
-      }
-    }
-
-    const now = Date.now();
-    await db.steps.update(args.id, { parentId: args.parentId, updatedAt: now });
-    await enqueue('steps', args.id, 'update', { parentId: args.parentId, updatedAt: now });
   }, []);
 }
 
@@ -651,6 +587,77 @@ export function useDeleteRoutine() {
   return useCallback(async (args: { id: string }) => {
     await db.routines.update(args.id, { _deleted: true, updatedAt: Date.now() });
     await enqueue('routines', args.id, 'delete');
+  }, []);
+}
+
+// ============================================================
+// REMINDERS
+// ============================================================
+
+export function useCreateReminder() {
+  return useCallback(async (args: {
+    title: string;
+    note?: string;
+    recurrence: 'once' | 'yearly' | 'monthly';
+    date?: number;
+    month?: number;
+    day?: number;
+  }) => {
+    validateTitle(args.title);
+    const now = Date.now();
+    const id = generateLocalId();
+
+    const reminder: LocalReminder = {
+      _id: id,
+      title: args.title,
+      note: args.note,
+      recurrence: args.recurrence,
+      date: args.date,
+      month: args.month,
+      day: args.day,
+      createdAt: now,
+      updatedAt: now,
+      _localOnly: true,
+    };
+
+    await db.reminders.add(reminder);
+    await enqueue('reminders', id, 'create', reminder as unknown as Record<string, unknown>);
+    return reminder;
+  }, []);
+}
+
+export function useUpdateReminder() {
+  return useCallback(async (args: {
+    id: string;
+    title?: string;
+    note?: string | null;
+    recurrence?: 'once' | 'yearly' | 'monthly';
+    date?: number | null;
+    month?: number | null;
+    day?: number | null;
+  }) => {
+    if (args.title !== undefined) validateTitle(args.title);
+    const { id, ...updates } = args;
+    const existing = await db.reminders.get(id);
+    if (!existing) throw new Error('Reminder not found');
+
+    const patchData: Partial<LocalReminder> = { updatedAt: Date.now() };
+    if (updates.title !== undefined) patchData.title = updates.title;
+    if (updates.note !== undefined) patchData.note = updates.note === null ? undefined : updates.note;
+    if (updates.recurrence !== undefined) patchData.recurrence = updates.recurrence;
+    if (updates.date !== undefined) patchData.date = updates.date === null ? undefined : updates.date;
+    if (updates.month !== undefined) patchData.month = updates.month === null ? undefined : updates.month;
+    if (updates.day !== undefined) patchData.day = updates.day === null ? undefined : updates.day;
+
+    await db.reminders.update(id, patchData);
+    await enqueue('reminders', id, 'update', patchData as unknown as Record<string, unknown>);
+  }, []);
+}
+
+export function useDeleteReminder() {
+  return useCallback(async (args: { id: string }) => {
+    await db.reminders.update(args.id, { _deleted: true, updatedAt: Date.now() });
+    await enqueue('reminders', args.id, 'delete');
   }, []);
 }
 
