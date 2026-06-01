@@ -85,6 +85,19 @@ export function TimeEditDialog({
   const inputMs = hmsToMs(hours, minutes, seconds);
   const isApplyDisabled = isTimerRunning || (mode === "add" && inputMs === 0);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Enter" || isApplyDisabled) return;
+      const t = e.target as HTMLElement;
+      if (t.matches("button, [role=listbox], [role=option]")) return;
+      e.preventDefault();
+      handleApply();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  });
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="sm">

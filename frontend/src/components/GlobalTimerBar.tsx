@@ -6,10 +6,12 @@ import {
   useStartTimer,
   useStopTimer,
   useToggleStepCompletion,
+  TIMER_STARTED_EVENT,
 } from "@/lib/local-mutations";
 import { reportError } from "@/lib/error-store";
 import { useToast } from "@/contexts/ToastContext";
 import { useElapsedTime } from "@/hooks/useTimer";
+import { getOpenFocusOnPlay } from "@/lib/preferences";
 import { IconButton } from "@/components/ui/IconButton";
 import type { Step } from "@/types/index";
 
@@ -60,6 +62,17 @@ export default function GlobalTimerBar() {
       writeFocusId(activeTimerStepId);
     }
   }, [activeTimerStepId]);
+
+  // Open focus mode on a user-initiated timer start (play / resume) when the
+  // pref is on. Event-driven so a page reload with a running timer does not
+  // force fullscreen. Read the pref live so toggling it takes effect next play.
+  useEffect(() => {
+    const handler = () => {
+      if (getOpenFocusOnPlay()) setFullscreen(true);
+    };
+    window.addEventListener(TIMER_STARTED_EVENT, handler);
+    return () => window.removeEventListener(TIMER_STARTED_EVENT, handler);
+  }, []);
 
   const step = useMemo(
     () => (focusId ? allSteps?.find((s) => s._id === focusId) ?? null : null),

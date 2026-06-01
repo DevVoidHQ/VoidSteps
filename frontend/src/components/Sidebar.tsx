@@ -1,6 +1,6 @@
 import { useClerk, useUser } from '@clerk/clerk-react';
 import { motion } from 'framer-motion';
-import { LogOut, Settings, Calendar, ListTodo, Target, Zap, Bell, BookOpen, BarChart3, X, ChevronsLeft, ChevronsRight, MessageSquare } from 'lucide-react';
+import { LogOut, Settings, Calendar, ListTodo, Target, Zap, Bell, BookOpen, BarChart3, X, ChevronsLeft, ChevronsRight, Search } from 'lucide-react';
 import { getKeybinds, formatKeybindDisplay, type KeybindMap } from '@/lib/keybind-config';
 import type { LucideIcon } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -13,6 +13,7 @@ interface SidebarProps {
   onClose: () => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
+  onOpenCommandBar: () => void;
 }
 
 interface SidebarItemProps {
@@ -94,7 +95,7 @@ function SidebarItem({ icon: Icon, label, isCollapsed, active, showActiveIndicat
   );
 }
 
-export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: SidebarProps) {
+export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, onOpenCommandBar }: SidebarProps) {
   const { signOut } = useClerk();
   const { user } = useUser();
   const navigate = useNavigate();
@@ -147,7 +148,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
       <div
         className={`
           fixed md:static
-          ${isCollapsed ? 'w-16' : 'w-64'} h-screen bg-card border-r border-border flex flex-col
+          ${isCollapsed ? 'w-16' : 'w-64'} h-screen bg-card border-r border-border flex flex-col overflow-hidden
           z-50
           transition-all duration-300 ease-in-out
           ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
@@ -155,7 +156,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
         style={{ opacity: 1, backgroundColor: 'hsl(var(--card))' }}
       >
         {/* Header */}
-        <div className={`border-b border-border ${isCollapsed ? 'p-3' : 'p-6'}`}>
+        <div className={`shrink-0 border-b border-border ${isCollapsed ? 'p-3' : 'p-6'}`}>
           {isCollapsed ? (
             <div className="flex items-center justify-center">
               <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary-light text-lg font-bold tracking-tight">
@@ -188,8 +189,31 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
           )}
         </div>
 
+        {/* Command bar trigger */}
+        <div className={isCollapsed ? 'p-2 pb-0' : 'px-4 pt-4'}>
+          <button
+            onClick={onOpenCommandBar}
+            title="Search & commands"
+            className={
+              isCollapsed
+                ? 'w-full flex items-center justify-center rounded-lg py-3 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors'
+                : 'w-full flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors'
+            }
+          >
+            <Search className="w-4 h-4 shrink-0" />
+            {!isCollapsed && (
+              <>
+                <span className="flex-1 text-left">Search…</span>
+                <kbd className="hidden sm:inline-flex h-5 items-center rounded border border-border bg-card px-1.5 font-mono text-[10px]">
+                  {formatKeybindDisplay(keybinds.openCommandBar)}
+                </kbd>
+              </>
+            )}
+          </button>
+        </div>
+
         {/* Navigation */}
-        <nav className={`flex-1 ${isCollapsed ? 'p-2' : 'p-4'} space-y-1`}>
+        <nav className={`flex-1 min-h-0 overflow-y-auto scrollbar-hide ${isCollapsed ? 'p-2' : 'p-4'} space-y-1`}>
           {navItems.map((item) => (
             <SidebarItem
               key={item.path}
@@ -198,7 +222,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
               isCollapsed={isCollapsed}
               active={isActive(item.path)}
               showActiveIndicator
-              shortcut={item.keybindKey ? formatKeybindDisplay(keybinds[item.keybindKey]) : undefined}
+              shortcut={item.keybindKey && keybinds[item.keybindKey] ? formatKeybindDisplay(keybinds[item.keybindKey]) : undefined}
               dot={item.path === '/reminders' && hasTodayReminder}
               onClick={() => handleNavigate(item.path)}
             />
@@ -206,13 +230,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
         </nav>
 
         {/* Footer */}
-        <div className={`border-t border-border ${isCollapsed ? 'p-2' : 'p-4'} space-y-1`}>
-          <SidebarItem
-            icon={MessageSquare}
-            label="Feedback"
-            isCollapsed={isCollapsed}
-            href="mailto:aneeshbhat@devvoid.org?subject=VoidSteps%20Feedback&body=Hey%2C%0A%0AI%20wanted%20to%20share%20some%20feedback%20about%20VoidSteps%3A%0A%0A"
-          />
+        <div className={`shrink-0 border-t border-border ${isCollapsed ? 'p-2' : 'p-4'} space-y-1`}>
           <SidebarItem
             icon={isCollapsed ? ChevronsRight : ChevronsLeft}
             label={isCollapsed ? 'Expand' : 'Collapse'}

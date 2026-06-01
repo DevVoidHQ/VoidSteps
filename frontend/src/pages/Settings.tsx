@@ -9,11 +9,13 @@ import { seedDemoData, isSeedAdmin } from "@/lib/seed-demo";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Toggle } from "@/components/ui/Toggle";
+import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
-import { getDeferDatesMode, setDeferDatesMode, getDueDatesMode, setDueDatesMode, getPrioritizeDefault, setPrioritizeDefault, getStepActions, setStepActionMode, STEP_ACTION_ORDER, STEP_ACTION_LABELS, getStepsClickAction, setStepsClickAction, getTodayClickAction, setTodayClickAction, resetGeneralPreferences, type DeferDatesMode, type StepActionsConfig, type StepClickAction } from "@/lib/preferences";
+import { getDeferDatesMode, setDeferDatesMode, getDueDatesMode, setDueDatesMode, getPrioritizeDefault, setPrioritizeDefault, getOpenFocusOnPlay, setOpenFocusOnPlay, getStepActions, setStepActionMode, STEP_ACTION_ORDER, STEP_ACTION_LABELS, getStepsClickAction, setStepsClickAction, getTodayClickAction, setTodayClickAction, resetGeneralPreferences, type DeferDatesMode, type StepActionsConfig, type StepClickAction } from "@/lib/preferences";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
-import { Copy, Sparkles, Save, RotateCcw, Shuffle, Dices, Check, Trash2 } from "lucide-react";
+import { Copy, Sparkles, Save, RotateCcw, Shuffle, Dices, Check, Trash2, Download } from "lucide-react";
+import { useInstallPrompt, isStandalone } from "@/lib/pwa-install";
 import {
   getKeybinds,
   setKeybind,
@@ -112,6 +114,7 @@ function GeneralSettings() {
   const [deferMode, setDeferMode] = useState<DeferDatesMode>(getDeferDatesMode());
   const [dueMode, setDueMode] = useState<DeferDatesMode>(getDueDatesMode());
   const [prioritizeDefault, setPrioritizeDefaultState] = useState(getPrioritizeDefault());
+  const [openFocusOnPlay, setOpenFocusOnPlayState] = useState(getOpenFocusOnPlay());
   const [stepActions, setStepActions] = useState<StepActionsConfig>(getStepActions());
   const [stepsClick, setStepsClick] = useState<StepClickAction>(getStepsClickAction());
   const [todayClick, setTodayClick] = useState<StepClickAction>(getTodayClickAction());
@@ -130,6 +133,7 @@ function GeneralSettings() {
     setDeferMode(getDeferDatesMode());
     setDueMode(getDueDatesMode());
     setPrioritizeDefaultState(getPrioritizeDefault());
+    setOpenFocusOnPlayState(getOpenFocusOnPlay());
     setStepActions(getStepActions());
     setStepsClick(getStepsClickAction());
     setTodayClick(getTodayClickAction());
@@ -152,6 +156,14 @@ function GeneralSettings() {
             onChange={(e) => { setPrioritizeDefaultState(e.target.checked); setPrioritizeDefault(e.target.checked); }}
             label="Prioritize new steps for today by default"
             description="Pre-checks 'Prioritize for today' when creating a step. Off by default."
+          />
+
+          <Toggle
+            size="sm"
+            checked={openFocusOnPlay}
+            onChange={(e) => { setOpenFocusOnPlayState(e.target.checked); setOpenFocusOnPlay(e.target.checked); }}
+            label="Open focus view when starting a timer"
+            description="Starting a step's timer opens the fullscreen focus view. On by default."
           />
 
           <div className="space-y-1.5">
@@ -258,6 +270,14 @@ function KeybindSettings() {
       e.preventDefault();
       e.stopPropagation();
 
+      // Backspace / Delete unbinds the shortcut.
+      if (e.key === "Backspace" || e.key === "Delete") {
+        setKeybind(editingAction, "");
+        setKeybindsState(getKeybinds());
+        setEditingAction(null);
+        return;
+      }
+
       const kb = eventToKeybind(e);
       if (!kb) return; // ignore standalone modifier
 
@@ -300,12 +320,16 @@ function KeybindSettings() {
                   <div className="flex items-center gap-2">
                     {isEditing ? (
                       <kbd className="inline-flex h-8 items-center rounded border border-accent bg-accent/10 px-3 text-xs font-mono text-accent animate-pulse">
-                        Press a key...
+                        Press a key… (⌫ to clear)
                       </kbd>
-                    ) : (
+                    ) : keybinds[action] ? (
                       <kbd className="inline-flex h-8 items-center rounded border border-border bg-muted px-3 text-xs font-mono text-muted-foreground">
                         {formatKeybindDisplay(keybinds[action])}
                       </kbd>
+                    ) : (
+                      <span className="inline-flex h-8 items-center px-3 text-xs italic text-muted-foreground/70">
+                        Not set
+                      </span>
                     )}
                     {!isEditing && (
                       <>
@@ -332,6 +356,117 @@ function KeybindSettings() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+const FEEDBACK_TYPES = [
+  { value: "general", label: "General feedback" },
+  { value: "bug", label: "Bug report" },
+  { value: "feature", label: "Feature request" },
+];
+const FEEDBACK_SUBJECTS: Record<string, string> = {
+  general: "Feedback",
+  bug: "Bug report",
+  feature: "Feature request",
+};
+
+function InstallAppCard() {
+  const toast = useToast();
+  const { canInstall, promptInstall } = useInstallPrompt();
+
+  if (isStandalone()) {
+    return (
+      <Card>
+        <CardContent className="p-6 flex items-center gap-3">
+          <Check className="w-5 h-5 text-accent shrink-0" />
+          <div>
+            <h2 className="text-xl font-semibold">App installed</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              You're running VoidSteps as an installed app.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardContent className="p-6 space-y-3">
+        <div>
+          <h2 className="text-xl font-semibold">Install app</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            {canInstall
+              ? "Install VoidSteps as a desktop / home-screen app — its own window and offline access."
+              : "Your browser doesn't offer one-click install here. Use its menu (e.g. “Install app” on Chrome/Edge, or “Add to Home Screen” on iOS Safari)."}
+          </p>
+        </div>
+        {canInstall && (
+          <Button
+            onClick={async () => {
+              const outcome = await promptInstall();
+              if (outcome === "accepted") toast.success("Installing VoidSteps…");
+            }}
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Install
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function FeedbackSettings() {
+  const toast = useToast();
+  const [type, setType] = useState("general");
+  const [message, setMessage] = useState("");
+
+  const handleSend = () => {
+    const trimmed = message.trim();
+    if (!trimmed) {
+      toast.error("Write a message first");
+      return;
+    }
+    // Backend isn't wired yet — hand off to the user's mail client for now.
+    const subject = encodeURIComponent(`VoidSteps ${FEEDBACK_SUBJECTS[type]}`);
+    const body = encodeURIComponent(trimmed);
+    window.location.href = `mailto:aneeshbhat@devvoid.org?subject=${subject}&body=${body}`;
+    setMessage("");
+  };
+
+  return (
+    <Card>
+      <CardContent className="p-6 space-y-4">
+        <div>
+          <h2 className="text-xl font-semibold">Feedback</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Found a bug or have an idea? Send it our way.
+          </p>
+        </div>
+
+        <div className="space-y-1.5 max-w-xs">
+          <label className="text-sm font-medium">Type</label>
+          <Select value={type} onValueChange={setType} options={FEEDBACK_TYPES} />
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">Message</label>
+          <Textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Tell us what's on your mind…"
+            rows={6}
+          />
+        </div>
+
+        <div className="flex justify-end">
+          <Button onClick={handleSend} disabled={!message.trim()}>
+            Send
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -488,14 +623,22 @@ export default function Settings() {
           <TabsTrigger value="theme">Theme</TabsTrigger>
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="keybinds">Keybinds</TabsTrigger>
+          <TabsTrigger value="feedback">Feedback</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general">
-          <GeneralSettings />
+          <div className="space-y-6">
+            <InstallAppCard />
+            <GeneralSettings />
+          </div>
         </TabsContent>
 
         <TabsContent value="keybinds">
           <KeybindSettings />
+        </TabsContent>
+
+        <TabsContent value="feedback">
+          <FeedbackSettings />
         </TabsContent>
 
         <TabsContent value="theme">

@@ -6,6 +6,7 @@ export interface KeybindMap {
   quickCreatePath: string;
   quickCreateReminder: string;
   toggleSidebar: string;
+  openCommandBar: string;
   navToday: string;
   navSteps: string;
   navPaths: string;
@@ -22,14 +23,17 @@ export const DEFAULT_KEYBINDS: KeybindMap = {
   quickCreatePath: "p",
   quickCreateReminder: "m",
   toggleSidebar: "meta+b",
-  navToday: "1",
-  navSteps: "2",
-  navPaths: "3",
-  navRoutines: "4",
-  navReminders: "5",
-  navNotes: "6",
-  navAnalytics: "7",
-  navSettings: "8",
+  openCommandBar: "meta+k",
+  // Nav shortcuts are unbound by default — use the command bar (⌘K) or assign
+  // your own keys in Settings.
+  navToday: "",
+  navSteps: "",
+  navPaths: "",
+  navRoutines: "",
+  navReminders: "",
+  navNotes: "",
+  navAnalytics: "",
+  navSettings: "",
 };
 
 export const KEYBIND_LABELS: Record<keyof KeybindMap, string> = {
@@ -38,6 +42,7 @@ export const KEYBIND_LABELS: Record<keyof KeybindMap, string> = {
   quickCreatePath: "New Path",
   quickCreateReminder: "New Reminder",
   toggleSidebar: "Toggle Sidebar",
+  openCommandBar: "Open Command Bar",
   navToday: "Go to Today",
   navSteps: "Go to Steps",
   navPaths: "Go to Paths",
@@ -103,6 +108,7 @@ export function resetAllKeybinds() {
  * Format: "meta+shift+k", "n", "escape", "meta+k"
  */
 export function matchesKeybind(e: KeyboardEvent, keybind: string): boolean {
+  if (!keybind) return false; // unbound
   const parts = keybind.toLowerCase().split("+");
   const key = parts[parts.length - 1];
   const needsMeta = parts.includes("meta");

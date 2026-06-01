@@ -1,3 +1,4 @@
+import * as React from "react";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +36,19 @@ export function ConfirmDialog({
     onConfirm();
     onOpenChange(false);
   };
+
+  React.useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Enter") return;
+      const t = e.target as HTMLElement;
+      if (t.matches("textarea, input, select")) return;
+      e.preventDefault();
+      handleConfirm();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

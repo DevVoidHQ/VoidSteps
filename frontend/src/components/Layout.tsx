@@ -8,6 +8,7 @@ import QuickCreateRoutineDialog from "./QuickCreateRoutineDialog";
 import QuickCreatePathDialog from "./QuickCreatePathDialog";
 import QuickCreateReminderDialog from "./QuickCreateReminderDialog";
 import GlobalTimerBar from "./GlobalTimerBar";
+import CommandBar from "./CommandBar";
 import { Button } from "@/components/ui/Button";
 import { Menu } from "lucide-react";
 import { useOffline } from "@/contexts/OfflineContext";
@@ -39,6 +40,7 @@ export default function Layout({
   const [isQuickCreateRoutineOpen, setIsQuickCreateRoutineOpen] = useState(false);
   const [isQuickCreatePathOpen, setIsQuickCreatePathOpen] = useState(false);
   const [isQuickCreateReminderOpen, setIsQuickCreateReminderOpen] = useState(false);
+  const [isCommandBarOpen, setIsCommandBarOpen] = useState(false);
   const { isOnline, pendingSyncCount, failedSyncCount } = useOffline();
 
   const toggleCollapse = useCallback(() => {
@@ -55,6 +57,7 @@ export default function Layout({
 
   useKeyboardShortcuts({
     onToggleSidebar: toggleCollapse,
+    onOpenCommandBar: () => setIsCommandBarOpen((o) => !o),
     onQuickAdd: () => setIsQuickCreateOpen(true),
     onQuickAddRoutine: () => setIsQuickCreateRoutineOpen(true),
     onQuickAddPath: () => setIsQuickCreatePathOpen(true),
@@ -64,6 +67,7 @@ export default function Layout({
       else if (isQuickCreateRoutineOpen) setIsQuickCreateRoutineOpen(false);
       else if (isQuickCreatePathOpen) setIsQuickCreatePathOpen(false);
       else if (isQuickCreateReminderOpen) setIsQuickCreateReminderOpen(false);
+      else if (isCommandBarOpen) setIsCommandBarOpen(false);
     },
   });
 
@@ -105,6 +109,19 @@ export default function Layout({
         </div>
       )}
 
+      {/* Command bar (⌘K) — navigation + quick actions */}
+      <CommandBar
+        open={isCommandBarOpen}
+        onOpenChange={setIsCommandBarOpen}
+        actions={[
+          { label: "New Step", keybindKey: "quickCreate", run: () => setIsQuickCreateOpen(true) },
+          { label: "New Routine", keybindKey: "quickCreateRoutine", run: () => setIsQuickCreateRoutineOpen(true) },
+          { label: "New Path", keybindKey: "quickCreatePath", run: () => setIsQuickCreatePathOpen(true) },
+          { label: "New Reminder", keybindKey: "quickCreateReminder", run: () => setIsQuickCreateReminderOpen(true) },
+          { label: "Toggle Sidebar", keybindKey: "toggleSidebar", run: toggleCollapse },
+        ]}
+      />
+
       {/* Global running-timer bar (central, persists across pages) */}
       <GlobalTimerBar />
 
@@ -114,6 +131,7 @@ export default function Layout({
         onClose={() => setIsMobileMenuOpen(false)}
         isCollapsed={isCollapsed}
         onToggleCollapse={toggleCollapse}
+        onOpenCommandBar={() => setIsCommandBarOpen(true)}
       />
 
       {/* Main Content */}
