@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Path, Step } from "@/types/index";
 import { Button } from "@/components/ui/Button";
 import {
@@ -43,6 +43,19 @@ export function PathDeleteDialog({
     setDestinationPathId(null);
     onOpenChange(false);
   };
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Enter") return;
+      const t = e.target as HTMLElement;
+      if (t.matches("textarea, input, select, button, [role=listbox], [role=option]")) return;
+      e.preventDefault();
+      handleConfirm();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

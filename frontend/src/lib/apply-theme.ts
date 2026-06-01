@@ -86,6 +86,34 @@ function applyCursorVars(theme: ThemeTokens, target: HTMLElement): void {
   target.style.setProperty("--cursor-pointer", dotCursor(accentHex, ringAccent, "1", "pointer"));
 }
 
+// Branded "VS" mark, same as the collapsed sidebar logo: primary-light tile,
+// V in primary, S in accent. Rebuilt on each theme change so the favicon and
+// tab theme-color track the active theme.
+function applyFavicon(theme: ThemeTokens): void {
+  if (typeof document === "undefined") return;
+  const bgHex = hslToHex(theme.primaryLight || theme.background);
+  const primaryHex = hslToHex(theme.primary);
+  const accentHex = hslToHex(theme.accent);
+  const svg =
+    `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>` +
+    `<rect width='64' height='64' rx='14' fill='${bgHex}'/>` +
+    `<text x='32' y='45' text-anchor='middle' font-family='Satoshi,-apple-system,Segoe UI,Roboto,sans-serif' font-size='34' font-weight='700' letter-spacing='-1'>` +
+    `<tspan fill='${primaryHex}'>V</tspan><tspan fill='${accentHex}'>S</tspan></text></svg>`;
+  const href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+
+  let link = document.querySelector<HTMLLinkElement>("link[rel~='icon']");
+  if (!link) {
+    link = document.createElement("link");
+    link.rel = "icon";
+    document.head.appendChild(link);
+  }
+  link.type = "image/svg+xml";
+  link.href = href;
+
+  const meta = document.querySelector<HTMLMetaElement>("meta[name='theme-color']");
+  if (meta) meta.content = primaryHex;
+}
+
 export function applyTheme(
   theme: ThemeTokens,
   target: HTMLElement = document.documentElement
@@ -101,6 +129,8 @@ export function applyTheme(
   target.style.setProperty("--accent-foreground", contrastForeground(theme.accent));
   // Theme-aware branded cursor.
   applyCursorVars(theme, target);
+  // Theme-aware "VS" favicon + tab color.
+  applyFavicon(theme);
 }
 
 export function getThemeFromDOM(

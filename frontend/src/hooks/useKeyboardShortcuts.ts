@@ -26,6 +26,7 @@ const NAV_ROUTES: Record<string, string> = {
 
 interface ShortcutHandlers {
   onToggleSidebar?: () => void;
+  onOpenCommandBar?: () => void;
   onQuickAdd?: () => void;
   onQuickAddRoutine?: () => void;
   onQuickAddPath?: () => void;
@@ -45,6 +46,13 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
         target.isContentEditable;
 
       const keybinds = getKeybinds();
+
+      // Command bar — works everywhere, including inside inputs.
+      if (matchesKeybind(e, keybinds.openCommandBar)) {
+        e.preventDefault();
+        handlers.onOpenCommandBar?.();
+        return;
+      }
 
       // Toggle sidebar
       if (matchesKeybind(e, keybinds.toggleSidebar)) {

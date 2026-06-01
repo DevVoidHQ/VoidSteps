@@ -239,11 +239,16 @@ export function useReorderSteps() {
   }, []);
 }
 
+/** Fired on every user-initiated timer start (play / resume), so UI can react
+ * (e.g. open focus mode). Not fired on data hydration. */
+export const TIMER_STARTED_EVENT = "voidsteps-timer-started";
+
 export function useStartTimer() {
   return useCallback(async (args: { id: string }) => {
     const now = Date.now();
     await db.steps.update(args.id, { timerStartedAt: now, updatedAt: now });
     await enqueue('steps', args.id, 'update', { timerStartedAt: now, updatedAt: now });
+    window.dispatchEvent(new CustomEvent(TIMER_STARTED_EVENT, { detail: { id: args.id } }));
   }, []);
 }
 

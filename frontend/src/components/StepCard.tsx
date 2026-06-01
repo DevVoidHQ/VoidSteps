@@ -165,6 +165,17 @@ function StepCardComponent({
     success("Step updated");
   }, [step._id, editForm, onSaveEdit, success]);
 
+  const handleEditKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" && !(e.target as HTMLElement).matches("textarea, button, [role=listbox], [role=option]")) {
+        if (!editForm.title.trim()) return;
+        e.preventDefault();
+        handleSave();
+      }
+    },
+    [editForm.title, handleSave]
+  );
+
   const handleEditFormChange = useCallback(
     (updates: Partial<{ title: string; description: string; pathId: string; dueDate: string; startDate: string }>) => {
       setEditForm((prev) => ({ ...prev, ...updates }));
@@ -305,9 +316,9 @@ function StepCardComponent({
               onClick={handleStepClick}
             >
               {/* Row 1: Title */}
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 min-w-0">
                 <span
-                  className={`font-medium ${
+                  className={`font-medium min-w-0 [overflow-wrap:anywhere] ${
                     step.completed
                       ? "line-through text-muted-foreground"
                       : step.failed === true
@@ -321,7 +332,7 @@ function StepCardComponent({
 
               {/* Row 2: Description (if any) */}
               {step.description && (
-                <p className="text-sm text-muted-foreground mt-1">
+                <p className="text-sm text-muted-foreground mt-1 [overflow-wrap:anywhere]">
                   {step.description}
                 </p>
               )}
@@ -395,13 +406,13 @@ function StepCardComponent({
                     key={d.key}
                     icon={
                       armed ? (
-                        <XCircle className="w-4 h-4 fill-destructive text-destructive" />
+                        <Check className="w-4 h-4 text-destructive" />
                       ) : (
                         d.icon
                       )
                     }
-                    aria-label={armed ? "Click again to mark failed" : d.label}
-                    title={armed ? "Click again to mark failed" : undefined}
+                    aria-label={armed ? "Click again to confirm" : d.label}
+                    title={armed ? "Click again to confirm" : undefined}
                     variant="ghost"
                     size="icon-sm"
                     className={armed ? "ring-1 ring-destructive" : undefined}
@@ -451,7 +462,7 @@ function StepCardComponent({
           <DialogHeader>
             <DialogTitle>Edit Step</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
+          <div className="space-y-3" onKeyDown={handleEditKeyDown}>
             <Input
               placeholder="Step title"
               value={editForm.title}

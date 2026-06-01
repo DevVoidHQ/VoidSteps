@@ -6,6 +6,7 @@ export const DEFER_DATES_KEY = "voidsteps-defer-dates";
 export const DUE_DATES_KEY = "voidsteps-due-dates";
 export const PRIORITIZE_DEFAULT_KEY = "voidsteps-prioritize-default";
 export const STEP_ACTIONS_KEY = "voidsteps-step-actions";
+export const OPEN_FOCUS_ON_PLAY_KEY = "voidsteps-open-focus-on-play";
 const PREFS_EVENT = "voidsteps-prefs-changed";
 
 // Per-action placement on a step: "open" = its own inline icon, "compact" =
@@ -146,6 +147,40 @@ export function setPrioritizeDefault(on: boolean): void {
   window.dispatchEvent(new Event(PREFS_EVENT));
 }
 
+// Whether starting a step's timer (play) opens the fullscreen focus view.
+// Default on.
+export function getOpenFocusOnPlay(): boolean {
+  try {
+    const v = localStorage.getItem(OPEN_FOCUS_ON_PLAY_KEY);
+    return v === null ? true : v === "true";
+  } catch {
+    return true;
+  }
+}
+
+export function setOpenFocusOnPlay(on: boolean): void {
+  try {
+    localStorage.setItem(OPEN_FOCUS_ON_PLAY_KEY, String(on));
+  } catch {
+    /* ignore */
+  }
+  window.dispatchEvent(new Event(PREFS_EVENT));
+}
+
+export function useOpenFocusOnPlay(): boolean {
+  const [value, setValue] = useState(getOpenFocusOnPlay);
+  useEffect(() => {
+    const handler = () => setValue(getOpenFocusOnPlay());
+    window.addEventListener(PREFS_EVENT, handler);
+    window.addEventListener("storage", handler);
+    return () => {
+      window.removeEventListener(PREFS_EVENT, handler);
+      window.removeEventListener("storage", handler);
+    };
+  }, []);
+  return value;
+}
+
 // Where a date field appears: nowhere, edit only, or both create+edit.
 export type DeferDatesMode = "off" | "edit" | "both";
 
@@ -222,6 +257,7 @@ export function resetGeneralPreferences(): void {
     STEP_ACTIONS_KEY,
     DUE_DATES_KEY,
     DEFER_DATES_KEY,
+    OPEN_FOCUS_ON_PLAY_KEY,
   ];
   try {
     for (const k of keys) localStorage.removeItem(k);

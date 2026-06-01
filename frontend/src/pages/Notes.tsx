@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchHotkey } from "@/hooks/useSearchHotkey";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Plus, Trash2, Pencil, BookOpen, FileText, Search, X, Maximize2, Minimize2, ChevronRight, Check } from "lucide-react";
+import { Plus, Trash2, Pencil, BookOpen, FileText, Search, X, Maximize2, Minimize2, ChevronRight, Check, ArrowLeft } from "lucide-react";
 
 import { db } from "@/lib/db";
 import type { LocalNotebook, LocalNote } from "@/lib/db";
@@ -84,6 +84,18 @@ export default function Notes() {
   const [openId, setOpenId] = useState<string | null>(() => readStored(OPEN_NB_KEY));
   const [focusMode, setFocusMode] = useState<boolean>(getInitialFocusMode);
 
+  // Desktop shows the editor beside the list (always keep a note open); mobile
+  // is master→detail, so it must be able to sit on the list with no note open.
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const handler = () => setIsDesktop(mq.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
   // Persist the open notebook + selected note across navigation.
   useEffect(() => { writeStored(OPEN_NB_KEY, openId); }, [openId]);
   useEffect(() => { writeStored(ACTIVE_NOTE_KEY, activeNoteId); }, [activeNoteId]);
@@ -137,10 +149,17 @@ export default function Notes() {
       setActiveNoteId(null);
       return;
     }
-    if (!activeNoteId || !notesInNotebook.find((n) => n._id === activeNoteId)) {
+    // Stale selection (note deleted / moved out): clear it.
+    if (activeNoteId && !notesInNotebook.find((n) => n._id === activeNoteId)) {
+      setActiveNoteId(null);
+      return;
+    }
+    // Desktop keeps the first note open by default; mobile starts on the list
+    // so the back button can return there without instantly reopening a note.
+    if (!activeNoteId && isDesktop) {
       setActiveNoteId(notesInNotebook[0]._id);
     }
-  }, [notes, notesInNotebook, activeNoteId]);
+  }, [notes, notesInNotebook, activeNoteId, isDesktop]);
 
   const activeNote = useMemo(
     () => notes?.find((n) => n._id === activeNoteId) ?? null,
@@ -262,6 +281,10 @@ export default function Notes() {
         onChange={handleEditorChange}
         focusMode={focusMode}
         onToggleFocusMode={toggleFocusMode}
+        onBack={() => {
+          setActiveNoteId(null);
+          if (focusMode) toggleFocusMode(); // focus mode hides the list; leave it
+        }}
       />
     </div>
   );
@@ -313,7 +336,7 @@ function NotesTreePane({
   const searchRef = useRef<HTMLInputElement>(null);
   useSearchHotkey(searchRef);
   return (
-    <div className="w-72 shrink-0 flex flex-col border-r border-border">
+    <div className={`${activeNoteId ? "hidden md:flex" : "flex"} w-full md:w-72 shrink-0 flex-col border-r border-border`}>
       <div className="px-3 py-3 space-y-2">
         <div className="flex items-center justify-between">
           <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
@@ -665,11 +688,13 @@ function NoteEditorPane({
   onChange,
   focusMode,
   onToggleFocusMode,
+  onBack,
 }: {
   note: LocalNote | null;
   onChange: (id: string, patch: { title?: string; body?: string }) => void;
   focusMode: boolean;
   onToggleFocusMode: () => void;
+  onBack: () => void;
 }) {
   const [title, setTitle] = useState(note?.title ?? "");
   const [dirty, setDirty] = useState(false); // unsaved edits pending
@@ -753,8 +778,10 @@ function NoteEditorPane({
   );
 
   if (!note) {
+    // On mobile the list takes the whole screen when nothing is open, so the
+    // empty editor only shows on md+.
     return (
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="hidden md:flex flex-1 flex-col min-w-0">
         <div className="flex items-center px-4 py-3 border-b border-border">
           {focusToggle}
         </div>
@@ -769,34 +796,45 @@ function NoteEditorPane({
     <div className="flex-1 flex flex-col min-w-0">
       {/* Thin toolbar: save state + focus toggle, right-aligned so the global
           timer bar never sits over it. */}
-      <div className="flex items-center justify-end gap-3 px-4 py-2">
-        <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap">
+      <div className="flex items-center gap-3 px-4 py-2">
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          className="md:hidden"
+          onClick={onBack}
+          aria-label="Back to notes"
+        >
+          <ArrowLeft className="w-4 h-4" />
+        </Button>
+        <span className="ml-auto shrink-0 text-xs text-muted-foreground whitespace-nowrap">
           {dirty ? "Editing…" : `Saved ${relativeTime(note.updatedAt)}`}
         </span>
         {focusToggle}
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto">
-        {/* Title is the document's heading 1, inline at the top (Notion-style).
-            Horizontal padding matches the editor body (.bn-editor: 3rem 5rem). */}
-        <textarea
-          ref={titleAreaRef}
-          value={title}
-          onChange={(e) => {
-            setTitle(e.target.value);
-            scheduleTitleSave(e.target.value);
-            resizeTitle();
-          }}
-          onBlur={() => {
-            flushTitle();
-            setDirty(false);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") e.preventDefault();
-          }}
-          rows={1}
-          placeholder="Untitled"
-          className="block w-full resize-none overflow-hidden bg-transparent px-20 pt-12 text-4xl font-bold tracking-tight leading-tight outline-none placeholder:text-muted-foreground/40"
-        />
+        {/* Title header band: distinct surface with a 3:2 top:bottom padding
+            ratio. Horizontal padding matches the editor body (.bn-editor). */}
+        <div className="bg-muted/50 border-b border-border px-5 pt-8 pb-5 md:px-20 md:pt-12 md:pb-8">
+          <textarea
+            ref={titleAreaRef}
+            value={title}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              scheduleTitleSave(e.target.value);
+              resizeTitle();
+            }}
+            onBlur={() => {
+              flushTitle();
+              setDirty(false);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.preventDefault();
+            }}
+            rows={1}
+            placeholder="Untitled"
+            className="block w-full resize-none overflow-hidden bg-transparent text-2xl md:text-4xl font-bold tracking-tight leading-tight outline-none placeholder:text-muted-foreground/40"
+          />
+        </div>
         <NoteEditor
           key={note._id}
           initialBody={note.body}

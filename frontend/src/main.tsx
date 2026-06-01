@@ -6,6 +6,7 @@ import { convexClient } from './lib/convex-client'
 import { initSentry } from './lib/sentry'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import App from './App.tsx'
+import './lib/pwa-install' // captures beforeinstallprompt early
 import './index.css'
 
 initSentry();

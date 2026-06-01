@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { Toggle } from "@/components/ui/Toggle";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { HierarchicalPathSelector } from "@/components/HierarchicalPathSelector";
-import { useCreateStep } from "@/lib/local-mutations";
+import { useCreateStep, MAX_TITLE_LENGTH, MAX_DESCRIPTION_LENGTH } from "@/lib/local-mutations";
 import { useData } from "@/contexts/DataContext";
 import { useToast } from "@/contexts/ToastContext";
 import { reportError } from "@/lib/error-store";
@@ -82,7 +82,7 @@ export default function QuickCreateDialog({ open, onOpenChange }: QuickCreateDia
       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         handleSubmit();
-      } else if (e.key === "Enter" && !(e.target as HTMLElement).matches("textarea")) {
+      } else if (e.key === "Enter" && !(e.target as HTMLElement).matches("textarea, button, [role=listbox], [role=option]")) {
         e.preventDefault();
         handleSubmit();
       }
@@ -103,6 +103,7 @@ export default function QuickCreateDialog({ open, onOpenChange }: QuickCreateDia
             placeholder="What do you need to do?"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+            maxLength={MAX_TITLE_LENGTH}
           />
 
           <textarea
@@ -110,7 +111,8 @@ export default function QuickCreateDialog({ open, onOpenChange }: QuickCreateDia
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
-            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
+            maxLength={MAX_DESCRIPTION_LENGTH}
+            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
           />
 
           <HierarchicalPathSelector

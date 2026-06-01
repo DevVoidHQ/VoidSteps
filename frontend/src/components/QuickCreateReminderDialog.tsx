@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import type { Reminder, ReminderRecurrence } from "@/types/index";
-import { useCreateReminder, useUpdateReminder } from "@/lib/local-mutations";
+import { useCreateReminder, useUpdateReminder, MAX_TITLE_LENGTH, MAX_DESCRIPTION_LENGTH } from "@/lib/local-mutations";
 import { reportError } from "@/lib/error-store";
 import { useToast } from "@/contexts/ToastContext";
 import { Button } from "@/components/ui/Button";
@@ -116,20 +116,31 @@ export default function QuickCreateReminderDialog({
     }
   }, [title, note, recurrence, dateStr, month, day, reminder, createReminder, updateReminder, toast, onOpenChange]);
 
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" && !(e.target as HTMLElement).matches("textarea, button, [role=listbox], [role=option]")) {
+        e.preventDefault();
+        handleSave();
+      }
+    },
+    [handleSave]
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[28rem] max-w-[calc(100vw-2rem)]">
         <DialogHeader>
           <DialogTitle>{reminder ? "Edit Reminder" : "New Reminder"}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
+        <div className="space-y-3" onKeyDown={handleKeyDown}>
           <Input
             placeholder="e.g. Anniversary"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+            maxLength={MAX_TITLE_LENGTH}
             autoFocus
           />
-          <Input placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
+          <Input placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} maxLength={MAX_DESCRIPTION_LENGTH} />
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Repeats</label>
             <Select
