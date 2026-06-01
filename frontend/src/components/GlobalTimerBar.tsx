@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Timer, Pause, Play, Square, CheckCircle2, Maximize2, X } from "lucide-react";
+import { Timer, Pause, Play, Square, CheckCircle2, Maximize2, X, Minus } from "lucide-react";
 import { useData } from "@/contexts/DataContext";
 import {
   useStartTimer,
@@ -55,6 +55,7 @@ export default function GlobalTimerBar() {
   // timer stops accruing but the bar (and this id) stay so it can be resumed.
   const [focusId, setFocusId] = useState<string | null>(readFocusId);
   const [fullscreen, setFullscreen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     if (activeTimerStepId) {
@@ -176,24 +177,44 @@ export default function GlobalTimerBar() {
 
   return (
     <>
-      {/* Compact central bar, fixed at the top across every page */}
-      <div className="fixed top-3 left-1/2 z-40 -translate-x-1/2 pointer-events-none">
-        <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-border bg-card/95 px-3 py-1.5 shadow-lg backdrop-blur">
-          <Timer className={`w-4 h-4 ${isRunning ? "text-primary animate-pulse" : "text-muted-foreground"}`} />
-          <span className="max-w-[180px] truncate text-sm font-medium text-foreground">
-            {step.title}
-          </span>
-          <span className="font-mono text-sm tabular-nums text-primary">{elapsed}</span>
-          <div className="mx-1 h-4 w-px bg-border" />
-          {controls("sm")}
-          <IconButton
-            icon={<Maximize2 className="w-4 h-4 text-muted-foreground" />}
-            aria-label="Open focus mode"
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setFullscreen(true)}
-          />
-        </div>
+      {/* Compact running-timer bar. Bottom-center on mobile (clears the header /
+          menu button), top-center on md+. */}
+      <div className="fixed z-40 bottom-4 left-4 right-20 flex justify-start pointer-events-none md:left-1/2 md:right-auto md:bottom-auto md:top-3 md:-translate-x-1/2 md:justify-center">
+        {collapsed ? (
+          <button
+            onClick={() => setCollapsed(false)}
+            aria-label="Expand timer"
+            className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-border bg-card/95 px-3 py-1.5 shadow-lg backdrop-blur"
+          >
+            <Timer className={`w-4 h-4 shrink-0 ${isRunning ? "text-primary animate-pulse" : "text-muted-foreground"}`} />
+            <span className="font-mono text-sm tabular-nums text-primary">{elapsed}</span>
+          </button>
+        ) : (
+          <div className="pointer-events-auto flex max-w-full items-center gap-1.5 rounded-xl border border-border bg-card/95 px-2 py-1 shadow-lg backdrop-blur md:gap-2 md:px-3 md:py-1.5">
+            <Timer className={`w-4 h-4 shrink-0 ${isRunning ? "text-primary animate-pulse" : "text-muted-foreground"}`} />
+            <span className="min-w-0 max-w-[90px] truncate text-sm font-medium text-foreground sm:max-w-[180px]">
+              {step.title}
+            </span>
+            <span className="shrink-0 font-mono text-sm tabular-nums text-primary">{elapsed}</span>
+            <div className="mx-1 h-4 w-px shrink-0 bg-border" />
+            {controls("sm")}
+            <IconButton
+              icon={<Maximize2 className="w-4 h-4 text-muted-foreground" />}
+              aria-label="Open focus mode"
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setFullscreen(true)}
+            />
+            <IconButton
+              icon={<Minus className="w-4 h-4 text-muted-foreground" />}
+              aria-label="Collapse timer"
+              variant="ghost"
+              size="icon-sm"
+              className="hidden md:inline-flex"
+              onClick={() => setCollapsed(true)}
+            />
+          </div>
+        )}
       </div>
 
       {fullscreen && <FocusMode step={step} elapsed={elapsed} isRunning={isRunning} controls={controls("lg")} onExit={() => setFullscreen(false)} />}

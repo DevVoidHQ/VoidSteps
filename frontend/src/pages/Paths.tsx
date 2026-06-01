@@ -365,15 +365,15 @@ export default function Paths() {
         </div>
       </div>
 
-      <div className="flex flex-1 min-h-0 gap-4">
-        {/* Graph canvas - primary view */}
-        <div className="flex-1 min-w-0">
+      <div className="flex flex-col md:flex-row flex-1 min-h-0 gap-4">
+        {/* Graph canvas - primary view. Top half on mobile, left on desktop. */}
+        <div className="flex-1 min-h-0 min-w-0">
           <GraphView paths={activePaths || []} allSteps={allSteps || []} sidebarOpen={showList} />
         </div>
 
-        {/* Right sidebar - manage all paths */}
+        {/* Paths list - bottom on mobile, right side on desktop. */}
         {showList && (
-        <aside className="w-80 shrink-0 flex flex-col border-l border-border pl-4">
+        <aside className="w-full flex-1 min-h-0 md:w-80 md:flex-none flex flex-col border-t border-border pt-3 md:border-t-0 md:border-l md:pt-0 md:pl-4">
           <div className="flex items-center justify-between mb-3 shrink-0">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               {showArchived ? "Archived Paths" : "All Paths"}

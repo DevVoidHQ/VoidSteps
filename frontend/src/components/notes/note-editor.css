@@ -14,6 +14,13 @@
   caret-color: hsl(var(--accent));
 }
 
+/* Tighter side padding on phones so the editor body isn't cramped. */
+@media (max-width: 640px) {
+  .voidsteps-editor .bn-editor {
+    padding: 1.5rem 1.25rem;
+  }
+}
+
 .voidsteps-editor .bn-container,
 .voidsteps-editor .ProseMirror {
   background: transparent;

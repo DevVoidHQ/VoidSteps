@@ -73,11 +73,13 @@ export default function Layout({
 
   return (
     <div className="flex min-h-screen bg-background w-full">
-      {/* Mobile Menu Button */}
-      <div className="md:hidden fixed top-4 left-4 z-50">
+      {/* Mobile Menu Button — bottom-right for one-handed (thumb) reach */}
+      <div className="md:hidden fixed bottom-4 right-4 z-50">
         <Button
           variant="outline"
-          size="sm"
+          size="icon"
+          className="rounded-full shadow-lg h-11 w-11"
+          aria-label="Open menu"
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         >
           <Menu className="w-5 h-5" />
@@ -86,7 +88,7 @@ export default function Layout({
 
       {/* Offline / Sync Indicator */}
       {(!isOnline || pendingSyncCount > 0 || failedSyncCount > 0) && (
-        <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-1.5">
+        <div className="fixed bottom-4 left-4 md:left-auto md:right-4 z-50 flex flex-col gap-1.5">
           {(!isOnline || pendingSyncCount > 0) && (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-muted border border-border shadow-sm">
               <span
@@ -145,8 +147,8 @@ export default function Layout({
             transition={{ duration: 0.15, ease: "easeOut" }}
             className={
               fullWidth
-                ? "w-full h-screen pt-16 md:pt-0"
-                : "container mx-auto px-4 md:px-8 py-6 pt-16 md:pt-6"
+                ? "w-full h-screen"
+                : "container mx-auto px-3 md:px-8 py-6 pb-24 md:py-6"
             }
           >
             {children}

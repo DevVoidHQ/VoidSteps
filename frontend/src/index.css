@@ -55,6 +55,14 @@ html, body {
   outline-offset: 2px;
 }
 
+/* Slightly smaller base on phones so rem-based type and spacing read more
+   compact across the whole app. */
+@media (max-width: 640px) {
+  html {
+    font-size: 15px;
+  }
+}
+
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));

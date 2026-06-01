@@ -4,7 +4,7 @@ import { LogOut, Settings, Calendar, ListTodo, Target, Zap, Bell, BookOpen, BarC
 import { getKeybinds, formatKeybindDisplay, type KeybindMap } from '@/lib/keybind-config';
 import type { LucideIcon } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { getStartOfDay, projectReminderOccurrences } from '@/lib/calendar-utils';
 
@@ -109,6 +109,14 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
     return reminders.some((r) => projectReminderOccurrences(r, start, end).length > 0);
   }, [reminders]);
 
+  // Lock background scroll while the mobile drawer is open.
+  useEffect(() => {
+    if (!isOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [isOpen]);
+
   const keybinds = getKeybinds();
 
   const navItems: { path: string; label: string; icon: LucideIcon; keybindKey?: keyof KeybindMap }[] = [
@@ -139,21 +147,23 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
       {/* Mobile Backdrop */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden animate-in fade-in-0 duration-200"
           onClick={onClose}
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar. On mobile it's an overlay drawer (always full width + elevated);
+          on md+ it's static and can collapse to an icon rail. */}
       <div
         className={`
           fixed md:static
-          ${isCollapsed ? 'w-16' : 'w-64'} h-screen bg-card border-r border-border flex flex-col overflow-hidden
+          ${isCollapsed ? 'w-64 md:w-16' : 'w-64'} h-screen bg-card border-r border-border flex flex-col overflow-hidden
+          shadow-2xl md:shadow-none
           z-50
           transition-all duration-300 ease-in-out
           ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}
-        style={{ opacity: 1, backgroundColor: 'hsl(var(--card))' }}
+        style={{ opacity: 1 }}
       >
         {/* Header */}
         <div className={`shrink-0 border-b border-border ${isCollapsed ? 'p-3' : 'p-6'}`}>
