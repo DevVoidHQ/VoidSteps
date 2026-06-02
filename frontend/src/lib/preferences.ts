@@ -70,14 +70,14 @@ export function useStepActions(): StepActionsConfig {
 
 // What clicking a step row does, configurable per page. Steps page defaults to
 // toggling priority; Today defaults to starting/stopping the timer.
-export type StepClickAction = "prioritize" | "play" | "complete";
+export type StepClickAction = "prioritize" | "play" | "complete" | "none";
 export const STEPS_CLICK_ACTION_KEY = "voidsteps-steps-click-action";
 export const TODAY_CLICK_ACTION_KEY = "voidsteps-today-click-action";
 
 function readClickAction(key: string, fallback: StepClickAction): StepClickAction {
   try {
     const v = localStorage.getItem(key);
-    if (v === "prioritize" || v === "play" || v === "complete") return v;
+    if (v === "prioritize" || v === "play" || v === "complete" || v === "none") return v;
     return fallback;
   } catch {
     return fallback;

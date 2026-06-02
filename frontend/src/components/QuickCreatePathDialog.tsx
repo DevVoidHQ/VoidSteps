@@ -53,8 +53,11 @@ export default function QuickCreatePathDialog({ open, onOpenChange }: QuickCreat
   }, [title, description, parentId, createPathMutation, toast, resetForm, onOpenChange]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); handleSubmit(); }
-    else if (e.key === "Enter" && !(e.target as HTMLElement).matches("textarea, button, [role=listbox], [role=option]")) { e.preventDefault(); handleSubmit(); }
+    if (e.key !== "Enter") return;
+    const target = e.target as HTMLElement;
+    if (target.tagName === "TEXTAREA" && e.shiftKey && !(e.metaKey || e.ctrlKey)) return;
+    e.preventDefault();
+    handleSubmit();
   }, [handleSubmit]);
 
   return (

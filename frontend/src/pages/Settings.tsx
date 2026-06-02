@@ -127,6 +127,7 @@ function GeneralSettings() {
     { value: "prioritize", label: "Prioritize / deprioritize" },
     { value: "play", label: "Start / stop timer" },
     { value: "complete", label: "Mark complete" },
+    { value: "none", label: "Do nothing" },
   ];
   const handleResetGeneral = () => {
     resetGeneralPreferences();

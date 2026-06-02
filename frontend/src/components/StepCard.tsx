@@ -277,7 +277,7 @@ function StepCardComponent({
   };
 
   // Clicking the step body runs the page-configured action.
-  const handleStepClick = clickAction
+  const handleStepClick = clickAction && clickAction !== "none"
     ? () => {
         if (clickAction === "prioritize") onTogglePriority(step._id, step.prioritizedToday);
         else if (clickAction === "play") { if (onToggleTimer && !step.completed) onToggleTimer(step._id); }

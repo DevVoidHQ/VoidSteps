@@ -112,8 +112,11 @@ export default function QuickCreateRoutineDialog({ open, onOpenChange, routine }
   }, [routine, title, description, pathId, frequency, daysOfWeek, dayOfMonth, month, dayOfYear, autoPrioritize, createRoutineMutation, updateRoutineMutation, toast, resetForm, onOpenChange]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); handleSubmit(); }
-    else if (e.key === "Enter" && !(e.target as HTMLElement).matches("textarea, select, button, [role=listbox], [role=option]")) { e.preventDefault(); handleSubmit(); }
+    if (e.key !== "Enter") return;
+    const target = e.target as HTMLElement;
+    if (target.tagName === "TEXTAREA" && e.shiftKey && !(e.metaKey || e.ctrlKey)) return;
+    e.preventDefault();
+    handleSubmit();
   }, [handleSubmit]);
 
   return (

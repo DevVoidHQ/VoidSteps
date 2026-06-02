@@ -26,7 +26,10 @@ export function HierarchicalPathSelector({
   const [searchQuery, setSearchQuery] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const mouseDownRef = useRef(false); // distinguish mouse vs keyboard focus
+  const suppressOpenOnFocusRef = useRef(false); // skip auto-open for programmatic refocus after select
+  const refocusTriggerRef = useRef(false); // after select, return focus to the trigger
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -46,6 +49,17 @@ export function HierarchicalPathSelector({
     if (isOpen && inputRef.current) {
       inputRef.current.focus();
     }
+  }, [isOpen]);
+
+  // After a selection closes the dropdown, return focus to the (closed) trigger
+  // so the parent form's Enter handler still fires instead of focus falling to
+  // <body>. Runs post-close; the suppress flag stops the trigger's focus
+  // handler from reopening the dropdown.
+  useEffect(() => {
+    if (isOpen || !refocusTriggerRef.current) return;
+    refocusTriggerRef.current = false;
+    suppressOpenOnFocusRef.current = true;
+    triggerRef.current?.focus();
   }, [isOpen]);
 
   // Build hierarchy from flat paths
@@ -156,6 +170,9 @@ export function HierarchicalPathSelector({
     setIsOpen(false);
     setCurrentParentId(null);
     setSearchQuery("");
+    // Return focus to the trigger once the dropdown has closed (deferred to an
+    // effect so the now-unmounted dropdown isn't briefly a focus target).
+    refocusTriggerRef.current = true;
   }, [onChange]);
 
   // Handle drilling down into a path
@@ -179,10 +196,14 @@ export function HierarchicalPathSelector({
     <div ref={containerRef} className={`relative ${className}`}>
       {/* Trigger button */}
       <button
+        ref={triggerRef}
         type="button"
         onMouseDown={() => { mouseDownRef.current = true; }}
         onClick={() => { setIsOpen((o) => !o); mouseDownRef.current = false; }}
-        onFocus={() => { if (!mouseDownRef.current) setIsOpen(true); }}
+        onFocus={() => {
+          if (suppressOpenOnFocusRef.current) { suppressOpenOnFocusRef.current = false; return; }
+          if (!mouseDownRef.current) setIsOpen(true);
+        }}
         className="flex items-center justify-between w-full h-11 rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-muted/50 transition-colors ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
         <span className={`flex-1 min-w-0 truncate text-left ${selectedPathId ? "" : "text-muted-foreground"}`}>
@@ -193,7 +214,7 @@ export function HierarchicalPathSelector({
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute z-50 w-full mt-1 rounded-md border border-input shadow-md" style={{ backgroundColor: 'hsl(var(--background))' }}>
+        <div className="absolute z-50 w-full mt-1 rounded-md border border-input shadow-md overflow-hidden" style={{ backgroundColor: 'hsl(var(--background))' }}>
           {/* Search input */}
           <div className="p-2 border-b border-input">
             <div className="flex items-center gap-2 px-2 py-1.5 rounded-md border border-input bg-muted/30">
@@ -204,7 +225,7 @@ export function HierarchicalPathSelector({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search paths..."
-                className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                className="flex-1 bg-transparent text-sm outline-none focus-visible:outline-none placeholder:text-muted-foreground"
               />
             </div>
           </div>
@@ -225,7 +246,7 @@ export function HierarchicalPathSelector({
           )}
 
           {/* Options list */}
-          <div className="max-h-60 overflow-y-auto py-1">
+          <div className="max-h-60 overflow-y-auto p-1">
             {/* Search results mode */}
             {isSearching ? (
               <>
@@ -235,11 +256,11 @@ export function HierarchicalPathSelector({
                       key={path._id}
                       type="button"
                       onClick={() => handleSelect(path._id)}
-                      className={`flex items-center justify-between w-full px-3 py-2 text-sm transition-colors text-left ${
+                      className={`flex items-center justify-between w-full px-3 py-2 rounded-md text-sm transition-colors text-left ${
                         selectedPathId === path._id ? "bg-primary-light text-primary font-medium" : "hover:bg-muted"
                       }`}
                     >
-                      <span className="flex-1 truncate">{getFullPathString(path._id)}</span>
+                      <span className="flex-1 min-w-0 truncate">{getFullPathString(path._id)}</span>
                       {selectedPathId === path._id && <Check className="w-4 h-4 ml-2 shrink-0" />}
                     </button>
                   ))
@@ -256,7 +277,7 @@ export function HierarchicalPathSelector({
                   <button
                     type="button"
                     onClick={() => handleSelect(null)}
-                    className={`flex items-center justify-between w-full px-3 py-2 text-sm transition-colors ${
+                    className={`flex items-center justify-between w-full px-3 py-2 rounded-md text-sm transition-colors ${
                       selectedPathId === null ? "bg-primary-light text-primary font-medium" : "hover:bg-muted"
                     }`}
                   >
@@ -270,7 +291,7 @@ export function HierarchicalPathSelector({
                   <button
                     type="button"
                     onClick={() => handleSelect(currentParentId)}
-                    className={`flex items-center justify-between w-full px-3 py-2 text-sm transition-colors border-b border-input ${
+                    className={`flex items-center justify-between w-full px-3 py-2 mb-1 rounded-md text-sm transition-colors ${
                       selectedPathId === currentParentId ? "bg-primary-light font-medium" : "hover:bg-muted"
                     }`}
                   >
@@ -287,11 +308,11 @@ export function HierarchicalPathSelector({
                       key={path._id}
                       type="button"
                       onClick={() => (childed ? handleDrillDown(path._id) : handleSelect(path._id))}
-                      className={`flex items-center w-full px-3 py-2 text-sm text-left transition-colors ${
+                      className={`flex items-center w-full px-3 py-2 rounded-md text-sm text-left transition-colors ${
                         selectedPathId === path._id ? "bg-primary-light text-primary font-medium" : "hover:bg-muted"
                       }`}
                     >
-                      <span className="flex-1 truncate">{path.title}</span>
+                      <span className="flex-1 min-w-0 truncate">{path.title}</span>
                       {selectedPathId === path._id && <Check className="w-4 h-4 ml-2 shrink-0" />}
                       {childed && <ChevronRight className="w-4 h-4 ml-1 shrink-0 text-muted-foreground" />}
                     </button>

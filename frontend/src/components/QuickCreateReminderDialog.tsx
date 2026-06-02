@@ -118,10 +118,11 @@ export default function QuickCreateReminderDialog({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" && !(e.target as HTMLElement).matches("textarea, button, [role=listbox], [role=option]")) {
-        e.preventDefault();
-        handleSave();
-      }
+      if (e.key !== "Enter") return;
+      const target = e.target as HTMLElement;
+      if (target.tagName === "TEXTAREA" && e.shiftKey && !(e.metaKey || e.ctrlKey)) return;
+      e.preventDefault();
+      handleSave();
     },
     [handleSave]
   );
