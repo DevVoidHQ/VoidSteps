@@ -110,8 +110,7 @@ export class SyncEngine {
       case 'paths': {
         const p = await db.paths.get(entry.entityId);
         if (!p) return null;
-        return { title: p.title, description: p.description, parentId: r(p.parentId),
-          connectedPathIds: p.connectedPathIds?.map(r), connectedStepIds: p.connectedStepIds?.map(r) };
+        return { title: p.title, description: p.description, parentId: r(p.parentId) };
       }
       case 'steps': {
         const s = await db.steps.get(entry.entityId);
@@ -134,11 +133,6 @@ export class SyncEngine {
         if (!x) return null;
         return { title: x.title, note: x.note, recurrence: x.recurrence, date: x.date, month: x.month, day: x.day };
       }
-      case 'pathways': {
-        const x = await db.pathways.get(entry.entityId);
-        if (!x) return null;
-        return { title: x.title, description: x.description, parentId: r(x.parentId), pathIds: x.pathIds?.map(r) };
-      }
       case 'notebooks': {
         const x = await db.notebooks.get(entry.entityId);
         if (!x) return null;
@@ -147,7 +141,7 @@ export class SyncEngine {
       case 'notes': {
         const x = await db.notes.get(entry.entityId);
         if (!x) return null;
-        return { notebookId: r(x.notebookId), pathId: r(x.pathId), title: x.title, body: x.body, sortOrder: x.sortOrder };
+        return { notebookId: r(x.notebookId), title: x.title, body: x.body, sortOrder: x.sortOrder };
       }
       default:
         return null;
@@ -268,9 +262,6 @@ export class SyncEngine {
       case 'reminders':
         await this.syncReminder(entityId, operation, entry.data);
         break;
-      case 'pathways':
-        await this.syncPathway(entityId, operation, entry.data);
-        break;
       case 'notebooks':
         await this.syncNotebook(entityId, operation, entry.data);
         break;
@@ -366,8 +357,6 @@ export class SyncEngine {
         title: localPath.title,
         description: localPath.description,
         parentId: this.resolveId(localPath.parentId) as Id<'paths'> | undefined,
-        connectedPathIds: localPath.connectedPathIds?.map(id => this.resolveId(id) as Id<'paths'>),
-        connectedStepIds: localPath.connectedStepIds?.map(id => this.resolveId(id) as Id<'steps'>),
       });
 
       if (result && result._id) {
@@ -384,12 +373,6 @@ export class SyncEngine {
       if ('parentId' in data) {
         const pid = this.resolveId(data.parentId as string | undefined);
         updateData.parentId = pid ? pid as Id<'paths'> : null;
-      }
-      if (data.connectedPathIds !== undefined) {
-        updateData.connectedPathIds = (data.connectedPathIds as string[]).map(id => this.resolveId(id) as Id<'paths'>);
-      }
-      if (data.connectedStepIds !== undefined) {
-        updateData.connectedStepIds = (data.connectedStepIds as string[]).map(id => this.resolveId(id) as Id<'steps'>);
       }
       if (data.archived !== undefined) updateData.archived = data.archived;
       if ('archivedAt' in data) updateData.archivedAt = data.archivedAt ?? null;
@@ -509,50 +492,6 @@ export class SyncEngine {
     }
   }
 
-  private async syncPathway(entityId: string, operation: string, data?: Record<string, unknown>) {
-    const resolvedId = this.resolveId(entityId)!;
-
-    if (operation === 'create') {
-      const localPathway = await db.pathways.get(entityId);
-      if (!localPathway) return;
-
-      const result = await this.client.mutation(api.pathways.createPathway, {
-        title: localPathway.title,
-        description: localPathway.description,
-        parentId: this.resolveId(localPathway.parentId) as Id<'pathways'> | undefined,
-        pathIds: localPathway.pathIds?.map(id => this.resolveId(id) as Id<'paths'>),
-      });
-
-      if (result && result._id) {
-        const serverId = result._id.toString();
-        await this.remapId(entityId, serverId, 'pathways');
-      }
-    } else if (operation === 'update') {
-      if (this.isLocalId(resolvedId)) return;
-      if (!data) return;
-
-      const updateData: Record<string, unknown> = { id: resolvedId as Id<'pathways'> };
-      if (data.title !== undefined) updateData.title = data.title;
-      if (data.description !== undefined) updateData.description = data.description;
-      if (data.parentId !== undefined) updateData.parentId = this.resolveId(data.parentId as string) as Id<'pathways'>;
-      if (data.pathIds !== undefined) {
-        updateData.pathIds = (data.pathIds as string[]).map(id => this.resolveId(id) as Id<'paths'>);
-      }
-
-      const keys = Object.keys(updateData).filter(k => k !== 'id');
-      if (keys.length > 0) {
-        await this.client.mutation(api.pathways.updatePathway, updateData as any);
-      }
-    } else if (operation === 'delete') {
-      if (this.isLocalId(resolvedId)) {
-        await db.pathways.delete(entityId);
-        return;
-      }
-      await this.client.mutation(api.pathways.deletePathway, { id: resolvedId as Id<'pathways'> });
-      await db.pathways.delete(entityId);
-    }
-  }
-
   private async syncNotebook(entityId: string, operation: string, data?: Record<string, unknown>) {
     const resolvedId = this.resolveId(entityId)!;
 
@@ -608,7 +547,6 @@ export class SyncEngine {
 
       const result = await this.client.mutation(api.notes.createNote, {
         notebookId: notebookId as Id<'notebooks'>,
-        pathId: this.resolveId(local.pathId) as Id<'paths'> | undefined,
         title: local.title,
         body: local.body,
       });
@@ -627,10 +565,6 @@ export class SyncEngine {
       if (data.notebookId !== undefined) {
         const nbId = this.resolveId(data.notebookId as string);
         if (nbId && !this.isLocalId(nbId)) updateData.notebookId = nbId as Id<'notebooks'>;
-      }
-      if ('pathId' in data) {
-        const pid = this.resolveId(data.pathId as string | undefined);
-        updateData.pathId = pid ? (pid as Id<'paths'>) : null;
       }
       if (data.sortOrder !== undefined) updateData.sortOrder = data.sortOrder;
       if (data.archived !== undefined) updateData.archived = data.archived;
@@ -671,10 +605,10 @@ export class SyncEngine {
   // ID REMAPPING
   // ========================
 
-  private async remapId(localId: string, serverId: string, table: 'steps' | 'paths' | 'routines' | 'reminders' | 'pathways' | 'notebooks' | 'notes') {
+  private async remapId(localId: string, serverId: string, table: 'steps' | 'paths' | 'routines' | 'reminders' | 'notebooks' | 'notes') {
     this.idMap.set(localId, serverId);
 
-    await db.transaction('rw', [db.steps, db.paths, db.routines, db.reminders, db.pathways, db.notebooks, db.notes, db.syncQueue], async () => {
+    await db.transaction('rw', [db.steps, db.paths, db.routines, db.reminders, db.notebooks, db.notes, db.syncQueue], async () => {
       // Get the local record to preserve its data
       const tableRef = db[table] as any;
       const localRecord = await tableRef.get(localId);
@@ -712,26 +646,6 @@ export class SyncEngine {
         for (const p of childPaths) {
           await db.paths.update(p._id, { parentId: serverId });
         }
-        // connectedPathIds
-        const allPaths = await db.paths.toArray();
-        for (const p of allPaths) {
-          if (p.connectedPathIds?.includes(localId)) {
-            await db.paths.update(p._id, {
-              connectedPathIds: p.connectedPathIds.map(id => id === localId ? serverId : id),
-            });
-          }
-        }
-      }
-      // connectedStepIds - update when a step ID is remapped
-      if (table === 'steps') {
-        const allPaths = await db.paths.toArray();
-        for (const p of allPaths) {
-          if (p.connectedStepIds?.includes(localId)) {
-            await db.paths.update(p._id, {
-              connectedStepIds: p.connectedStepIds.map(id => id === localId ? serverId : id),
-            });
-          }
-        }
       }
 
       // Update foreign keys in routines
@@ -747,30 +661,6 @@ export class SyncEngine {
         const notesInNotebook = await db.notes.where('notebookId').equals(localId).toArray();
         for (const n of notesInNotebook) {
           await db.notes.update(n._id, { notebookId: serverId });
-        }
-      }
-      if (table === 'paths') {
-        const notesWithPath = await db.notes.where('pathId').equals(localId).toArray();
-        for (const n of notesWithPath) {
-          await db.notes.update(n._id, { pathId: serverId });
-        }
-      }
-
-      // Update foreign keys in pathways
-      if (table === 'paths') {
-        const allPathways = await db.pathways.toArray();
-        for (const pw of allPathways) {
-          if (pw.pathIds?.includes(localId)) {
-            await db.pathways.update(pw._id, {
-              pathIds: pw.pathIds.map(id => id === localId ? serverId : id),
-            });
-          }
-        }
-      }
-      if (table === 'pathways') {
-        const childPathways = await db.pathways.filter(pw => pw.parentId === localId).toArray();
-        for (const pw of childPathways) {
-          await db.pathways.update(pw._id, { parentId: serverId });
         }
       }
 
@@ -796,18 +686,17 @@ export class SyncEngine {
       const pendingEntityIds = new Set(pendingEntries.map(e => e.entityId));
 
       // Fetch all data from Convex
-      const [serverSteps, serverPaths, serverRoutines, serverReminders, serverPathways, serverNotebooks, serverNotes, serverUserSettings] = await Promise.all([
+      const [serverSteps, serverPaths, serverRoutines, serverReminders, serverNotebooks, serverNotes, serverUserSettings] = await Promise.all([
         this.client.query(api.steps.getSteps),
         this.client.query(api.paths.getPaths),
         this.client.query(api.routines.getRoutines),
         this.client.query(api.reminders.getReminders),
-        this.client.query(api.pathways.getPathways),
         this.client.query(api.notebooks.getNotebooks),
         this.client.query(api.notes.getNotes),
         this.client.query(api.userSettings.getAllUserSettings),
       ]);
 
-      await db.transaction('rw', [db.steps, db.paths, db.routines, db.reminders, db.pathways, db.notebooks, db.notes, db.userSettings, db.syncMeta], async () => {
+      await db.transaction('rw', [db.steps, db.paths, db.routines, db.reminders, db.notebooks, db.notes, db.userSettings, db.syncMeta], async () => {
         // Merge steps
         if (serverSteps) {
           await this.mergeEntities(
@@ -830,8 +719,6 @@ export class SyncEngine {
               ...p,
               _id: p._id.toString(),
               parentId: p.parentId?.toString(),
-              connectedPathIds: p.connectedPathIds?.map((id: any) => id.toString()) || [],
-              connectedStepIds: p.connectedStepIds?.map((id: any) => id.toString()) || [],
             })),
             pendingEntityIds
           );
@@ -863,20 +750,6 @@ export class SyncEngine {
           );
         }
 
-        // Merge pathways
-        if (serverPathways) {
-          await this.mergeEntities(
-            'pathways',
-            serverPathways.map((pw: any) => ({
-              ...pw,
-              _id: pw._id.toString(),
-              parentId: pw.parentId?.toString(),
-              pathIds: pw.pathIds?.map((id: any) => id.toString()) || [],
-            })),
-            pendingEntityIds
-          );
-        }
-
         // Merge notebooks
         if (serverNotebooks) {
           await this.mergeEntities(
@@ -897,7 +770,6 @@ export class SyncEngine {
               ...n,
               _id: n._id.toString(),
               notebookId: n.notebookId?.toString(),
-              pathId: n.pathId?.toString(),
             })),
             pendingEntityIds
           );
@@ -927,7 +799,7 @@ export class SyncEngine {
   }
 
   private async mergeEntities(
-    tableName: 'steps' | 'paths' | 'routines' | 'reminders' | 'pathways' | 'notebooks' | 'notes' | 'userSettings',
+    tableName: 'steps' | 'paths' | 'routines' | 'reminders' | 'notebooks' | 'notes' | 'userSettings',
     serverRecords: any[],
     pendingEntityIds: Set<string>
   ) {

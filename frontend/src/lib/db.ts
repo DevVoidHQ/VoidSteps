@@ -32,8 +32,6 @@ export interface LocalPath {
   title: string;
   description?: string;
   parentId?: string;
-  connectedPathIds?: string[];
-  connectedStepIds?: string[];
   archived?: boolean;
   archivedAt?: number;
   createdAt: number;
@@ -74,18 +72,6 @@ export interface LocalReminder {
   _deleted?: boolean;
 }
 
-export interface LocalPathway {
-  _id: string;
-  title: string;
-  description?: string;
-  parentId?: string;
-  pathIds?: string[];
-  createdAt: number;
-  updatedAt: number;
-  _localOnly?: boolean;
-  _deleted?: boolean;
-}
-
 export interface LocalNotebook {
   _id: string;
   title: string;
@@ -102,7 +88,6 @@ export interface LocalNotebook {
 export interface LocalNote {
   _id: string;
   notebookId: string;
-  pathId?: string;
   title: string;
   body: string; // markdown
   sortOrder?: number;
@@ -125,7 +110,7 @@ export interface LocalUserSettings {
 
 export interface SyncQueueEntry {
   id?: number; // auto-increment
-  entityType: 'steps' | 'paths' | 'routines' | 'reminders' | 'pathways' | 'userSettings' | 'notebooks' | 'notes';
+  entityType: 'steps' | 'paths' | 'routines' | 'reminders' | 'userSettings' | 'notebooks' | 'notes';
   entityId: string;
   operation: 'create' | 'update' | 'delete';
   data?: Record<string, unknown>;
@@ -157,7 +142,6 @@ class VoidStepsDB extends Dexie {
   paths!: EntityTable<LocalPath, '_id'>;
   routines!: EntityTable<LocalRoutine, '_id'>;
   reminders!: EntityTable<LocalReminder, '_id'>;
-  pathways!: EntityTable<LocalPathway, '_id'>;
   notebooks!: EntityTable<LocalNotebook, '_id'>;
   notes!: EntityTable<LocalNote, '_id'>;
   userSettings!: EntityTable<LocalUserSettings, '_id'>;
@@ -233,6 +217,19 @@ class VoidStepsDB extends Dexie {
     // v6: sub-steps removed - drop the parentId index from steps.
     this.version(6).stores({
       steps: '_id, pathId, routineId, updatedAt',
+    });
+
+    // v7: pathways feature removed - drop the table and purge any queued
+    // pathway sync ops so the engine never tries to push a deleted entity type.
+    this.version(7)
+      .stores({ pathways: null })
+      .upgrade(async (tx) => {
+        await tx.table('syncQueue').where('entityType').equals('pathways').delete();
+      });
+
+    // v8: note→path linking removed - drop the pathId index on notes.
+    this.version(8).stores({
+      notes: '_id, notebookId, updatedAt',
     });
   }
 }

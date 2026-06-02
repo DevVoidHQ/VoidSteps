@@ -43,7 +43,6 @@ export const getNote = query({
 export const createNote = mutation({
   args: {
     notebookId: v.id("notebooks"),
-    pathId: v.optional(v.id("paths")),
     title: v.string(),
     body: v.optional(v.string()),
   },
@@ -59,7 +58,6 @@ export const createNote = mutation({
     const id = await ctx.db.insert("notes", {
       userId,
       notebookId: args.notebookId,
-      pathId: args.pathId,
       title: args.title,
       body: args.body ?? "",
       sortOrder: now,
@@ -77,7 +75,6 @@ export const updateNote = mutation({
     title: v.optional(v.string()),
     body: v.optional(v.string()),
     notebookId: v.optional(v.id("notebooks")),
-    pathId: v.optional(v.union(v.id("paths"), v.null())),
     sortOrder: v.optional(v.number()),
     archived: v.optional(v.boolean()),
   },
@@ -92,9 +89,6 @@ export const updateNote = mutation({
     if (args.title !== undefined) patch.title = args.title;
     if (args.body !== undefined) patch.body = args.body;
     if (args.notebookId !== undefined) patch.notebookId = args.notebookId;
-    if (args.pathId !== undefined) {
-      patch.pathId = args.pathId === null ? undefined : args.pathId;
-    }
     if (args.sortOrder !== undefined) patch.sortOrder = args.sortOrder;
     if (args.archived !== undefined) {
       patch.archived = args.archived;

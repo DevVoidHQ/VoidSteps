@@ -57,8 +57,6 @@ export const createPath = mutation({
     title: v.string(),
     description: v.optional(v.string()),
     parentId: v.optional(v.id("paths")),
-    connectedPathIds: v.optional(v.array(v.id("paths"))),
-    connectedStepIds: v.optional(v.array(v.id("steps"))),
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
@@ -68,8 +66,6 @@ export const createPath = mutation({
       title: args.title,
       description: args.description,
       parentId: args.parentId,
-      connectedPathIds: args.connectedPathIds,
-      connectedStepIds: args.connectedStepIds,
       createdAt: now,
       updatedAt: now,
     });
@@ -106,8 +102,6 @@ export const updatePath = mutation({
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     parentId: v.optional(v.union(v.id("paths"), v.null())),
-    connectedPathIds: v.optional(v.array(v.id("paths"))),
-    connectedStepIds: v.optional(v.array(v.id("steps"))),
     archived: v.optional(v.boolean()),
     archivedAt: v.optional(v.union(v.number(), v.null())),
   },

@@ -160,19 +160,17 @@ const buildNodesFromData = (paths: any[], steps: any[], savedPositions: Record<s
 // positions, so we only declare the relationships here.
 const buildEdgesFromData = (paths: any[]): Edge[] => {
   const edges: Edge[] = [];
-  const createEdge = (sourceId: string, targetId: string, isConnection = false) => {
+  const createEdge = (sourceId: string, targetId: string) => {
     edges.push({
       id: `e-${sourceId}-${targetId}`,
       source: sourceId,
       target: targetId,
       type: 'floating',
-      style: isConnection ? { strokeDasharray: '5,5' } : undefined,
     });
   };
 
   paths.filter(p => !p.parentId).forEach(path => createEdge('you', path._id));
   paths.filter(p => p.parentId).forEach(path => createEdge(path.parentId, path._id));
-  paths.forEach(path => { (path.connectedPathIds || []).forEach((id: string) => createEdge(path._id, id, true)); });
 
   return edges;
 };

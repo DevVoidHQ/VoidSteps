@@ -2,24 +2,11 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
-  pathways: defineTable({
-    userId: v.optional(v.string()),
-    title: v.string(),
-    description: v.optional(v.string()),
-    parentId: v.optional(v.id("pathways")),
-    pathIds: v.optional(v.array(v.id("paths"))),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  }).index("by_user", ["userId"])
-    .index("by_parent", ["parentId"]),
-
   paths: defineTable({
     userId: v.optional(v.string()),
     title: v.string(),
     description: v.optional(v.string()),
     parentId: v.optional(v.id("paths")),           // Self-ref for hierarchy
-    connectedPathIds: v.optional(v.array(v.id("paths"))), // Path-to-Path connections
-    connectedStepIds: v.optional(v.array(v.id("steps"))), // Path-to-Step connections
     archived: v.optional(v.boolean()),
     archivedAt: v.optional(v.number()),
     createdAt: v.number(),
@@ -119,11 +106,10 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),
 
-  // Notes - markdown content inside a notebook. Optionally linked to a path.
+  // Notes - markdown content inside a notebook.
   notes: defineTable({
     userId: v.optional(v.string()),
     notebookId: v.id("notebooks"),
-    pathId: v.optional(v.id("paths")),
     title: v.string(),
     body: v.string(), // markdown
     sortOrder: v.optional(v.number()),
@@ -132,8 +118,7 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_user", ["userId"])
-    .index("by_notebook", ["notebookId"])
-    .index("by_path", ["pathId"]),
+    .index("by_notebook", ["notebookId"]),
 
   userSettings: defineTable({
     userId: v.string(),

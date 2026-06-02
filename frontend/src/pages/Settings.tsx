@@ -14,6 +14,7 @@ import { Select } from "@/components/ui/Select";
 import { getDeferDatesMode, setDeferDatesMode, getDueDatesMode, setDueDatesMode, getPrioritizeDefault, setPrioritizeDefault, getOpenFocusOnPlay, setOpenFocusOnPlay, getStepActions, setStepActionMode, STEP_ACTION_ORDER, STEP_ACTION_LABELS, getStepsClickAction, setStepsClickAction, getTodayClickAction, setTodayClickAction, resetGeneralPreferences, type DeferDatesMode, type StepActionsConfig, type StepClickAction } from "@/lib/preferences";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
+import DataSettings from "@/components/DataSettings";
 import { Copy, Sparkles, Save, RotateCcw, Shuffle, Dices, Check, Trash2, Download } from "lucide-react";
 import { useInstallPrompt, isStandalone } from "@/lib/pwa-install";
 import {
@@ -595,7 +596,7 @@ export default function Settings() {
     try {
       // Write local data first - this is what shows up in the UI immediately.
       const r = await seedDemoData({ sync: seedSync });
-      const summary = `Seeded ${r.paths} paths, ${r.steps} steps, ${r.routines} routines, ${r.notes} notes.`;
+      const summary = `Seeded ${r.paths} paths, ${r.steps} steps, ${r.routines} routines, ${r.reminders} reminders, ${r.notebooks} notebooks, ${r.notes} notes.`;
       toast.success(summary);
       setSeedStatus(summary);
       // Push in the background so the button never blocks on the network.
@@ -624,6 +625,7 @@ export default function Settings() {
           <TabsTrigger value="theme">Theme</TabsTrigger>
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="keybinds">Keybinds</TabsTrigger>
+          <TabsTrigger value="data">Data</TabsTrigger>
           <TabsTrigger value="feedback">Feedback</TabsTrigger>
         </TabsList>
 
@@ -636,6 +638,10 @@ export default function Settings() {
 
         <TabsContent value="keybinds">
           <KeybindSettings />
+        </TabsContent>
+
+        <TabsContent value="data">
+          <DataSettings />
         </TabsContent>
 
         <TabsContent value="feedback">

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ListTodo, Target, Zap, Network, Settings, RefreshCw, Trash2 } from 'lucide-react';
+import { ListTodo, Target, Zap, Settings, RefreshCw, Trash2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import {
   Dialog,
@@ -20,7 +20,6 @@ const entityIcons: Record<string, LucideIcon> = {
   steps: ListTodo,
   paths: Target,
   routines: Zap,
-  pathways: Network,
   userSettings: Settings,
 };
 
