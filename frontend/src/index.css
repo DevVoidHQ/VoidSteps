@@ -50,9 +50,11 @@ html, body {
    default blue outline so focus matches the brand (primary). Components that
    manage their own focus (via Tailwind's focus-visible:outline-none + ring-*)
    keep their styling - their higher-specificity rule wins. */
-:focus-visible {
-  outline: 2px solid hsl(var(--primary));
-  outline-offset: 2px;
+@layer base {
+  :focus-visible {
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: 2px;
+  }
 }
 
 /* Slightly smaller base on phones so rem-based type and spacing read more
