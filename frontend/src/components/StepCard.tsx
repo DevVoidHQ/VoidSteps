@@ -292,6 +292,7 @@ function StepCardComponent({
           <div className="flex items-center space-x-3">
             {/* Checkbox - larger, vertically centered */}
             <button
+              data-tour="step-complete"
               onClick={() => onToggle(step._id)}
               className="flex-shrink-0"
             >
@@ -401,9 +402,8 @@ function StepCardComponent({
             <div className="flex items-center space-x-1 flex-shrink-0">
               {inlineActions.map((d) => {
                 const armed = confirmAction === d.key;
-                return (
+                const btn = (
                   <IconButton
-                    key={d.key}
                     icon={
                       armed ? (
                         <Check className="w-4 h-4 text-destructive" />
@@ -418,6 +418,14 @@ function StepCardComponent({
                     className={armed ? "ring-1 ring-destructive" : undefined}
                     onClick={() => runAction(d, false)}
                   />
+                );
+                // Anchor the priority (star) action for the onboarding tour.
+                return d.key === "priority" ? (
+                  <span key={d.key} data-tour="step-prioritize" className="inline-flex">
+                    {btn}
+                  </span>
+                ) : (
+                  <span key={d.key} className="inline-flex">{btn}</span>
                 );
               })}
 

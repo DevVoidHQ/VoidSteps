@@ -374,7 +374,7 @@ export async function seedDemoData(opts: { sync?: boolean } = {}): Promise<SeedR
       pathId: rand(historyPaths),
       completed: true,
       completedAt,
-      totalTimeSpentMs: (15 + Math.floor(Math.random() * 6) * 15) * MIN, // 15–90 min
+      totalTimeSpentMs: (15 + Math.floor(Math.random() * 6) * 15) * MIN, // 15 to 90 min
       createdAt: completedAt - 2 * 60 * MIN,
     });
   }
@@ -403,7 +403,7 @@ export async function seedDemoData(opts: { sync?: boolean } = {}): Promise<SeedR
   });
   await addNote({
     notebookId: learning,
-    title: "Books — 2026 list",
+    title: "Books: 2026 list",
     body: "## Reading list\n\n- [x] Atomic Habits\n- [x] Deep Work\n- [ ] The Almanack of Naval\n- [ ] Shoe Dog\n",
   });
   await addNote({

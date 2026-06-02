@@ -84,7 +84,7 @@ export default function DataSettings() {
   })();
 
   const isPaths = action?.kind === "type" && action.entity === "paths";
-  // Always require typing DELETE — every action here is destructive + syncs.
+  // Always require typing DELETE. Every action here is destructive + syncs.
   const requiredText = "DELETE";
   const confirmReady =
     !!resolved && resolved.count > 0 && confirmText.trim() === requiredText && !busy;
@@ -100,7 +100,7 @@ export default function DataSettings() {
       // Push deletes to the server in the background.
       syncNow().catch((e) => {
         reportError("sync", e, { action: "wipeData" });
-        toast.error("Deleted locally, but sync failed — will retry");
+        toast.error("Deleted locally, but sync failed, will retry");
       });
     } catch (e) {
       reportError("mutation", e, { action: "wipeData" });
@@ -113,7 +113,7 @@ export default function DataSettings() {
   // Human-readable impact line shown in the modal.
   const impactLine = (() => {
     if (!resolved) return "";
-    if (action?.kind === "full") return `Everything — ${total} item${total === 1 ? "" : "s"} across all types.`;
+    if (action?.kind === "full") return `Everything: ${total} item${total === 1 ? "" : "s"} across all types.`;
     if (action?.kind === "todos") return `${counts.steps} step${counts.steps === 1 ? "" : "s"} and ${counts.routines} routine${counts.routines === 1 ? "" : "s"}.`;
     const e = (action as { entity: WipeEntity }).entity;
     const base = `${counts[e]} ${WIPE_ENTITY_LABELS[e].toLowerCase()}`;
@@ -127,7 +127,7 @@ export default function DataSettings() {
       <div>
         <h2 className="text-xl font-semibold">Data</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Permanently delete your data. These actions sync to the server and apply to every device — they can't be undone.
+          Permanently delete your data. These actions sync to the server and apply to every device, and can't be undone.
         </p>
       </div>
 

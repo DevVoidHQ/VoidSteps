@@ -7,11 +7,11 @@
  * pushes the deletes so the data is gone on every device. There is no recovery.
  *
  * Cascade rules (only meaningful for "delete all of a type"):
- *  - Notebooks ALWAYS take their notes with them — a note can't exist without a
- *    notebook, so there's no valid orphan state. (Forced, not optional.)
+ *  - Notebooks ALWAYS take their notes with them (a note can't exist without a
+ *    notebook, so there's no valid orphan state). Forced, not optional.
  *  - Paths optionally take their steps (cascade=true). With cascade off, paths
  *    are removed and any step keeps its now-dangling pathId, which the UI
- *    tolerates (renders as unfiled) — this matches how the server leaves steps
+ *    tolerates (renders as unfiled). This matches how the server leaves steps
  *    untouched when a path is deleted.
  */
 import { db } from "./db";

@@ -13,7 +13,6 @@ import { reportError } from "@/lib/error-store";
 import { useToast } from "@/contexts/ToastContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
 import {
   Plus,
   X,
@@ -32,6 +31,7 @@ import { getKeybinds, formatKeybindDisplay } from "@/lib/keybind-config";
 // Graph imports
 import ReactFlow, {
   Background,
+  Controls,
   useNodesState,
   useEdgesState,
   BackgroundVariant,
@@ -177,7 +177,7 @@ const buildEdgesFromData = (paths: any[]): Edge[] => {
 
 // ─── Graph Tab Component ─────────────────────────────────────────────
 
-function GraphView({ paths, allSteps, sidebarOpen }: { paths: Path[]; allSteps: Step[]; sidebarOpen: boolean }) {
+function GraphView({ paths, allSteps, sidebarOpen, onReparent }: { paths: Path[]; allSteps: Step[]; sidebarOpen: boolean; onReparent: (childId: string, parentId: string | null) => void }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rfRef = useRef<any>(null);
   const firstFit = useRef(true);
@@ -207,10 +207,25 @@ function GraphView({ paths, allSteps, sidebarOpen }: { paths: Path[]; allSteps: 
     }
   }, [paths, allSteps, setNodes, setEdges]);
 
-  // Floating edges follow node positions live, so we just persist on drop.
-  const handleNodeDragStop = useCallback(() => {
+  // On drop: persist positions, and if the node landed on another node, nest it
+  // under that node (drop on the "Me" center to make it a top-level path).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleNodeDragStop = useCallback((_e: any, node: any) => {
     saveNodePositions(nodes);
-  }, [nodes]);
+    const inst = rfRef.current;
+    if (!node || node.id === "you" || !inst?.getIntersectingNodes) return;
+    const hits = inst.getIntersectingNodes(node).filter((n: any) => n.id !== node.id);
+    if (!hits.length) return;
+    const target = hits[0];
+    const current = paths.find((p) => p._id === node.id);
+    if (!current) return;
+    if (target.id === "you") {
+      if (current.parentId) onReparent(node.id, null); // drop on center = make root
+      return;
+    }
+    if (target.id === current.parentId) return; // already its parent
+    onReparent(node.id, target.id);
+  }, [nodes, paths, onReparent]);
 
   const savedViewport = loadViewport();
   const defaultViewport = savedViewport || { x: 0, y: 0, zoom: 1 };
@@ -250,6 +265,8 @@ function GraphView({ paths, allSteps, sidebarOpen }: { paths: Path[]; allSteps: 
         defaultEdgeOptions={{ type: 'floating', animated: false, style: { stroke: '#94a3b8', strokeWidth: 2 } }}
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
+        {/* Zoom in/out + fit-to-view (recenter) so users never get lost. */}
+        <Controls showInteractive={false} position="bottom-left" />
       </ReactFlow>
     </div>
   );
@@ -268,7 +285,7 @@ export default function Paths() {
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingPath, setEditingPath] = useState<string | null>(null);
-  const [editPathForm, setEditPathForm] = useState({ title: "", description: "", parentId: "" });
+  const [editPathForm, setEditPathForm] = useState({ title: "", description: "" });
   const [showArchived, setShowArchived] = useState(false);
   const [deleteDialogPath, setDeleteDialogPath] = useState<Path | null>(null);
   const [showList, setShowList] = useState<boolean>(() => {
@@ -301,13 +318,26 @@ export default function Paths() {
   }, [sourcePaths]);
 
 
-  const updatePath = async (id: string, title: string, description: string, parentId: string) => {
-    try { await updatePathMutation({ id, title, description: description || undefined, parentId: parentId || null }); setEditingPath(null); }
+  const updatePath = async (id: string, title: string, description: string) => {
+    try { await updatePathMutation({ id, title, description: description || undefined }); setEditingPath(null); }
     catch (error) { reportError('mutation', error, { action: 'updatePath', pathId: id }); toast.error("Failed to update path"); }
   };
 
-  const startEditPath = (path: Path) => { setEditingPath(path._id); setEditPathForm({ title: path.title, description: path.description || "", parentId: path.parentId || "" }); };
-  const cancelEditPath = () => { setEditingPath(null); setEditPathForm({ title: "", description: "", parentId: "" }); };
+  // Nesting is done by dragging a path node onto another in the graph.
+  const handleReparent = useCallback(async (childId: string, parentId: string | null) => {
+    try {
+      await updatePathMutation({ id: childId, parentId });
+      const child = activePaths?.find((p) => p._id === childId);
+      const parent = parentId ? activePaths?.find((p) => p._id === parentId) : null;
+      toast.success(parent ? `Nested "${child?.title}" under "${parent.title}"` : `Made "${child?.title}" a top-level path`);
+    } catch (error) {
+      reportError('mutation', error, { action: 'reparentPath', pathId: childId });
+      toast.error("Couldn't move that path (would create a loop?)");
+    }
+  }, [updatePathMutation, activePaths, toast]);
+
+  const startEditPath = (path: Path) => { setEditingPath(path._id); setEditPathForm({ title: path.title, description: path.description || "" }); };
+  const cancelEditPath = () => { setEditingPath(null); setEditPathForm({ title: "", description: "" }); };
 
   const handleArchive = async (id: string) => {
     try { await archivePathMutation({ id }); } catch (error) { reportError('mutation', error, { action: 'archivePath', pathId: id }); toast.error("Failed to archive path"); }
@@ -335,14 +365,6 @@ export default function Paths() {
   const getChildPaths = (pathId: string): Path[] => childMap.get(pathId) || [];
   const getChildPathsCount = (pathId: string) => (childMap.get(pathId) || []).length;
 
-  const getParentOptions = (excludeId?: string) => {
-    if (!excludeId) return flattenedPaths;
-    const excludeIds = new Set<string>([excludeId]);
-    const addDescendants = (id: string) => { (childMap.get(id) || []).forEach((child: Path) => { excludeIds.add(child._id); addDescendants(child._id); }); };
-    addDescendants(excludeId);
-    return flattenedPaths.filter((item) => !excludeIds.has(item.path._id));
-  };
-
   const archivedCount = archivedPaths?.length ?? 0;
 
   return (
@@ -366,7 +388,7 @@ export default function Paths() {
       <div className="flex flex-col md:flex-row flex-1 min-h-0 gap-4">
         {/* Graph canvas - primary view. Top half on mobile, left on desktop. */}
         <div className="flex-1 min-h-0 min-w-0">
-          <GraphView paths={activePaths || []} allSteps={allSteps || []} sidebarOpen={showList} />
+          <GraphView paths={activePaths || []} allSteps={allSteps || []} sidebarOpen={showList} onReparent={handleReparent} />
         </div>
 
         {/* Paths list - bottom on mobile, right side on desktop. */}
@@ -403,21 +425,8 @@ export default function Paths() {
                       <div className="space-y-2">
                         <Input placeholder="Path title" value={editPathForm.title} onChange={(e) => setEditPathForm({ ...editPathForm, title: e.target.value })} maxLength={MAX_TITLE_LENGTH} className="h-9 text-sm" />
                         <Input placeholder="Description (optional)" value={editPathForm.description} onChange={(e) => setEditPathForm({ ...editPathForm, description: e.target.value })} maxLength={MAX_DESCRIPTION_LENGTH} className="h-9 text-sm" />
-                        <Select
-                          triggerClassName="h-9"
-                          value={editPathForm.parentId}
-                          onValueChange={(v) => setEditPathForm({ ...editPathForm, parentId: v })}
-                          placeholder="Root (no parent)"
-                          options={[
-                            { value: "", label: "Root (no parent)" },
-                            ...getParentOptions(path._id).map(({ path: p, depth: d }) => ({
-                              value: p._id,
-                              label: `${d > 0 ? "└ " : ""}${p.title}`,
-                            })),
-                          ]}
-                        />
                         <div className="flex gap-2">
-                          <Button size="sm" onClick={() => updatePath(path._id, editPathForm.title, editPathForm.description, editPathForm.parentId)} disabled={!editPathForm.title.trim()}>Save</Button>
+                          <Button size="sm" onClick={() => updatePath(path._id, editPathForm.title, editPathForm.description)} disabled={!editPathForm.title.trim()}>Save</Button>
                           <Button size="sm" variant="outline" onClick={cancelEditPath}>Cancel</Button>
                         </div>
                       </div>

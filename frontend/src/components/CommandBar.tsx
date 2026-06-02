@@ -13,6 +13,7 @@ import {
   Search,
   Plus,
   PanelLeft,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { getKeybinds, formatKeybindDisplay, type KeybindMap } from "@/lib/keybind-config";
@@ -43,7 +44,7 @@ const ACTION_ICONS: Partial<Record<keyof KeybindMap, LucideIcon>> = {
 };
 
 // Navigation destinations. Mirrors the sidebar order.
-const NAV: { label: string; path: string; icon: LucideIcon; keybindKey: keyof KeybindMap; keywords?: string }[] = [
+const NAV: { label: string; path: string; icon: LucideIcon; keybindKey?: keyof KeybindMap; keywords?: string }[] = [
   { label: "Today", path: "/", icon: Calendar, keybindKey: "navToday", keywords: "calendar focus" },
   { label: "Steps", path: "/steps", icon: ListTodo, keybindKey: "navSteps", keywords: "tasks todo" },
   { label: "Paths", path: "/paths", icon: Target, keybindKey: "navPaths", keywords: "goals projects" },
@@ -51,6 +52,7 @@ const NAV: { label: string; path: string; icon: LucideIcon; keybindKey: keyof Ke
   { label: "Reminders", path: "/reminders", icon: Bell, keybindKey: "navReminders" },
   { label: "Notes", path: "/notes", icon: BookOpen, keybindKey: "navNotes" },
   { label: "Analytics", path: "/analytics", icon: BarChart3, keybindKey: "navAnalytics", keywords: "stats charts" },
+  { label: "Tutorials", path: "/tutorials", icon: Sparkles, keywords: "onboarding guide void learn" },
   { label: "Settings", path: "/settings", icon: Settings, keybindKey: "navSettings", keywords: "preferences keybinds" },
 ];
 

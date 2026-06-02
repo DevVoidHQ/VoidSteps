@@ -70,6 +70,27 @@ body {
   color: hsl(var(--foreground));
 }
 
+/* React Flow graph controls (Paths page): match the app theme instead of the
+   default white buttons. */
+.react-flow__controls {
+  border: 1px solid hsl(var(--foreground) / 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px hsl(var(--foreground) / 0.12);
+}
+.react-flow__controls-button {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  border-bottom: 1px solid hsl(var(--foreground) / 0.1);
+}
+.react-flow__controls-button:hover {
+  background: hsl(var(--primary-light));
+  color: hsl(var(--primary));
+}
+.react-flow__controls-button svg {
+  fill: currentColor;
+}
+
 /* Custom scrollbar */
 * {
   scrollbar-width: thin;

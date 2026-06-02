@@ -277,6 +277,7 @@ export default function Steps() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">All Steps</h1>
+        <span data-tour="new-step" className="inline-flex">
         <Button onClick={() => setIsCreateOpen(true)} size="sm">
           <Plus className="w-4 h-4 mr-2" />
           New Step
@@ -284,6 +285,7 @@ export default function Steps() {
             {formatKeybindDisplay(getKeybinds().quickCreate)}
           </kbd>
         </Button>
+        </span>
       </div>
 
       {/* Search and Filter */}
