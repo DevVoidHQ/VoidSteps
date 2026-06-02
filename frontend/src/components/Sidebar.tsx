@@ -1,6 +1,6 @@
 import { useClerk, useUser } from '@clerk/clerk-react';
 import { motion } from 'framer-motion';
-import { LogOut, Settings, Calendar, ListTodo, Target, Zap, Bell, BookOpen, BarChart3, X, ChevronsLeft, ChevronsRight, Search } from 'lucide-react';
+import { LogOut, Settings, Calendar, ListTodo, Target, Zap, Bell, BookOpen, BarChart3, X, ChevronsLeft, ChevronsRight, Search, Sparkles } from 'lucide-react';
 import { getKeybinds, formatKeybindDisplay, type KeybindMap } from '@/lib/keybind-config';
 import type { LucideIcon } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -127,6 +127,8 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
     { path: '/reminders', label: 'Reminders', icon: Bell, keybindKey: 'navReminders' },
     { path: '/notes', label: 'Notes', icon: BookOpen, keybindKey: 'navNotes' },
     { path: '/analytics', label: 'Analytics', icon: BarChart3, keybindKey: 'navAnalytics' },
+    // Tutorials is the single hub for Void's guided tours; sits just above Settings.
+    { path: '/tutorials', label: 'Tutorials', icon: Sparkles },
     { path: '/settings', label: 'Settings', icon: Settings, keybindKey: 'navSettings' },
   ];
 
@@ -225,17 +227,18 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
         {/* Navigation */}
         <nav className={`flex-1 min-h-0 overflow-y-auto scrollbar-hide ${isCollapsed ? 'p-2' : 'p-4'} space-y-1`}>
           {navItems.map((item) => (
-            <SidebarItem
-              key={item.path}
-              icon={item.icon}
-              label={item.label}
-              isCollapsed={isCollapsed}
-              active={isActive(item.path)}
-              showActiveIndicator
-              shortcut={item.keybindKey && keybinds[item.keybindKey] ? formatKeybindDisplay(keybinds[item.keybindKey]) : undefined}
-              dot={item.path === '/reminders' && hasTodayReminder}
-              onClick={() => handleNavigate(item.path)}
-            />
+            <div key={item.path} data-tour={`nav-${item.path === '/' ? 'today' : item.path.slice(1)}`}>
+              <SidebarItem
+                icon={item.icon}
+                label={item.label}
+                isCollapsed={isCollapsed}
+                active={isActive(item.path)}
+                showActiveIndicator
+                shortcut={item.keybindKey && keybinds[item.keybindKey] ? formatKeybindDisplay(keybinds[item.keybindKey]) : undefined}
+                dot={item.path === '/reminders' && hasTodayReminder}
+                onClick={() => handleNavigate(item.path)}
+              />
+            </div>
           ))}
         </nav>
 

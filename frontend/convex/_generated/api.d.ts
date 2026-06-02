@@ -11,11 +11,10 @@
 import type * as batch from "../batch.js";
 import type * as crons from "../crons.js";
 import type * as migrations from "../migrations.js";
-import type * as migrations_migratePathwaysToPaths from "../migrations/migratePathwaysToPaths.js";
+import type * as migrations_deleteLegacyPathways from "../migrations/deleteLegacyPathways.js";
 import type * as notebooks from "../notebooks.js";
 import type * as notes from "../notes.js";
 import type * as paths from "../paths.js";
-import type * as pathways from "../pathways.js";
 import type * as reminders from "../reminders.js";
 import type * as routineSpawner from "../routineSpawner.js";
 import type * as routines from "../routines.js";
@@ -32,11 +31,10 @@ declare const fullApi: ApiFromModules<{
   batch: typeof batch;
   crons: typeof crons;
   migrations: typeof migrations;
-  "migrations/migratePathwaysToPaths": typeof migrations_migratePathwaysToPaths;
+  "migrations/deleteLegacyPathways": typeof migrations_deleteLegacyPathways;
   notebooks: typeof notebooks;
   notes: typeof notes;
   paths: typeof paths;
-  pathways: typeof pathways;
   reminders: typeof reminders;
   routineSpawner: typeof routineSpawner;
   routines: typeof routines;

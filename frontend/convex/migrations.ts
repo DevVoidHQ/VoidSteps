@@ -5,7 +5,7 @@ import { mutation } from "./_generated/server";
 export const backfillUserId = mutation({
   args: { userId: v.string() },
   handler: async (ctx, { userId }) => {
-    const tables = ["steps", "paths", "routines", "pathways"] as const;
+    const tables = ["steps", "paths", "routines"] as const;
     let total = 0;
     for (const table of tables) {
       const records = await ctx.db.query(table).collect();

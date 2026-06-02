@@ -8,6 +8,7 @@ import { DataProvider } from '@/contexts/DataContext';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import Layout from '@/components/Layout';
 import LoadingScreen from '@/components/LoadingScreen';
+import { VoidOnboarding } from '@/components/void/VoidOnboarding';
 import Login from '@/pages/Login';
 import Steps from '@/pages/Steps';
 import Paths from '@/pages/Paths';
@@ -16,9 +17,20 @@ import Reminders from '@/pages/Reminders';
 import Analytics from '@/pages/Analytics';
 import Calendar from '@/pages/Calendar';
 import Settings from '@/pages/Settings';
+import Onboarding from '@/pages/Onboarding';
+import { useOnboarding } from '@/components/void/useOnboarding';
 
 // Lazy - Notes pulls in BlockNote (~1.4MB). Keeps main bundle lean.
 const Notes = lazy(() => import('@/pages/Notes'));
+
+// Default landing: send users to onboarding until it's complete, otherwise
+// Today. While we're still deciding (data loading), hold on a loading screen.
+function HomeRoute() {
+  const { complete } = useOnboarding();
+  if (complete === null) return <LoadingScreen />;
+  if (complete === false) return <Navigate to="/tutorials" replace />;
+  return <Layout><Calendar /></Layout>;
+}
 
 function AppRoutes() {
   const { isSignedIn, isLoaded } = useUser();
@@ -45,7 +57,8 @@ function AppRoutes() {
         <DataProvider>
           <Routes>
             <Route path="/login" element={<Navigate to="/" />} />
-            <Route path="/" element={<Layout key={location.pathname}><Calendar /></Layout>} />
+            <Route path="/" element={<HomeRoute />} />
+            <Route path="/tutorials" element={<Layout key={location.pathname}><Onboarding /></Layout>} />
             <Route path="/steps" element={<Layout key={location.pathname}><Steps /></Layout>} />
             <Route path="/paths" element={<Layout key={location.pathname}><Paths /></Layout>} />
             <Route path="/routines" element={<Layout key={location.pathname}><Routines /></Layout>} />
@@ -64,6 +77,7 @@ function AppRoutes() {
             <Route path="/analytics" element={<Layout key={location.pathname}><Analytics /></Layout>} />
             <Route path="/settings" element={<Layout key={location.pathname}><Settings /></Layout>} />
           </Routes>
+          <VoidOnboarding />
         </DataProvider>
       </OfflineProvider>
     </ErrorBoundary>

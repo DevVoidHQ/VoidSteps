@@ -2,11 +2,10 @@ import React, { createContext, useContext, useMemo, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
 import { isUpcoming as isStepUpcomingUtil } from '@/lib/date-utils';
-import type { Path, Pathway, Step, Routine, Reminder } from '@/types';
+import type { Path, Step, Routine, Reminder } from '@/types';
 import type { LocalUserSettings } from '@/lib/db';
 
 interface DataContextType {
-  pathways: Pathway[] | undefined;
   paths: Path[] | undefined;
   activePaths: Path[] | undefined;
   archivedPaths: Path[] | undefined;
@@ -43,8 +42,6 @@ function enrichStepWithPath(step: any, pathsMap: Map<string, any>): Step {
       title: path.title,
       description: path.description,
       parentId: path.parentId || null,
-      connectedPathIds: path.connectedPathIds || [],
-      connectedStepIds: path.connectedStepIds || [],
       createdAt: path.createdAt,
       updatedAt: path.updatedAt,
     } : null,
@@ -63,8 +60,6 @@ function enrichRoutineWithPath(routine: any, pathsMap: Map<string, any>): Routin
       title: path.title,
       description: path.description,
       parentId: path.parentId || null,
-      connectedPathIds: path.connectedPathIds || [],
-      connectedStepIds: path.connectedStepIds || [],
       createdAt: path.createdAt,
       updatedAt: path.updatedAt,
     } : null,
@@ -94,11 +89,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     []
   );
 
-  const localPathways = useLiveQuery(
-    () => db.pathways.filter(pw => !pw._deleted).toArray(),
-    []
-  );
-
   // Read user settings (single-user app, take first)
   const userSettings = useLiveQuery(
     () => db.userSettings.filter(s => !s._deleted).first(),
@@ -117,8 +107,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return localPaths.map(p => ({
       ...p,
       parentId: p.parentId || null,
-      connectedPathIds: p.connectedPathIds || [],
-      connectedStepIds: p.connectedStepIds || [],
     })) as Path[];
   }, [localPaths]);
 
@@ -139,16 +127,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!paths) return undefined;
     return paths.filter(path => !path.parentId);
   }, [paths]);
-
-  // Transform local pathways
-  const pathways = useMemo(() => {
-    if (!localPathways) return undefined;
-    return localPathways.map(pw => ({
-      ...pw,
-      parentId: pw.parentId || null,
-      pathIds: pw.pathIds || [],
-    })) as Pathway[];
-  }, [localPathways]);
 
   // Transform and enrich routines
   const routines = useMemo(() => {
@@ -227,8 +205,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isLoading =
     localSteps === undefined ||
     localPaths === undefined ||
-    localRoutines === undefined ||
-    localPathways === undefined;
+    localRoutines === undefined;
 
   // Active timer step ID
   const activeTimerStepId = useMemo(() => {
@@ -250,7 +227,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const value = useMemo(
     () => ({
-      pathways,
       paths,
       activePaths,
       archivedPaths,
@@ -271,7 +247,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isStepUpcoming,
       activeTimerStepId,
     }),
-    [pathways, paths, activePaths, archivedPaths, rootPaths, routines, reminders, allSteps, activeSteps, failedSteps, completedStepsToday, upcomingSteps, userSettings, isLoading,
+    [paths, activePaths, archivedPaths, rootPaths, routines, reminders, allSteps, activeSteps, failedSteps, completedStepsToday, upcomingSteps, userSettings, isLoading,
      applyOptimisticUpdate, applyOptimisticDelete, clearOptimisticUpdate, clearOptimisticDelete, isStepUpcoming, activeTimerStepId]
   );
 

@@ -9,15 +9,14 @@ export async function performInitialSync(client: ConvexReactClient): Promise<boo
 
   try {
     // Fetch all data from Convex in parallel
-    const [serverSteps, serverPaths, serverRoutines, serverPathways, serverUserSettings] = await Promise.all([
+    const [serverSteps, serverPaths, serverRoutines, serverUserSettings] = await Promise.all([
       client.query(api.steps.getSteps),
       client.query(api.paths.getPaths),
       client.query(api.routines.getRoutines),
-      client.query(api.pathways.getPathways),
       client.query(api.userSettings.getAllUserSettings),
     ]);
 
-    await db.transaction('rw', [db.steps, db.paths, db.routines, db.pathways, db.userSettings, db.syncMeta], async () => {
+    await db.transaction('rw', [db.steps, db.paths, db.routines, db.userSettings, db.syncMeta], async () => {
       // Bulk insert steps
       if (serverSteps) {
         const steps = serverSteps.map((s: any) => ({
@@ -38,8 +37,6 @@ export async function performInitialSync(client: ConvexReactClient): Promise<boo
           ...p,
           _id: p._id.toString(),
           parentId: p.parentId?.toString(),
-          connectedPathIds: p.connectedPathIds?.map((id: any) => id.toString()) || [],
-          connectedStepIds: p.connectedStepIds?.map((id: any) => id.toString()) || [],
           _localOnly: false,
           _deleted: false,
         }));
@@ -57,19 +54,6 @@ export async function performInitialSync(client: ConvexReactClient): Promise<boo
           _deleted: false,
         }));
         await db.routines.bulkPut(routines);
-      }
-
-      // Bulk insert pathways
-      if (serverPathways) {
-        const pathways = serverPathways.map((pw: any) => ({
-          ...pw,
-          _id: pw._id.toString(),
-          parentId: pw.parentId?.toString(),
-          pathIds: pw.pathIds?.map((id: any) => id.toString()) || [],
-          _localOnly: false,
-          _deleted: false,
-        }));
-        await db.pathways.bulkPut(pathways);
       }
 
       // Bulk insert user settings

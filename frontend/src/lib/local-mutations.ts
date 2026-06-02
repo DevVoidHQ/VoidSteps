@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { db } from './db';
-import type { LocalStep, LocalPath, LocalRoutine, LocalReminder, LocalPathway, LocalNotebook, LocalNote, LocalUserSettings } from './db';
+import type { LocalStep, LocalPath, LocalRoutine, LocalReminder, LocalNotebook, LocalNote, LocalUserSettings } from './db';
 import { calculateNextOccurrence } from './calculate-next-occurrence';
 
 // --- Validation constants ---
@@ -29,7 +29,7 @@ function generateLocalId(): string {
 // --- Sync queue helper ---
 
 async function enqueue(
-  entityType: 'steps' | 'paths' | 'routines' | 'reminders' | 'pathways' | 'userSettings' | 'notebooks' | 'notes',
+  entityType: 'steps' | 'paths' | 'routines' | 'reminders' | 'userSettings' | 'notebooks' | 'notes',
   entityId: string,
   operation: 'create' | 'update' | 'delete',
   data?: Record<string, unknown>
@@ -294,8 +294,6 @@ export function useCreatePath() {
     title: string;
     description?: string;
     parentId?: string;
-    connectedPathIds?: string[];
-    connectedStepIds?: string[];
   }) => {
     validateTitle(args.title);
     validateDescription(args.description);
@@ -307,8 +305,6 @@ export function useCreatePath() {
       title: args.title,
       description: args.description,
       parentId: args.parentId,
-      connectedPathIds: args.connectedPathIds,
-      connectedStepIds: args.connectedStepIds,
       createdAt: now,
       updatedAt: now,
       _localOnly: true,
@@ -326,8 +322,6 @@ export function useUpdatePath() {
     title?: string;
     description?: string;
     parentId?: string | null;
-    connectedPathIds?: string[];
-    connectedStepIds?: string[];
   }) => {
     if (args.title !== undefined) validateTitle(args.title);
     if (args.description !== undefined) validateDescription(args.description);
@@ -667,66 +661,6 @@ export function useDeleteReminder() {
 }
 
 // ============================================================
-// PATHWAYS
-// ============================================================
-
-export function useCreatePathway() {
-  return useCallback(async (args: {
-    title: string;
-    description?: string;
-    parentId?: string;
-    pathIds?: string[];
-  }) => {
-    validateTitle(args.title);
-    validateDescription(args.description);
-    const now = Date.now();
-    const id = generateLocalId();
-
-    const pathway: LocalPathway = {
-      _id: id,
-      title: args.title,
-      description: args.description,
-      parentId: args.parentId,
-      pathIds: args.pathIds,
-      createdAt: now,
-      updatedAt: now,
-      _localOnly: true,
-    };
-
-    await db.pathways.add(pathway);
-    await enqueue('pathways', id, 'create', pathway as unknown as Record<string, unknown>);
-    return pathway;
-  }, []);
-}
-
-export function useUpdatePathway() {
-  return useCallback(async (args: {
-    id: string;
-    title?: string;
-    description?: string;
-    parentId?: string;
-    pathIds?: string[];
-  }) => {
-    if (args.title !== undefined) validateTitle(args.title);
-    if (args.description !== undefined) validateDescription(args.description);
-    const { id, ...updates } = args;
-    const existing = await db.pathways.get(id);
-    if (!existing) throw new Error('Pathway not found');
-
-    const patchData = { ...updates, updatedAt: Date.now() };
-    await db.pathways.update(id, patchData);
-    await enqueue('pathways', id, 'update', patchData as unknown as Record<string, unknown>);
-  }, []);
-}
-
-export function useDeletePathway() {
-  return useCallback(async (args: { id: string }) => {
-    await db.pathways.update(args.id, { _deleted: true, updatedAt: Date.now() });
-    await enqueue('pathways', args.id, 'delete');
-  }, []);
-}
-
-// ============================================================
 // USER SETTINGS
 // ============================================================
 
@@ -839,7 +773,6 @@ export function useDeleteNotebook() {
 export function useCreateNote() {
   return useCallback(async (args: {
     notebookId: string;
-    pathId?: string;
     title: string;
     body?: string;
   }) => {
@@ -850,7 +783,6 @@ export function useCreateNote() {
     const note: LocalNote = {
       _id: id,
       notebookId: args.notebookId,
-      pathId: args.pathId,
       title: args.title,
       body: args.body ?? '',
       sortOrder: now,
@@ -871,7 +803,6 @@ export function useUpdateNote() {
     title?: string;
     body?: string;
     notebookId?: string;
-    pathId?: string | null;
     archived?: boolean;
   }) => {
     if (args.title !== undefined) validateTitle(args.title);
@@ -883,9 +814,6 @@ export function useUpdateNote() {
     if (args.title !== undefined) patch.title = args.title;
     if (args.body !== undefined) patch.body = args.body;
     if (args.notebookId !== undefined) patch.notebookId = args.notebookId;
-    if (args.pathId !== undefined) {
-      patch.pathId = args.pathId === null ? undefined : args.pathId;
-    }
     if (args.archived !== undefined) {
       patch.archived = args.archived;
       patch.archivedAt = args.archived ? now : undefined;

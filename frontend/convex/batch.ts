@@ -65,9 +65,9 @@ function nextOccurrence(
 }
 
 // Dependency order: a type's references must already exist when it is created.
-const CREATE_ORDER = ["paths", "notebooks", "routines", "steps", "pathways", "notes"] as const;
+const CREATE_ORDER = ["paths", "notebooks", "routines", "steps", "notes"] as const;
 // Types whose parentId points at the same table (need parent-before-child ordering).
-const SELF_PARENT = new Set(["paths", "pathways"]);
+const SELF_PARENT = new Set(["paths"]);
 
 /**
  * One-shot batch push. Replaces N per-entity round trips with a single call.
@@ -91,9 +91,6 @@ export const pushBatch = mutation({
       const s = String(id);
       return idMap.get(s) ?? id;
     };
-    const resolveArr = (ids: any): any =>
-      Array.isArray(ids) ? ids.map((i) => resolve(i)) : ids;
-
     const created: { tempId: string; serverId: string }[] = [];
     const updatedIds: string[] = [];
     const deletedIds: string[] = [];
@@ -111,8 +108,7 @@ export const pushBatch = mutation({
         case "paths":
           return await db.insert("paths", {
             userId, title: d.title, description: d.description,
-            parentId: resolve(d.parentId), connectedPathIds: resolveArr(d.connectedPathIds),
-            connectedStepIds: resolveArr(d.connectedStepIds), createdAt: now, updatedAt: now,
+            parentId: resolve(d.parentId), createdAt: now, updatedAt: now,
           });
         case "notebooks":
           return await db.insert("notebooks", {
@@ -127,17 +123,11 @@ export const pushBatch = mutation({
             nextOccurrence: nextOccurrence(d.frequency, d.daysOfWeek, d.dayOfMonth, d.month, d.dayOfYear),
             createdAt: now, updatedAt: now,
           });
-        case "pathways":
-          return await db.insert("pathways", {
-            userId, title: d.title, description: d.description,
-            parentId: resolve(d.parentId), pathIds: resolveArr(d.pathIds),
-            createdAt: now, updatedAt: now,
-          });
         case "notes": {
           const notebookId = resolve(d.notebookId);
           if (!notebookId) throw new Error("Note missing notebookId");
           return await db.insert("notes", {
-            userId, notebookId, pathId: resolve(d.pathId), title: d.title,
+            userId, notebookId, title: d.title,
             body: d.body ?? "", sortOrder: d.sortOrder ?? now, createdAt: now, updatedAt: now,
           });
         }
@@ -242,8 +232,6 @@ export const pushBatch = mutation({
           if (d.title !== undefined) patch.title = d.title;
           if (d.description !== undefined) patch.description = d.description;
           if ("parentId" in d) patch.parentId = d.parentId == null ? undefined : resolve(d.parentId);
-          if (d.connectedPathIds !== undefined) patch.connectedPathIds = resolveArr(d.connectedPathIds);
-          if (d.connectedStepIds !== undefined) patch.connectedStepIds = resolveArr(d.connectedStepIds);
           if (d.archived !== undefined) patch.archived = d.archived;
           if ("archivedAt" in d) patch.archivedAt = d.archivedAt ?? undefined;
         } else if (u.type === "routines") {
@@ -265,11 +253,6 @@ export const pushBatch = mutation({
               patch.dayOfYear ?? existing.dayOfYear,
             );
           }
-        } else if (u.type === "pathways") {
-          if (d.title !== undefined) patch.title = d.title;
-          if (d.description !== undefined) patch.description = d.description;
-          if ("parentId" in d) patch.parentId = d.parentId == null ? undefined : resolve(d.parentId);
-          if (d.pathIds !== undefined) patch.pathIds = resolveArr(d.pathIds);
         } else if (u.type === "notebooks") {
           if (d.title !== undefined) patch.title = d.title;
           if ("description" in d) patch.description = d.description ?? undefined;
@@ -279,7 +262,6 @@ export const pushBatch = mutation({
           if (d.title !== undefined) patch.title = d.title;
           if (d.body !== undefined) patch.body = d.body;
           if (d.notebookId !== undefined) patch.notebookId = resolve(d.notebookId);
-          if ("pathId" in d) patch.pathId = d.pathId == null ? undefined : resolve(d.pathId);
           if (d.sortOrder !== undefined) patch.sortOrder = d.sortOrder;
           if (d.archived !== undefined) { patch.archived = d.archived; patch.archivedAt = d.archived ? now : undefined; }
         } else {

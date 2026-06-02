@@ -24,11 +24,10 @@ interface OfflineContextType {
 const OfflineContext = createContext<OfflineContextType | undefined>(undefined);
 
 async function clearLocalData() {
-  await db.transaction('rw', [db.steps, db.paths, db.routines, db.pathways, db.userSettings, db.syncQueue, db.syncMeta], async () => {
+  await db.transaction('rw', [db.steps, db.paths, db.routines, db.userSettings, db.syncQueue, db.syncMeta], async () => {
     await db.steps.clear();
     await db.paths.clear();
     await db.routines.clear();
-    await db.pathways.clear();
     await db.userSettings.clear();
     await db.syncQueue.clear();
     await db.syncMeta.clear();

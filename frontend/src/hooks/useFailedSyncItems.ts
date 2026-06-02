@@ -39,7 +39,6 @@ async function resolveEntityName(
     steps: 'Step',
     paths: 'Path',
     routines: 'Routine',
-    pathways: 'Pathway',
   };
   return `Unknown ${typeLabels[entityType] || entityType}`;
 }

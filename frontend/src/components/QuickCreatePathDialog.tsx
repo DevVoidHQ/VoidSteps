@@ -4,9 +4,7 @@ import {
 } from "@/components/ui/Dialog";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
-import { HierarchicalPathSelector } from "@/components/HierarchicalPathSelector";
 import { useCreatePath, MAX_TITLE_LENGTH, MAX_DESCRIPTION_LENGTH } from "@/lib/local-mutations";
-import { useData } from "@/contexts/DataContext";
 import { useToast } from "@/contexts/ToastContext";
 import { reportError } from "@/lib/error-store";
 import { Plus } from "lucide-react";
@@ -18,20 +16,18 @@ interface QuickCreatePathDialogProps {
 
 export default function QuickCreatePathDialog({ open, onOpenChange }: QuickCreatePathDialogProps) {
   const toast = useToast();
-  const { activePaths } = useData();
   const createPathMutation = useCreatePath();
   const titleRef = useRef<HTMLInputElement>(null);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [parentId, setParentId] = useState("");
 
   useEffect(() => {
     if (open) setTimeout(() => titleRef.current?.focus(), 50);
   }, [open]);
 
   const resetForm = useCallback(() => {
-    setTitle(""); setDescription(""); setParentId("");
+    setTitle(""); setDescription("");
   }, []);
 
   const handleSubmit = useCallback(async () => {
@@ -41,7 +37,6 @@ export default function QuickCreatePathDialog({ open, onOpenChange }: QuickCreat
       await createPathMutation({
         title: trimmed,
         description: description.trim() || undefined,
-        parentId: parentId || undefined,
       });
       toast.success(`Created path "${trimmed}"`);
       resetForm();
@@ -50,7 +45,7 @@ export default function QuickCreatePathDialog({ open, onOpenChange }: QuickCreat
       reportError("mutation", error, { action: "quickCreatePath" });
       toast.error("Failed to create path");
     }
-  }, [title, description, parentId, createPathMutation, toast, resetForm, onOpenChange]);
+  }, [title, description, createPathMutation, toast, resetForm, onOpenChange]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key !== "Enter") return;
@@ -68,7 +63,6 @@ export default function QuickCreatePathDialog({ open, onOpenChange }: QuickCreat
           <Input ref={titleRef} placeholder="Path title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={MAX_TITLE_LENGTH} />
           <textarea placeholder="Description (optional)" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} maxLength={MAX_DESCRIPTION_LENGTH}
             className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none" />
-          <HierarchicalPathSelector paths={activePaths || []} selectedPathId={parentId || null} onChange={(id) => setParentId(id || "")} placeholder="Parent Path (optional)" allowEmpty />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => { resetForm(); onOpenChange(false); }}>Cancel</Button>

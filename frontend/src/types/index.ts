@@ -1,21 +1,9 @@
 // Compatible with both MongoDB and Convex backends
-export interface Pathway {
-  _id: string;
-  title: string;
-  description?: string;
-  parentId?: string | null;
-  pathIds?: string[];
-  createdAt: string | number;
-  updatedAt: string | number;
-}
-
 export interface Path {
   _id: string;
   title: string;
   description?: string;
   parentId?: string | null;           // Self-ref for hierarchy
-  connectedPathIds?: string[];        // Path-to-Path connections
-  connectedStepIds?: string[];        // Path-to-Step connections
   archived?: boolean;
   archivedAt?: number;
   createdAt: string | number;
