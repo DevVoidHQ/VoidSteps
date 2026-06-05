@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/Input";
 import { Toggle } from "@/components/ui/Toggle";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
-import { getDeferDatesMode, setDeferDatesMode, getDueDatesMode, setDueDatesMode, getPrioritizeDefault, setPrioritizeDefault, getOpenFocusOnPlay, setOpenFocusOnPlay, getStepActions, setStepActionMode, STEP_ACTION_ORDER, STEP_ACTION_LABELS, getStepsClickAction, setStepsClickAction, getTodayClickAction, setTodayClickAction, resetGeneralPreferences, type DeferDatesMode, type StepActionsConfig, type StepClickAction } from "@/lib/preferences";
+import { getDeferDatesMode, setDeferDatesMode, getDueDatesMode, setDueDatesMode, getPrioritizeDefault, setPrioritizeDefault, getOpenFocusOnPlay, setOpenFocusOnPlay, getShowStepDates, setShowStepDates, getStepActions, setStepActionMode, STEP_ACTION_ORDER, STEP_ACTION_LABELS, getStepsClickAction, setStepsClickAction, getTodayClickAction, setTodayClickAction, resetGeneralPreferences, type DeferDatesMode, type StepActionsConfig, type StepClickAction } from "@/lib/preferences";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
 import DataSettings from "@/components/DataSettings";
@@ -116,6 +116,7 @@ function GeneralSettings() {
   const [dueMode, setDueMode] = useState<DeferDatesMode>(getDueDatesMode());
   const [prioritizeDefault, setPrioritizeDefaultState] = useState(getPrioritizeDefault());
   const [openFocusOnPlay, setOpenFocusOnPlayState] = useState(getOpenFocusOnPlay());
+  const [showStepDates, setShowStepDatesState] = useState(getShowStepDates());
   const [stepActions, setStepActions] = useState<StepActionsConfig>(getStepActions());
   const [stepsClick, setStepsClick] = useState<StepClickAction>(getStepsClickAction());
   const [todayClick, setTodayClick] = useState<StepClickAction>(getTodayClickAction());
@@ -136,6 +137,7 @@ function GeneralSettings() {
     setDueMode(getDueDatesMode());
     setPrioritizeDefaultState(getPrioritizeDefault());
     setOpenFocusOnPlayState(getOpenFocusOnPlay());
+    setShowStepDatesState(getShowStepDates());
     setStepActions(getStepActions());
     setStepsClick(getStepsClickAction());
     setTodayClick(getTodayClickAction());
@@ -166,6 +168,14 @@ function GeneralSettings() {
             onChange={(e) => { setOpenFocusOnPlayState(e.target.checked); setOpenFocusOnPlay(e.target.checked); }}
             label="Open focus view when starting a timer"
             description="Starting a step's timer opens the fullscreen focus view. On by default."
+          />
+
+          <Toggle
+            size="sm"
+            checked={showStepDates}
+            onChange={(e) => { setShowStepDatesState(e.target.checked); setShowStepDates(e.target.checked); }}
+            label="Show created & updated dates on steps"
+            description="Adds a small footer to each step with when it was created and last updated. On by default."
           />
 
           <div className="space-y-1.5">
