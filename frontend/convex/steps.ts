@@ -481,7 +481,12 @@ export const reorderSteps = mutation({
 
 // Timer mutations
 export const startTimer = mutation({
-  args: { id: v.id("steps") },
+  // Offline-first: the client is the source of truth. Accept the client's
+  // start instant so the server stores the same clock-domain value the client
+  // uses to compute elapsed time. Without this the server stamps its own clock,
+  // and after the next pull the client computes Date.now() - serverClock, which
+  // jumps (or goes negative under skew) and looks like the timer reset/stopped.
+  args: { id: v.id("steps"), timerStartedAt: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
     const step = await ctx.db.get(args.id);
@@ -489,7 +494,7 @@ export const startTimer = mutation({
 
     const now = Date.now();
     await ctx.db.patch(args.id, {
-      timerStartedAt: now,
+      timerStartedAt: args.timerStartedAt ?? now,
       updatedAt: now,
     });
 
@@ -537,7 +542,11 @@ export const setTotalTime = mutation({
 });
 
 export const stopTimer = mutation({
-  args: { id: v.id("steps") },
+  // The client already accumulated the session time using its own clock, so
+  // trust the total it sends rather than recomputing from the server clock
+  // (which would drop time when client and server clocks disagree). Falls back
+  // to a server-side calc only when the client doesn't provide a total.
+  args: { id: v.id("steps"), totalTimeSpentMs: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
     const step = await ctx.db.get(args.id);
@@ -545,9 +554,9 @@ export const stopTimer = mutation({
 
     const now = Date.now();
 
-    // Calculate elapsed time from current session
-    const elapsed = step.timerStartedAt ? now - step.timerStartedAt : 0;
-    const newTotal = (step.totalTimeSpentMs || 0) + elapsed;
+    const newTotal = args.totalTimeSpentMs !== undefined
+      ? Math.max(0, args.totalTimeSpentMs)
+      : (step.totalTimeSpentMs || 0) + (step.timerStartedAt ? now - step.timerStartedAt : 0);
 
     await ctx.db.patch(args.id, {
       timerStartedAt: undefined,

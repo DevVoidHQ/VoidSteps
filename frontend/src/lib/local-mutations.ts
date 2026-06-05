@@ -246,8 +246,13 @@ export const TIMER_STARTED_EVENT = "voidsteps-timer-started";
 export function useStartTimer() {
   return useCallback(async (args: { id: string }) => {
     const now = Date.now();
-    await db.steps.update(args.id, { timerStartedAt: now, updatedAt: now });
-    await enqueue('steps', args.id, 'update', { timerStartedAt: now, updatedAt: now });
+    // Atomic: the step write and its sync-queue entry must commit together, so a
+    // concurrent pull never sees the running timer without also seeing it as
+    // pending (otherwise "server wins" could clear it right after start).
+    await db.transaction('rw', db.steps, db.syncQueue, async () => {
+      await db.steps.update(args.id, { timerStartedAt: now, updatedAt: now });
+      await enqueue('steps', args.id, 'update', { timerStartedAt: now, updatedAt: now });
+    });
     window.dispatchEvent(new CustomEvent(TIMER_STARTED_EVENT, { detail: { id: args.id } }));
   }, []);
 }
@@ -258,8 +263,10 @@ export function useSetTotalTime() {
     const totalTimeSpentMs = Math.max(0, args.totalTimeSpentMs);
     // When resetting to 0, clear the field entirely so the badge disappears
     const value = totalTimeSpentMs === 0 ? undefined : totalTimeSpentMs;
-    await db.steps.update(args.id, { totalTimeSpentMs: value, updatedAt: now });
-    await enqueue('steps', args.id, 'update', { totalTimeSpentMs: value, updatedAt: now });
+    await db.transaction('rw', db.steps, db.syncQueue, async () => {
+      await db.steps.update(args.id, { totalTimeSpentMs: value, updatedAt: now });
+      await enqueue('steps', args.id, 'update', { totalTimeSpentMs: value, updatedAt: now });
+    });
   }, []);
 }
 
@@ -272,15 +279,17 @@ export function useStopTimer() {
     const elapsed = step.timerStartedAt ? now - step.timerStartedAt : 0;
     const newTotal = (step.totalTimeSpentMs || 0) + elapsed;
 
-    await db.steps.update(args.id, {
-      timerStartedAt: undefined,
-      totalTimeSpentMs: newTotal,
-      updatedAt: now,
-    });
-    await enqueue('steps', args.id, 'update', {
-      timerStartedAt: undefined,
-      totalTimeSpentMs: newTotal,
-      updatedAt: now,
+    await db.transaction('rw', db.steps, db.syncQueue, async () => {
+      await db.steps.update(args.id, {
+        timerStartedAt: undefined,
+        totalTimeSpentMs: newTotal,
+        updatedAt: now,
+      });
+      await enqueue('steps', args.id, 'update', {
+        timerStartedAt: undefined,
+        totalTimeSpentMs: newTotal,
+        updatedAt: now,
+      });
     });
   }, []);
 }

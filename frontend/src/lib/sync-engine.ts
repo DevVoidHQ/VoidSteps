@@ -315,11 +315,19 @@ export class SyncEngine {
         if ('archivedAt' in data) updateData.archivedAt = data.archivedAt ?? null;
         // Timer fields - handle via dedicated mutations, don't pass to updateStep
         if ('timerStartedAt' in data && data.timerStartedAt !== undefined) {
-          // Start timer
-          await this.client.mutation(api.steps.startTimer, { id: resolvedId as Id<'steps'> });
+          // Start timer — send the client's start instant so server and client
+          // agree on the clock domain used to compute elapsed time.
+          await this.client.mutation(api.steps.startTimer, {
+            id: resolvedId as Id<'steps'>,
+            timerStartedAt: data.timerStartedAt as number,
+          });
         } else if ('totalTimeSpentMs' in data && 'timerStartedAt' in data && data.timerStartedAt === undefined) {
-          // Stop timer (both totalTimeSpentMs and timerStartedAt=undefined present)
-          await this.client.mutation(api.steps.stopTimer, { id: resolvedId as Id<'steps'> });
+          // Stop timer (both totalTimeSpentMs and timerStartedAt=undefined present).
+          // Send the client-accumulated total so no time is lost to clock skew.
+          await this.client.mutation(api.steps.stopTimer, {
+            id: resolvedId as Id<'steps'>,
+            totalTimeSpentMs: (data.totalTimeSpentMs as number | undefined) ?? 0,
+          });
         } else if ('totalTimeSpentMs' in data && !('timerStartedAt' in data)) {
           // Manual time set (only totalTimeSpentMs, no timerStartedAt key)
           // Server clears the field when 0 is passed (back to default)
@@ -681,10 +689,6 @@ export class SyncEngine {
     this.isPulling = true;
 
     try {
-      // Get pending sync entity IDs to skip during merge
-      const pendingEntries = await db.syncQueue.where('status').anyOf('pending', 'in-progress').toArray();
-      const pendingEntityIds = new Set(pendingEntries.map(e => e.entityId));
-
       // Fetch all data from Convex
       const [serverSteps, serverPaths, serverRoutines, serverReminders, serverNotebooks, serverNotes, serverUserSettings] = await Promise.all([
         this.client.query(api.steps.getSteps),
@@ -696,7 +700,18 @@ export class SyncEngine {
         this.client.query(api.userSettings.getAllUserSettings),
       ]);
 
-      await db.transaction('rw', [db.steps, db.paths, db.routines, db.reminders, db.notebooks, db.notes, db.userSettings, db.syncMeta], async () => {
+      await db.transaction('rw', [db.steps, db.paths, db.routines, db.reminders, db.notebooks, db.notes, db.userSettings, db.syncMeta, db.syncQueue], async () => {
+        // Derive pending entity IDs INSIDE the merge transaction so step state
+        // and queue state are read from one consistent snapshot. Reading this
+        // before the transaction left a race: a local timer start (which writes
+        // the step then enqueues a sync entry atomically) could land between the
+        // pending read and the merge, so the merge saw the running timer but not
+        // its pending entry and "server wins" cleared it — the timer paused on
+        // its own a few seconds after starting. A genuine remote stop has no
+        // local queue entry, so it still wins here (multi-device safe).
+        const pendingEntries = await db.syncQueue.where('status').anyOf('pending', 'in-progress').toArray();
+        const pendingEntityIds = new Set(pendingEntries.map(e => e.entityId));
+
         // Merge steps
         if (serverSteps) {
           await this.mergeEntities(
