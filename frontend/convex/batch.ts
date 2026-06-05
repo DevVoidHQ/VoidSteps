@@ -95,6 +95,16 @@ export const pushBatch = mutation({
     const updatedIds: string[] = [];
     const deletedIds: string[] = [];
 
+    // Idempotency: has this client create id already produced a server row?
+    // (two tabs sharing the queue, a batch retry, or a lost ack can resend it).
+    const idempotentServerId = async (clientId: string): Promise<string | undefined> => {
+      const row = await db
+        .query("syncIdempotency")
+        .withIndex("by_user_client", (q: any) => q.eq("userId", userId).eq("clientId", clientId))
+        .first();
+      return row?.serverId;
+    };
+
     // ---- CREATES (dependency order, parent-before-child within a type) ----
     const createsByType = new Map<string, typeof args.creates>();
     for (const c of args.creates) {
@@ -188,8 +198,18 @@ export const pushBatch = mutation({
 
       for (const item of ordered) {
         try {
+          // Already created this tempId before → reuse it, don't insert again.
+          const existingServerId = await idempotentServerId(item.tempId);
+          if (existingServerId) {
+            idMap.set(item.tempId, existingServerId);
+            created.push({ tempId: item.tempId, serverId: existingServerId });
+            continue;
+          }
           const serverId = await insertOne(type, item.data);
           idMap.set(item.tempId, String(serverId));
+          await db.insert("syncIdempotency", {
+            userId, clientId: item.tempId, table: type, serverId: String(serverId), createdAt: Date.now(),
+          });
           created.push({ tempId: item.tempId, serverId: String(serverId) });
         } catch {
           // leave for client retry

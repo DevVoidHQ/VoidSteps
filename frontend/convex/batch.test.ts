@@ -142,6 +142,53 @@ describe("batch.pushBatch", () => {
     expect(res.updatedIds).not.toContain("nonexistent_id");
   });
 
+  it("is idempotent: resending the same tempId reuses the row, no duplicate", async () => {
+    const t = convexTest(schema, modules);
+    const asUser = t.withIdentity(testUser);
+
+    const first = await asUser.mutation(api.batch.pushBatch, {
+      creates: [{ tempId: "s1", type: "steps", data: { title: "Buy milk" } }],
+      updates: [],
+      deletes: [],
+    });
+    const firstId = first.created[0].serverId;
+
+    // Same tempId again (two tabs racing the shared queue / a lost ack retry).
+    const second = await asUser.mutation(api.batch.pushBatch, {
+      creates: [{ tempId: "s1", type: "steps", data: { title: "Buy milk" } }],
+      updates: [],
+      deletes: [],
+    });
+
+    // Returns the same server id rather than minting a new one.
+    expect(second.created[0].serverId).toBe(firstId);
+
+    await t.run(async (ctx) => {
+      const steps = await ctx.db
+        .query("steps")
+        .withIndex("by_user", (q) => q.eq("userId", testUser.subject))
+        .collect();
+      expect(steps).toHaveLength(1);
+    });
+  });
+
+  it("scopes idempotency per user: same tempId from another user creates its own row", async () => {
+    const t = convexTest(schema, modules);
+    const asUser = t.withIdentity(testUser);
+    const asOther = t.withIdentity({ name: "Other", subject: "user-999" });
+
+    const a = await asUser.mutation(api.batch.pushBatch, {
+      creates: [{ tempId: "shared", type: "steps", data: { title: "Mine" } }],
+      updates: [], deletes: [],
+    });
+    const b = await asOther.mutation(api.batch.pushBatch, {
+      creates: [{ tempId: "shared", type: "steps", data: { title: "Theirs" } }],
+      updates: [], deletes: [],
+    });
+
+    expect(b.created[0].serverId).not.toBe(a.created[0].serverId);
+  });
+
   it("enforces per-user ownership on updates", async () => {
     const t = convexTest(schema, modules);
     const asUser = t.withIdentity(testUser);

@@ -88,15 +88,17 @@ export class SyncEngine {
     });
   }
 
-  // ---- Legacy per-entry push, kept as a fallback for batch failures ----
+  // ---- Per-entry fallback for batch failures ----
+  // Sends one entry at a time through the same batch path, so a single bad
+  // request can't stall the whole queue while still getting server-side
+  // idempotency (creates won't duplicate if the batch had already committed
+  // before the network error).
   private async pushPerEntry(entries: SyncQueueEntry[]) {
     for (const entry of entries) {
       const fresh = await db.syncQueue.get(entry.id!);
       if (!fresh || fresh.status !== 'pending') continue;
       try {
-        await db.syncQueue.update(entry.id!, { status: 'in-progress' });
-        await this.processSyncEntry(fresh);
-        await db.syncQueue.delete(entry.id!);
+        await this.pushBatch([fresh]);
       } catch (error) {
         await this.failEntry(fresh, error);
       }

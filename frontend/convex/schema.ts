@@ -120,6 +120,18 @@ export default defineSchema({
   }).index("by_user", ["userId"])
     .index("by_notebook", ["notebookId"]),
 
+  // Maps a client-generated create id (the local_ tempId) to the server id it
+  // produced, so a create that is sent more than once (two tabs racing the same
+  // shared queue, a batch retry, or a lost network ack) returns the existing
+  // row instead of inserting a duplicate. Keyed per user.
+  syncIdempotency: defineTable({
+    userId: v.string(),
+    clientId: v.string(), // the local_ tempId the client minted for the create
+    table: v.string(),
+    serverId: v.string(),
+    createdAt: v.number(),
+  }).index("by_user_client", ["userId", "clientId"]),
+
   userSettings: defineTable({
     userId: v.string(),
     theme: v.object({
