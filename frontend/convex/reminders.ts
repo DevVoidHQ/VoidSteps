@@ -1,11 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-
-async function requireAuth(ctx: { auth: any }) {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) throw new Error("Unauthenticated");
-  return identity.subject;
-}
+import { requireAuth } from "./lib/auth";
+import { applyNullableFields, requireOwned } from "./lib/db-helpers";
 
 const recurrenceValidator = v.union(
   v.literal("once"),
@@ -62,16 +58,12 @@ export const updateReminder = mutation({
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
     const { id, ...updates } = args;
-    const existing = await ctx.db.get(id);
-    if (!existing || existing.userId !== userId) throw new Error("Reminder not found");
+    await requireOwned(ctx, id, userId, "Reminder not found");
 
     const cleanUpdates: Record<string, any> = { updatedAt: Date.now() };
     if (updates.title !== undefined) cleanUpdates.title = updates.title;
-    if (updates.note !== undefined) cleanUpdates.note = updates.note === null ? undefined : updates.note;
     if (updates.recurrence !== undefined) cleanUpdates.recurrence = updates.recurrence;
-    if (updates.date !== undefined) cleanUpdates.date = updates.date === null ? undefined : updates.date;
-    if (updates.month !== undefined) cleanUpdates.month = updates.month === null ? undefined : updates.month;
-    if (updates.day !== undefined) cleanUpdates.day = updates.day === null ? undefined : updates.day;
+    applyNullableFields(cleanUpdates, updates, ["note", "date", "month", "day"]);
 
     await ctx.db.patch(id, cleanUpdates);
   },
@@ -81,8 +73,7 @@ export const deleteReminder = mutation({
   args: { id: v.id("reminders") },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
-    const reminder = await ctx.db.get(args.id);
-    if (!reminder || reminder.userId !== userId) throw new Error("Not found");
+    await requireOwned(ctx, args.id, userId, "Not found");
     await ctx.db.delete(args.id);
   },
 });

@@ -10,6 +10,8 @@
 
 import type * as batch from "../batch.js";
 import type * as crons from "../crons.js";
+import type * as lib_auth from "../lib/auth.js";
+import type * as lib_recurrence from "../lib/recurrence.js";
 import type * as migrations from "../migrations.js";
 import type * as migrations_deleteLegacyPathways from "../migrations/deleteLegacyPathways.js";
 import type * as notebooks from "../notebooks.js";
@@ -30,6 +32,8 @@ import type {
 declare const fullApi: ApiFromModules<{
   batch: typeof batch;
   crons: typeof crons;
+  "lib/auth": typeof lib_auth;
+  "lib/recurrence": typeof lib_recurrence;
   migrations: typeof migrations;
   "migrations/deleteLegacyPathways": typeof migrations_deleteLegacyPathways;
   notebooks: typeof notebooks;

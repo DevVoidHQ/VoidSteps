@@ -1,11 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
-
-async function requireAuth(ctx: { auth: any }) {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) throw new Error("Unauthenticated");
-  return identity.subject;
-}
+import { requireAuth } from "./lib/auth";
+import { requireOwned } from "./lib/db-helpers";
 
 export const getNotebooks = query({
   handler: async (ctx) => {
@@ -60,10 +56,7 @@ export const updateNotebook = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
-    const existing = await ctx.db.get(args.id);
-    if (!existing || existing.userId !== userId) {
-      throw new Error("Notebook not found");
-    }
+    await requireOwned(ctx, args.id, userId, "Notebook not found");
 
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
     if (args.title !== undefined) patch.title = args.title;
@@ -85,10 +78,7 @@ export const deleteNotebook = mutation({
   args: { id: v.id("notebooks") },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
-    const existing = await ctx.db.get(args.id);
-    if (!existing || existing.userId !== userId) {
-      throw new Error("Notebook not found");
-    }
+    await requireOwned(ctx, args.id, userId, "Notebook not found");
 
     // Cascade: delete all notes in this notebook
     const notes = await ctx.db

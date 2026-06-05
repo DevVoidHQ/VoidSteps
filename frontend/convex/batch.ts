@@ -1,68 +1,8 @@
 import { v } from "convex/values";
 import { mutation } from "./_generated/server";
-
-async function requireAuth(ctx: { auth: any }) {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) throw new Error("Unauthenticated");
-  return identity.subject;
-}
-
-function nextOccurrence(
-  frequency: string,
-  daysOfWeek?: number[],
-  dayOfMonth?: number,
-  month?: number,
-  dayOfYear?: number,
-): number {
-  const now = new Date();
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(0, 0, 0, 0);
-
-  switch (frequency) {
-    case "daily":
-      return tomorrow.getTime();
-    case "weekdays": {
-      const next = new Date(tomorrow);
-      while (next.getDay() === 0 || next.getDay() === 6) next.setDate(next.getDate() + 1);
-      return next.getTime();
-    }
-    case "weekly": {
-      if (!daysOfWeek || daysOfWeek.length === 0) {
-        const next = new Date(tomorrow);
-        next.setDate(next.getDate() + 7);
-        return next.getTime();
-      }
-      const sorted = [...daysOfWeek].sort((a, b) => a - b);
-      const currentDay = tomorrow.getDay();
-      let nextDay = sorted.find((d) => d >= currentDay);
-      const next = new Date(tomorrow);
-      if (nextDay !== undefined && nextDay > currentDay) {
-        next.setDate(next.getDate() + (nextDay - currentDay));
-      } else {
-        nextDay = sorted[0];
-        next.setDate(next.getDate() + (7 - currentDay + nextDay));
-      }
-      return next.getTime();
-    }
-    case "monthly": {
-      const day = dayOfMonth || now.getDate();
-      const next = new Date(now.getFullYear(), now.getMonth(), day, 0, 0, 0, 0);
-      if (next <= now) next.setMonth(next.getMonth() + 1);
-      while (next.getDate() !== day) next.setDate(0);
-      return next.getTime();
-    }
-    case "yearly": {
-      const m = (month || 1) - 1;
-      const d = dayOfYear || 1;
-      const next = new Date(now.getFullYear(), m, d, 0, 0, 0, 0);
-      if (next <= now) next.setFullYear(next.getFullYear() + 1);
-      return next.getTime();
-    }
-    default:
-      return tomorrow.getTime();
-  }
-}
+import { requireAuth } from "./lib/auth";
+import { getStartOfToday } from "./lib/db-helpers";
+import { calculateNextOccurrence as nextOccurrence } from "./lib/recurrence";
 
 // Dependency order: a type's references must already exist when it is created.
 const CREATE_ORDER = ["paths", "notebooks", "routines", "steps", "notes"] as const;
@@ -145,11 +85,10 @@ export const pushBatch = mutation({
           const routineId = resolve(d.routineId);
           // Routine spawn idempotency (mirror createStep)
           if (routineId) {
-            const startOfToday = new Date(now); startOfToday.setHours(0, 0, 0, 0);
             const existing = await db
               .query("steps")
               .withIndex("by_routine", (q: any) => q.eq("routineId", routineId))
-              .filter((q: any) => q.gte(q.field("createdAt"), startOfToday.getTime()))
+              .filter((q: any) => q.gte(q.field("createdAt"), getStartOfToday(now)))
               .first();
             if (existing && existing.userId === userId) return existing._id;
           }

@@ -1,11 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
-
-async function requireAuth(ctx: { auth: any }) {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) throw new Error("Unauthenticated");
-  return identity.subject;
-}
+import { requireAuth } from "./lib/auth";
+import { getStartOfToday, requireOwned } from "./lib/db-helpers";
 
 // Queries
 export const getSteps = query({
@@ -51,9 +47,7 @@ export const getActiveSteps = query({
     const userId = await requireAuth(ctx);
     const now = Date.now();
     // Get start of today for startDate comparison
-    const today = new Date(now);
-    today.setHours(0, 0, 0, 0);
-    const startOfToday = today.getTime();
+    const startOfToday = getStartOfToday(now);
 
     const allSteps = await ctx.db
       .query("steps")
@@ -98,9 +92,7 @@ export const getUpcomingSteps = query({
     const userId = await requireAuth(ctx);
     const now = Date.now();
     // Get start of today for startDate comparison
-    const today = new Date(now);
-    today.setHours(0, 0, 0, 0);
-    const startOfToday = today.getTime();
+    const startOfToday = getStartOfToday(now);
 
     const allSteps = await ctx.db
       .query("steps")
@@ -149,10 +141,7 @@ export const getCompletedStepsToday = query({
     if (args.startOfDayTimestamp !== undefined) {
       startOfTodayTimestamp = args.startOfDayTimestamp;
     } else {
-      const now = Date.now();
-      const startOfToday = new Date(now);
-      startOfToday.setHours(0, 0, 0, 0);
-      startOfTodayTimestamp = startOfToday.getTime();
+      startOfTodayTimestamp = getStartOfToday();
     }
 
     const steps = await ctx.db
@@ -229,9 +218,7 @@ export const createStep = mutation({
     // return any existing step for this routine created today so the caller
     // converges onto a single server id.
     if (args.routineId) {
-      const startOfToday = new Date(now);
-      startOfToday.setHours(0, 0, 0, 0);
-      const startOfTodayMs = startOfToday.getTime();
+      const startOfTodayMs = getStartOfToday(now);
 
       const existing = await ctx.db
         .query("steps")
@@ -310,8 +297,7 @@ export const updateStep = mutation({
     const userId = await requireAuth(ctx);
     const { id, ...updates } = args;
 
-    const existing = await ctx.db.get(id);
-    if (!existing || existing.userId !== userId) throw new Error("Step not found");
+    const existing = await requireOwned(ctx, id, userId, "Step not found");
 
     const now = Date.now();
     const patchData: any = {
@@ -385,8 +371,7 @@ export const deleteStep = mutation({
   args: { id: v.id("steps") },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
-    const step = await ctx.db.get(args.id);
-    if (!step || step.userId !== userId) throw new Error("Not found");
+    await requireOwned(ctx, args.id, userId, "Not found");
 
     await ctx.db.delete(args.id);
     return { success: true, message: "Step deleted successfully" };
@@ -397,8 +382,7 @@ export const toggleStepCompletion = mutation({
   args: { id: v.id("steps") },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
-    const step = await ctx.db.get(args.id);
-    if (!step || step.userId !== userId) throw new Error("Step not found");
+    const step = await requireOwned(ctx, args.id, userId, "Step not found");
 
     const now = Date.now();
     const newCompletedState = !step.completed;
@@ -427,8 +411,7 @@ export const toggleStepFailed = mutation({
   args: { id: v.id("steps") },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
-    const step = await ctx.db.get(args.id);
-    if (!step || step.userId !== userId) throw new Error("Step not found");
+    const step = await requireOwned(ctx, args.id, userId, "Step not found");
 
     const now = Date.now();
     // Handle undefined as false for backward compatibility
@@ -466,8 +449,7 @@ export const reorderSteps = mutation({
     // Update sortOrder for each step based on position in array.
     await Promise.all(
       stepIds.map(async (stepId, index) => {
-        const step = await ctx.db.get(stepId);
-        if (!step || step.userId !== userId) throw new Error("Not found");
+        await requireOwned(ctx, stepId, userId, "Not found");
         return ctx.db.patch(stepId, {
           sortOrder: index,
           updatedAt: now,
@@ -489,8 +471,7 @@ export const startTimer = mutation({
   args: { id: v.id("steps"), timerStartedAt: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
-    const step = await ctx.db.get(args.id);
-    if (!step || step.userId !== userId) throw new Error("Step not found");
+    await requireOwned(ctx, args.id, userId, "Step not found");
 
     const now = Date.now();
     await ctx.db.patch(args.id, {
@@ -517,8 +498,7 @@ export const setTotalTime = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
-    const step = await ctx.db.get(args.id);
-    if (!step || step.userId !== userId) throw new Error("Step not found");
+    await requireOwned(ctx, args.id, userId, "Step not found");
 
     const totalTimeSpentMs = Math.max(0, args.totalTimeSpentMs);
     const now = Date.now();
@@ -549,8 +529,7 @@ export const stopTimer = mutation({
   args: { id: v.id("steps"), totalTimeSpentMs: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
-    const step = await ctx.db.get(args.id);
-    if (!step || step.userId !== userId) throw new Error("Step not found");
+    const step = await requireOwned(ctx, args.id, userId, "Step not found");
 
     const now = Date.now();
 
