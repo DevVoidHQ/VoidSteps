@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { requireAuth } from "./lib/auth";
-import { requireOwned } from "./lib/db-helpers";
+import { requireOwned } from "./lib/dbHelpers";
 
 export const getNotebooks = query({
   handler: async (ctx) => {

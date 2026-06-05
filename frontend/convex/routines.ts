@@ -1,7 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuth } from "./lib/auth";
-import { applyNullableFields, requireOwned } from "./lib/db-helpers";
+import { applyNullableFields, requireOwned } from "./lib/dbHelpers";
 import { calculateNextOccurrence } from "./lib/recurrence";
 
 export const getRoutines = query({

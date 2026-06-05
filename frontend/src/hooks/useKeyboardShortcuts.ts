@@ -47,7 +47,7 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
 
       const keybinds = getKeybinds();
 
-      // Command bar — works everywhere, including inside inputs.
+      // Command bar, works everywhere, including inside inputs.
       if (matchesKeybind(e, keybinds.openCommandBar)) {
         e.preventDefault();
         handlers.onOpenCommandBar?.();

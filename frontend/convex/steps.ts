@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { requireAuth } from "./lib/auth";
-import { getStartOfToday, requireOwned } from "./lib/db-helpers";
+import { getStartOfToday, requireOwned } from "./lib/dbHelpers";
 
 // Queries
 export const getSteps = query({

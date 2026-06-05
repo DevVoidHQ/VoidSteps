@@ -1,5 +1,5 @@
 import { internalMutation } from "./_generated/server";
-import { getStartOfToday } from "./lib/db-helpers";
+import { getStartOfToday } from "./lib/dbHelpers";
 import { calculateNextOccurrence } from "./lib/recurrence";
 
 // Internal mutation to spawn steps from routines

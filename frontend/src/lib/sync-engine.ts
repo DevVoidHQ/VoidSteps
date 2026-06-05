@@ -317,7 +317,7 @@ export class SyncEngine {
         if ('archivedAt' in data) updateData.archivedAt = data.archivedAt ?? null;
         // Timer fields - handle via dedicated mutations, don't pass to updateStep
         if ('timerStartedAt' in data && data.timerStartedAt !== undefined) {
-          // Start timer — send the client's start instant so server and client
+          // Start timer - send the client's start instant so server and client
           // agree on the clock domain used to compute elapsed time.
           await this.client.mutation(api.steps.startTimer, {
             id: resolvedId as Id<'steps'>,
@@ -708,7 +708,7 @@ export class SyncEngine {
         // before the transaction left a race: a local timer start (which writes
         // the step then enqueues a sync entry atomically) could land between the
         // pending read and the merge, so the merge saw the running timer but not
-        // its pending entry and "server wins" cleared it — the timer paused on
+        // its pending entry and "server wins" cleared it - the timer paused on
         // its own a few seconds after starting. A genuine remote stop has no
         // local queue entry, so it still wins here (multi-device safe).
         const pendingEntries = await db.syncQueue.where('status').anyOf('pending', 'in-progress').toArray();

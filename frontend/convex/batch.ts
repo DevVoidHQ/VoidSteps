@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation } from "./_generated/server";
 import { requireAuth } from "./lib/auth";
-import { getStartOfToday } from "./lib/db-helpers";
+import { getStartOfToday } from "./lib/dbHelpers";
 import { calculateNextOccurrence as nextOccurrence } from "./lib/recurrence";
 
 // Dependency order: a type's references must already exist when it is created.

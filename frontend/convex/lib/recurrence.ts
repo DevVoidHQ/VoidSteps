@@ -1,7 +1,7 @@
 // Single source of truth for routine recurrence math, shared by the Convex
 // backend (routines / batch / routineSpawner) AND the frontend (src/lib re-exports
 // this). Pure date math, no platform deps, so it bundles cleanly into both the
-// Convex runtime and the browser. Keep it that way — do not import anything here.
+// Convex runtime and the browser. Keep it that way, do not import anything here.
 
 export function calculateNextOccurrence(
   frequency: string,

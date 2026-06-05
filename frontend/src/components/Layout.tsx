@@ -73,7 +73,7 @@ export default function Layout({
 
   return (
     <div className="flex min-h-screen bg-background w-full">
-      {/* Mobile Menu Button — bottom-right for one-handed (thumb) reach */}
+      {/* Mobile Menu Button, bottom-right for one-handed (thumb) reach */}
       <div className="md:hidden fixed bottom-4 right-4 z-50">
         <Button
           variant="outline"
@@ -111,7 +111,7 @@ export default function Layout({
         </div>
       )}
 
-      {/* Command bar (⌘K) — navigation + quick actions */}
+      {/* Command bar (⌘K), navigation + quick actions */}
       <CommandBar
         open={isCommandBarOpen}
         onOpenChange={setIsCommandBarOpen}

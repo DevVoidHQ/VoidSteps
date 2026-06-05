@@ -47,7 +47,12 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        // Admin is online-only: keep its lazy chunk out of the precache entirely
+        // (it'd otherwise match the **/*.js glob above).
+        globIgnores: ['**/Admin-*.js'],
         navigateFallback: '/index.html',
+        // ...and never serve it the cached app shell offline.
+        navigateFallbackDenylist: [/^\/admin/],
         // BlockNote editor bundle is large (~1.4MB); lazy-loaded from /notes.
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       }

@@ -6,7 +6,7 @@ import { mutation } from "../_generated/server";
  * has been removed from the schema, so this reads it as an undeclared table
  * (`ctx.db` cast to any) and hard-deletes every remaining row.
  *
- * Safe to run multiple times — it's a no-op once the table is empty. Run from
+ * Safe to run multiple times, it's a no-op once the table is empty. Run from
  * the Convex dashboard (Functions → run) or `npx convex run
  * migrations/deleteLegacyPathways:runMigration`.
  */

@@ -8,9 +8,13 @@
  * @module
  */
 
+import type * as admin from "../admin.js";
 import type * as batch from "../batch.js";
 import type * as crons from "../crons.js";
+import type * as feedback from "../feedback.js";
+import type * as lib_admin from "../lib/admin.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_dbHelpers from "../lib/dbHelpers.js";
 import type * as lib_recurrence from "../lib/recurrence.js";
 import type * as migrations from "../migrations.js";
 import type * as migrations_deleteLegacyPathways from "../migrations/deleteLegacyPathways.js";
@@ -30,9 +34,13 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  admin: typeof admin;
   batch: typeof batch;
   crons: typeof crons;
+  feedback: typeof feedback;
+  "lib/admin": typeof lib_admin;
   "lib/auth": typeof lib_auth;
+  "lib/dbHelpers": typeof lib_dbHelpers;
   "lib/recurrence": typeof lib_recurrence;
   migrations: typeof migrations;
   "migrations/deleteLegacyPathways": typeof migrations_deleteLegacyPathways;
