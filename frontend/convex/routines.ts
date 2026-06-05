@@ -1,82 +1,8 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-
-async function requireAuth(ctx: { auth: any }) {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) throw new Error("Unauthenticated");
-  return identity.subject;
-}
-
-// Helper to calculate next occurrence based on frequency
-function calculateNextOccurrence(
-  frequency: string,
-  daysOfWeek?: number[],
-  dayOfMonth?: number,
-  month?: number,
-  dayOfYear?: number
-): number {
-  const now = new Date();
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(0, 0, 0, 0);
-
-  switch (frequency) {
-    case 'daily':
-      return tomorrow.getTime();
-
-    case 'weekdays': {
-      const next = new Date(tomorrow);
-      while (next.getDay() === 0 || next.getDay() === 6) {
-        next.setDate(next.getDate() + 1);
-      }
-      return next.getTime();
-    }
-
-    case 'weekly': {
-      if (!daysOfWeek || daysOfWeek.length === 0) {
-        const next = new Date(tomorrow);
-        next.setDate(next.getDate() + 7);
-        return next.getTime();
-      }
-      const sortedDays = [...daysOfWeek].sort((a, b) => a - b);
-      const currentDay = tomorrow.getDay();
-      let nextDay = sortedDays.find(d => d >= currentDay);
-      const next = new Date(tomorrow);
-      if (nextDay !== undefined && nextDay > currentDay) {
-        next.setDate(next.getDate() + (nextDay - currentDay));
-      } else {
-        nextDay = sortedDays[0];
-        next.setDate(next.getDate() + (7 - currentDay + nextDay));
-      }
-      return next.getTime();
-    }
-
-    case 'monthly': {
-      const day = dayOfMonth || now.getDate();
-      const next = new Date(now.getFullYear(), now.getMonth(), day, 0, 0, 0, 0);
-      if (next <= now) {
-        next.setMonth(next.getMonth() + 1);
-      }
-      while (next.getDate() !== day) {
-        next.setDate(0);
-      }
-      return next.getTime();
-    }
-
-    case 'yearly': {
-      const m = (month || 1) - 1;
-      const d = dayOfYear || 1;
-      const next = new Date(now.getFullYear(), m, d, 0, 0, 0, 0);
-      if (next <= now) {
-        next.setFullYear(next.getFullYear() + 1);
-      }
-      return next.getTime();
-    }
-
-    default:
-      return tomorrow.getTime();
-  }
-}
+import { requireAuth } from "./lib/auth";
+import { applyNullableFields, requireOwned } from "./lib/dbHelpers";
+import { calculateNextOccurrence } from "./lib/recurrence";
 
 export const getRoutines = query({
   handler: async (ctx) => {
@@ -171,20 +97,15 @@ export const updateRoutine = mutation({
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
     const { id, ...updates } = args;
-    const existing = await ctx.db.get(id);
-    if (!existing || existing.userId !== userId) throw new Error("Routine not found");
+    const existing = await requireOwned(ctx, id, userId, "Routine not found");
 
     const cleanUpdates: Record<string, any> = { updatedAt: Date.now() };
 
     if (updates.title !== undefined) cleanUpdates.title = updates.title;
     if (updates.description !== undefined) cleanUpdates.description = updates.description;
-    if (updates.pathId !== undefined) cleanUpdates.pathId = updates.pathId === null ? undefined : updates.pathId;
     if (updates.frequency !== undefined) cleanUpdates.frequency = updates.frequency;
-    if (updates.daysOfWeek !== undefined) cleanUpdates.daysOfWeek = updates.daysOfWeek === null ? undefined : updates.daysOfWeek;
-    if (updates.dayOfMonth !== undefined) cleanUpdates.dayOfMonth = updates.dayOfMonth === null ? undefined : updates.dayOfMonth;
-    if (updates.month !== undefined) cleanUpdates.month = updates.month === null ? undefined : updates.month;
-    if (updates.dayOfYear !== undefined) cleanUpdates.dayOfYear = updates.dayOfYear === null ? undefined : updates.dayOfYear;
     if (updates.autoPrioritize !== undefined) cleanUpdates.autoPrioritize = updates.autoPrioritize;
+    applyNullableFields(cleanUpdates, updates, ["pathId", "daysOfWeek", "dayOfMonth", "month", "dayOfYear"]);
 
     // Recalculate nextOccurrence if frequency or schedule changed
     if (updates.frequency || updates.daysOfWeek !== undefined || updates.dayOfMonth !== undefined || updates.month !== undefined || updates.dayOfYear !== undefined) {
@@ -205,8 +126,7 @@ export const deleteRoutine = mutation({
   args: { id: v.id("routines") },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
-    const routine = await ctx.db.get(args.id);
-    if (!routine || routine.userId !== userId) throw new Error("Not found");
+    await requireOwned(ctx, args.id, userId, "Not found");
     await ctx.db.delete(args.id);
   },
 });

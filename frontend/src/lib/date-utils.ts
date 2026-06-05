@@ -70,6 +70,59 @@ export function formatRelativeDate(
 }
 
 /**
+ * Compact relative label for a past timestamp (created/updated metadata):
+ * "just now", "5m ago", "3h ago", "Yesterday", "4 days ago", then "Jun 3" /
+ * "Jun 3, 2025" for older dates. Always past-tense (unlike formatRelativeDate,
+ * which is due-date oriented).
+ * @param timestamp - timestamp in milliseconds (number or numeric string)
+ */
+export function formatRelativePast(timestamp: number | string | undefined): string {
+  if (timestamp === undefined || timestamp === null || timestamp === '') return '';
+  const ts = typeof timestamp === 'string' ? Number(timestamp) : timestamp;
+  if (!Number.isFinite(ts)) return '';
+
+  const now = Date.now();
+  const diffMs = Math.max(0, now - ts);
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+
+  const date = new Date(ts);
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const dateStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffDays = Math.round((todayStart.getTime() - dateStart.getTime()) / (24 * 60 * 60 * 1000));
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays <= 6) return `${diffDays} days ago`;
+
+  const sameYear = date.getFullYear() === new Date(now).getFullYear();
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  });
+}
+
+/**
+ * Full, absolute date + time for hover tooltips, e.g. "Jun 3, 2025, 2:30 PM".
+ * @param timestamp - timestamp in milliseconds (number or numeric string)
+ */
+export function formatAbsoluteDateTime(timestamp: number | string | undefined): string {
+  if (timestamp === undefined || timestamp === null || timestamp === '') return '';
+  const ts = typeof timestamp === 'string' ? Number(timestamp) : timestamp;
+  if (!Number.isFinite(ts)) return '';
+  return new Date(ts).toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+/**
  * Format a timestamp for use in HTML date input (YYYY-MM-DD)
  * @param timestamp - timestamp in milliseconds
  * @returns string in YYYY-MM-DD format or empty string

@@ -1,4 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import { collectDiagnostics } from "@/lib/feedback-diagnostics";
+import { formatRelativePast } from "@/lib/date-utils";
 import { useTheme, PRESET_THEMES } from "@/contexts/ThemeContext";
 import type { ThemeColors } from "@/contexts/ThemeContext";
 import { useOffline } from "@/contexts/OfflineContext";
@@ -11,8 +15,9 @@ import { Input } from "@/components/ui/Input";
 import { Toggle } from "@/components/ui/Toggle";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
-import { getDeferDatesMode, setDeferDatesMode, getDueDatesMode, setDueDatesMode, getPrioritizeDefault, setPrioritizeDefault, getOpenFocusOnPlay, setOpenFocusOnPlay, getStepActions, setStepActionMode, STEP_ACTION_ORDER, STEP_ACTION_LABELS, getStepsClickAction, setStepsClickAction, getTodayClickAction, setTodayClickAction, resetGeneralPreferences, type DeferDatesMode, type StepActionsConfig, type StepClickAction } from "@/lib/preferences";
+import { getDeferDatesMode, setDeferDatesMode, getDueDatesMode, setDueDatesMode, getPrioritizeDefault, setPrioritizeDefault, getOpenFocusOnPlay, setOpenFocusOnPlay, getShowStepDates, setShowStepDates, getStepActions, setStepActionMode, STEP_ACTION_ORDER, STEP_ACTION_LABELS, getStepsClickAction, setStepsClickAction, getTodayClickAction, setTodayClickAction, resetGeneralPreferences, type DeferDatesMode, type StepActionsConfig, type StepClickAction } from "@/lib/preferences";
 import { Card, CardContent } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
 import DataSettings from "@/components/DataSettings";
 import { Copy, Sparkles, Save, RotateCcw, Shuffle, Dices, Check, Trash2, Download } from "lucide-react";
@@ -116,6 +121,7 @@ function GeneralSettings() {
   const [dueMode, setDueMode] = useState<DeferDatesMode>(getDueDatesMode());
   const [prioritizeDefault, setPrioritizeDefaultState] = useState(getPrioritizeDefault());
   const [openFocusOnPlay, setOpenFocusOnPlayState] = useState(getOpenFocusOnPlay());
+  const [showStepDates, setShowStepDatesState] = useState(getShowStepDates());
   const [stepActions, setStepActions] = useState<StepActionsConfig>(getStepActions());
   const [stepsClick, setStepsClick] = useState<StepClickAction>(getStepsClickAction());
   const [todayClick, setTodayClick] = useState<StepClickAction>(getTodayClickAction());
@@ -136,6 +142,7 @@ function GeneralSettings() {
     setDueMode(getDueDatesMode());
     setPrioritizeDefaultState(getPrioritizeDefault());
     setOpenFocusOnPlayState(getOpenFocusOnPlay());
+    setShowStepDatesState(getShowStepDates());
     setStepActions(getStepActions());
     setStepsClick(getStepsClickAction());
     setTodayClick(getTodayClickAction());
@@ -166,6 +173,14 @@ function GeneralSettings() {
             onChange={(e) => { setOpenFocusOnPlayState(e.target.checked); setOpenFocusOnPlay(e.target.checked); }}
             label="Open focus view when starting a timer"
             description="Starting a step's timer opens the fullscreen focus view. On by default."
+          />
+
+          <Toggle
+            size="sm"
+            checked={showStepDates}
+            onChange={(e) => { setShowStepDatesState(e.target.checked); setShowStepDates(e.target.checked); }}
+            label="Show created & updated dates on steps"
+            description="Adds a small footer to each step with when it was created and last updated. On by default."
           />
 
           <div className="space-y-1.5">
@@ -399,7 +414,7 @@ function InstallAppCard() {
           <h2 className="text-xl font-semibold">Install app</h2>
           <p className="text-sm text-muted-foreground mt-1">
             {canInstall
-              ? "Install VoidSteps as a desktop / home-screen app — its own window and offline access."
+              ? "Install VoidSteps as a desktop / home-screen app - its own window and offline access."
               : "Your browser doesn't offer one-click install here. Use its menu (e.g. “Install app” on Chrome/Edge, or “Add to Home Screen” on iOS Safari)."}
           </p>
         </div>
@@ -421,23 +436,40 @@ function InstallAppCard() {
 
 function FeedbackSettings() {
   const toast = useToast();
-  const [type, setType] = useState("general");
+  const { user } = useUser();
+  const submitFeedback = useMutation(api.feedback.submitFeedback);
+  const history = useQuery(api.feedback.myFeedback, {});
+  const [type, setType] = useState<"general" | "bug" | "feature">("general");
   const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     const trimmed = message.trim();
     if (!trimmed) {
       toast.error("Write a message first");
       return;
     }
-    // Backend isn't wired yet — hand off to the user's mail client for now.
-    const subject = encodeURIComponent(`VoidSteps ${FEEDBACK_SUBJECTS[type]}`);
-    const body = encodeURIComponent(trimmed);
-    window.location.href = `mailto:aneeshbhat@devvoid.org?subject=${subject}&body=${body}`;
-    setMessage("");
+    setSending(true);
+    try {
+      // Bug reports carry a sanitized env snapshot (counts/flags only, no content).
+      const diagnostics = type === "bug" ? await collectDiagnostics() : undefined;
+      await submitFeedback({
+        type,
+        message: trimmed,
+        email: user?.primaryEmailAddress?.emailAddress,
+        diagnostics,
+      });
+      setMessage("");
+      toast.success(`${FEEDBACK_SUBJECTS[type]} sent - thank you!`);
+    } catch {
+      toast.error("Couldn't send feedback. Try again.");
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
+    <div className="space-y-4">
     <Card>
       <CardContent className="p-6 space-y-4">
         <div>
@@ -449,7 +481,11 @@ function FeedbackSettings() {
 
         <div className="space-y-1.5 max-w-xs">
           <label className="text-sm font-medium">Type</label>
-          <Select value={type} onValueChange={setType} options={FEEDBACK_TYPES} />
+          <Select
+            value={type}
+            onValueChange={(v) => setType(v as "general" | "bug" | "feature")}
+            options={FEEDBACK_TYPES}
+          />
         </div>
 
         <div className="space-y-1.5">
@@ -463,12 +499,41 @@ function FeedbackSettings() {
         </div>
 
         <div className="flex justify-end">
-          <Button onClick={handleSend} disabled={!message.trim()}>
-            Send
+          <Button onClick={handleSend} disabled={!message.trim() || sending}>
+            {sending ? "Sending…" : "Send"}
           </Button>
         </div>
       </CardContent>
     </Card>
+
+      {history && history.length > 0 && (
+        <Card>
+          <CardContent className="p-6 space-y-3">
+            <h3 className="text-lg font-semibold">Your feedback</h3>
+            <div className="space-y-2">
+              {history.map((f) => (
+                <div key={f._id} className="rounded-lg border border-border p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" size="sm">{FEEDBACK_SUBJECTS[f.type] ?? f.type}</Badge>
+                    <Badge variant={f.status === "open" ? "warning" : "success"} size="sm">
+                      {f.status === "open" ? "Open" : "Resolved"}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">{formatRelativePast(f.createdAt)}</span>
+                  </div>
+                  <p className="text-sm whitespace-pre-wrap">{f.message}</p>
+                  {f.adminReply && (
+                    <div className="rounded-md bg-primary-light/50 p-2.5 text-sm">
+                      <span className="text-xs font-medium text-primary">Reply from the team</span>
+                      <p className="whitespace-pre-wrap mt-0.5">{f.adminReply}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }
 

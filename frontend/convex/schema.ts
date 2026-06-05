@@ -120,6 +120,36 @@ export default defineSchema({
   }).index("by_user", ["userId"])
     .index("by_notebook", ["notebookId"]),
 
+  // Maps a client-generated create id (the local_ tempId) to the server id it
+  // produced, so a create that is sent more than once (two tabs racing the same
+  // shared queue, a batch retry, or a lost network ack) returns the existing
+  // row instead of inserting a duplicate. Keyed per user.
+  syncIdempotency: defineTable({
+    userId: v.string(),
+    clientId: v.string(), // the local_ tempId the client minted for the create
+    table: v.string(),
+    serverId: v.string(),
+    createdAt: v.number(),
+  }).index("by_user_client", ["userId", "clientId"]),
+
+  // User-submitted feedback / bug reports / feature requests. Captured in-app
+  // (Settings) and reviewed in the superadmin dashboard. `diagnostics` is a
+  // sanitized blob (version, online status, sync-queue counts) attached to bug
+  // reports - never task content.
+  feedback: defineTable({
+    userId: v.string(),
+    email: v.optional(v.string()),
+    type: v.union(v.literal("general"), v.literal("bug"), v.literal("feature")),
+    message: v.string(),
+    diagnostics: v.optional(v.any()),
+    status: v.union(v.literal("open"), v.literal("resolved")),
+    // Admin reply, surfaced back to the user in their feedback history.
+    adminReply: v.optional(v.string()),
+    repliedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  }).index("by_status", ["status", "createdAt"])
+    .index("by_user", ["userId", "createdAt"]),
+
   userSettings: defineTable({
     userId: v.string(),
     theme: v.object({

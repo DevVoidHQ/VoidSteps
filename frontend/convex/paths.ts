@@ -1,11 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
-
-async function requireAuth(ctx: { auth: any }) {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) throw new Error("Unauthenticated");
-  return identity.subject;
-}
+import { requireAuth } from "./lib/auth";
+import { requireOwned } from "./lib/dbHelpers";
 
 // Queries
 export const getPaths = query({
@@ -109,8 +105,7 @@ export const updatePath = mutation({
     const userId = await requireAuth(ctx);
     const { id, parentId, archived, archivedAt, ...otherUpdates } = args;
 
-    const existing = await ctx.db.get(id);
-    if (!existing || existing.userId !== userId) throw new Error("Path not found");
+    await requireOwned(ctx, id, userId, "Path not found");
 
     // Check for circular reference if parentId is being updated
     if (parentId !== undefined && parentId !== null) {
@@ -141,8 +136,7 @@ export const deletePath = mutation({
   args: { id: v.id("paths") },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
-    const path = await ctx.db.get(args.id);
-    if (!path || path.userId !== userId) throw new Error("Not found");
+    await requireOwned(ctx, args.id, userId, "Not found");
 
     // Orphan children (set their parentId to null)
     const children = await ctx.db
@@ -166,8 +160,7 @@ export const deletePathWithMigration = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
-    const path = await ctx.db.get(args.id);
-    if (!path || path.userId !== userId) throw new Error("Not found");
+    const path = await requireOwned(ctx, args.id, userId, "Not found");
 
     const now = Date.now();
 

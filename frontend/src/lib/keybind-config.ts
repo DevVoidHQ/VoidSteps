@@ -24,7 +24,7 @@ export const DEFAULT_KEYBINDS: KeybindMap = {
   quickCreateReminder: "m",
   toggleSidebar: "meta+b",
   openCommandBar: "meta+k",
-  // Nav shortcuts are unbound by default — use the command bar (⌘K) or assign
+  // Nav shortcuts are unbound by default, use the command bar (⌘K) or assign
   // your own keys in Settings.
   navToday: "",
   navSteps: "",

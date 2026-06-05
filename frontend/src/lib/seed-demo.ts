@@ -14,13 +14,9 @@ import { calculateNextOccurrence } from "./calculate-next-occurrence";
 const DAY = 24 * 60 * 60 * 1000;
 const MIN = 60 * 1000;
 
-/** Who is allowed to see/run the seeder. Set VITE_SEED_ADMIN_EMAILS=a@x.com,b@y.com */
-export function isSeedAdmin(email: string | null | undefined): boolean {
-  if (import.meta.env.DEV) return true;
-  const raw = (import.meta.env.VITE_SEED_ADMIN_EMAILS as string | undefined) ?? "";
-  const allow = raw.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
-  return !!email && allow.includes(email.toLowerCase());
-}
+/** Who is allowed to see/run the seeder. Set VITE_SEED_ADMIN_EMAILS=a@x.com,b@y.com.
+ *  Lives in ./admin-access (dependency-free) and is re-exported here. */
+export { isSeedAdmin } from "./admin-access";
 
 function lid(): string {
   return `local_${crypto.randomUUID()}`;

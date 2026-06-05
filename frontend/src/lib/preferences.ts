@@ -7,6 +7,7 @@ export const DUE_DATES_KEY = "voidsteps-due-dates";
 export const PRIORITIZE_DEFAULT_KEY = "voidsteps-prioritize-default";
 export const STEP_ACTIONS_KEY = "voidsteps-step-actions";
 export const OPEN_FOCUS_ON_PLAY_KEY = "voidsteps-open-focus-on-play";
+export const SHOW_STEP_DATES_KEY = "voidsteps-show-step-dates";
 const PREFS_EVENT = "voidsteps-prefs-changed";
 
 // Per-action placement on a step: "open" = its own inline icon, "compact" =
@@ -181,6 +182,40 @@ export function useOpenFocusOnPlay(): boolean {
   return value;
 }
 
+// Whether step cards show a footer with created / last-updated dates.
+// Default on.
+export function getShowStepDates(): boolean {
+  try {
+    const v = localStorage.getItem(SHOW_STEP_DATES_KEY);
+    return v === null ? true : v === "true";
+  } catch {
+    return true;
+  }
+}
+
+export function setShowStepDates(on: boolean): void {
+  try {
+    localStorage.setItem(SHOW_STEP_DATES_KEY, String(on));
+  } catch {
+    /* ignore */
+  }
+  window.dispatchEvent(new Event(PREFS_EVENT));
+}
+
+export function useShowStepDates(): boolean {
+  const [value, setValue] = useState(getShowStepDates);
+  useEffect(() => {
+    const handler = () => setValue(getShowStepDates());
+    window.addEventListener(PREFS_EVENT, handler);
+    window.addEventListener("storage", handler);
+    return () => {
+      window.removeEventListener(PREFS_EVENT, handler);
+      window.removeEventListener("storage", handler);
+    };
+  }, []);
+  return value;
+}
+
 // Where a date field appears: nowhere, edit only, or both create+edit.
 export type DeferDatesMode = "off" | "edit" | "both";
 
@@ -258,6 +293,7 @@ export function resetGeneralPreferences(): void {
     DUE_DATES_KEY,
     DEFER_DATES_KEY,
     OPEN_FOCUS_ON_PLAY_KEY,
+    SHOW_STEP_DATES_KEY,
   ];
   try {
     for (const k of keys) localStorage.removeItem(k);

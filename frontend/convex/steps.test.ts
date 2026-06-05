@@ -651,5 +651,64 @@ describe("steps", () => {
       expect(result.totalTimeSpentMs).toBeGreaterThanOrEqual(10000);
 
     });
+
+    it("startTimer stores the client-provided start instant verbatim", async () => {
+      const t = convexTest(schema, modules);
+      const asUser = t.withIdentity(testUser);
+      const now = Date.now();
+      const clientStartedAt = now - 12345; // client clock, deliberately not server now
+
+      let stepId!: Id<"steps">;
+      await t.run(async (ctx) => {
+        stepId = await ctx.db.insert("steps", {
+          userId: "user-123",
+          title: "Step",
+          completed: false,
+          failed: false,
+          prioritizedToday: false,
+          sortOrder: 0,
+          createdAt: now,
+          updatedAt: now,
+        });
+      });
+
+      const result = await asUser.mutation(api.steps.startTimer, {
+        id: stepId,
+        timerStartedAt: clientStartedAt,
+      });
+      // Server must not stamp its own clock; client value is source of truth.
+      expect(result.timerStartedAt).toBe(clientStartedAt);
+    });
+
+    it("stopTimer trusts the client-accumulated total instead of recomputing", async () => {
+      const t = convexTest(schema, modules);
+      const asUser = t.withIdentity(testUser);
+      const now = Date.now();
+
+      let stepId!: Id<"steps">;
+      await t.run(async (ctx) => {
+        stepId = await ctx.db.insert("steps", {
+          userId: "user-123",
+          title: "Step",
+          completed: false,
+          failed: false,
+          prioritizedToday: false,
+          sortOrder: 0,
+          timerStartedAt: now - 5000, // server-side calc would add ~5s
+          totalTimeSpentMs: 10000,
+          createdAt: now,
+          updatedAt: now,
+        });
+      });
+
+      const result = await asUser.mutation(api.steps.stopTimer, {
+        id: stepId,
+        totalTimeSpentMs: 42000, // client already accumulated this
+      });
+
+      expect(result.timerStartedAt).toBeUndefined();
+      // Exact client value persisted, no server-clock recompute.
+      expect(result.totalTimeSpentMs).toBe(42000);
+    });
   });
 });

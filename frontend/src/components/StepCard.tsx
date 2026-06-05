@@ -36,13 +36,15 @@ import { TimeEditDialog } from "@/components/TimeEditDialog";
 import {
   getDueDateStatus,
   formatRelativeDate,
+  formatRelativePast,
+  formatAbsoluteDateTime,
   formatDateForInput,
   parseDateInput,
   parseStartDateInput,
 } from "@/lib/date-utils";
 import { HierarchicalPathSelector } from "@/components/HierarchicalPathSelector";
 import { MAX_TITLE_LENGTH, MAX_DESCRIPTION_LENGTH } from "@/lib/local-mutations";
-import { useDeferDatesMode, useDueDatesMode, useStepActions, STEP_ACTION_ORDER, type StepActionKey, type StepClickAction } from "@/lib/preferences";
+import { useDeferDatesMode, useDueDatesMode, useShowStepDates, useStepActions, STEP_ACTION_ORDER, type StepActionKey, type StepClickAction } from "@/lib/preferences";
 import type { ReactNode } from "react";
 
 export interface StepCardProps {
@@ -81,6 +83,7 @@ function StepCardComponent({
   const { success } = useToast();
   const deferEnabled = useDeferDatesMode() !== "off";
   const dueEnabled = useDueDatesMode() !== "off";
+  const showStepDates = useShowStepDates();
   const actionCfg = useStepActions();
 
   // Local edit state - changes here don't re-render other cards
@@ -395,6 +398,30 @@ function StepCardComponent({
                   )}
                 </div>
               )}
+
+              {/* Footer: created / last-updated metadata. Toggle in Settings. */}
+              {showStepDates && step.createdAt != null && (() => {
+                const created = Number(step.createdAt);
+                const updated = Number(step.updatedAt);
+                // Only surface "Updated" when it's meaningfully after creation.
+                const showUpdated =
+                  Number.isFinite(updated) && updated - created > 60_000;
+                return (
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 text-[11px] leading-tight text-muted-foreground">
+                    <span title={formatAbsoluteDateTime(created)}>
+                      Created {formatRelativePast(created)}
+                    </span>
+                    {showUpdated && (
+                      <>
+                        <span aria-hidden="true">·</span>
+                        <span title={formatAbsoluteDateTime(updated)}>
+                          Updated {formatRelativePast(updated)}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Right: Action buttons. Each action is inline or in the "more"

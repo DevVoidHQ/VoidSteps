@@ -23,6 +23,12 @@ import { useOnboarding } from '@/components/void/useOnboarding';
 // Lazy - Notes pulls in BlockNote (~1.4MB). Keeps main bundle lean.
 const Notes = lazy(() => import('@/pages/Notes'));
 
+// Lazy + isolated - admin is online-only and must NOT load the sync/offline
+// stack. Code-split so it stays out of the main bundle, and excluded from the
+// SW precache via the Admin-*.js globIgnores + /admin navigateFallback denylist
+// in vite.config.
+const Admin = lazy(() => import('@/pages/Admin'));
+
 // Default landing: send users to onboarding until it's complete, otherwise
 // Today. While we're still deciding (data loading), hold on a loading screen.
 function HomeRoute() {
@@ -50,7 +56,26 @@ function AppRoutes() {
     );
   }
 
-  // Authenticated routes - wrapped in sync providers
+  // Authenticated routes. /admin is handled FIRST and standalone, it must not
+  // mount OfflineProvider/DataProvider (no sync, no local DB, online-only).
+  return (
+    <ErrorBoundary>
+      <Routes>
+        <Route
+          path="/admin"
+          element={
+            <Suspense fallback={<LoadingScreen />}>
+              <Admin />
+            </Suspense>
+          }
+        />
+        <Route path="*" element={<AuthedApp location={location} />} />
+      </Routes>
+    </ErrorBoundary>
+  );
+}
+
+function AuthedApp({ location }: { location: ReturnType<typeof useLocation> }) {
   return (
     <ErrorBoundary>
       <OfflineProvider>
