@@ -150,6 +150,20 @@ export default defineSchema({
   }).index("by_status", ["status", "createdAt"])
     .index("by_user", ["userId", "createdAt"]),
 
+  // Free-tier safety net. Free is local-only (no live sync), but to survive a
+  // browser-data-clear / device loss we keep ONE latest full-dataset snapshot
+  // per user, overwritten on each backup. `data` is a JSON string of the local
+  // tables (steps/paths/routines/reminders/notebooks/notes/settings). NOT live
+  // sync: point-in-time, manual/auto restore only. Pro syncs live and doesn't
+  // need this.
+  backups: defineTable({
+    userId: v.string(),
+    data: v.string(), // serialized snapshot (JSON; client may gzip+base64 later)
+    counts: v.optional(v.any()), // {steps, paths, ...} for the UI, no content
+    size: v.number(), // bytes, for the UI + cap monitoring
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"]),
+
   userSettings: defineTable({
     userId: v.string(),
     theme: v.object({

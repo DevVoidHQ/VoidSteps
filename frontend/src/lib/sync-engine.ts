@@ -22,10 +22,11 @@ export class SyncEngine {
     this.client = client;
   }
 
+  // Only Pro/Lifetime ever start the engine (Free is local-only), so it always
+  // runs at the real-time cadence: poll fast, plus an immediate push+pull.
   start() {
     this.pushTimer = setInterval(() => this.pushSync(), PUSH_INTERVAL);
     this.pullTimer = setInterval(() => this.pullSync(), PULL_INTERVAL);
-    // Run immediately
     this.pushSync();
     this.pullSync();
   }
@@ -227,6 +228,17 @@ export class SyncEngine {
         await this.localTable(entry.entityType).delete(entry.entityId);
         await db.syncQueue.delete(entry.id!);
         deleteEntries.delete(id);
+      }
+
+      // Policy-rejected creates (e.g. notes on a Free plan): drop the local row
+      // and queue entry silently. Not a failure -- the server refused it by
+      // design, retrying won't help.
+      for (const tempId of (result.rejected as string[] | undefined) ?? []) {
+        const entry = createEntries.get(tempId);
+        if (!entry) continue;
+        await this.localTable(entry.entityType).delete(entry.entityId);
+        await db.syncQueue.delete(entry.id!);
+        createEntries.delete(tempId);
       }
 
       // Anything sent but not acknowledged → retry/fail.

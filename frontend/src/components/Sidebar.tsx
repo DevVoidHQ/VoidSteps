@@ -1,6 +1,8 @@
 import { useClerk, useUser } from '@clerk/clerk-react';
 import { motion } from 'framer-motion';
-import { LogOut, Settings, Calendar, ListTodo, Target, Zap, Bell, BookOpen, BarChart3, X, ChevronsLeft, ChevronsRight, Search, Sparkles } from 'lucide-react';
+import { LogOut, Settings, Calendar, ListTodo, Target, Zap, Bell, BookOpen, BarChart3, X, ChevronsLeft, ChevronsRight, Search, Sparkles, Lock } from 'lucide-react';
+import { usePlan } from '@/lib/use-plan';
+import { can, type Feature } from '../../convex/lib/entitlements';
 import { getKeybinds, formatKeybindDisplay, type KeybindMap } from '@/lib/keybind-config';
 import type { LucideIcon } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -28,9 +30,10 @@ interface SidebarItemProps {
   href?: string;
   className?: string;
   dot?: boolean;
+  locked?: boolean;
 }
 
-function SidebarItem({ icon: Icon, label, isCollapsed, active, showActiveIndicator, iconOnly, shortcut, onClick, href, className, dot }: SidebarItemProps) {
+function SidebarItem({ icon: Icon, label, isCollapsed, active, showActiveIndicator, iconOnly, shortcut, onClick, href, className, dot, locked }: SidebarItemProps) {
   const hideLabel = isCollapsed || iconOnly;
   const baseClass = `relative w-full flex items-center ${
     hideLabel ? 'justify-center px-2 py-3' : 'gap-3 px-4 py-3 text-left'
@@ -58,7 +61,15 @@ function SidebarItem({ icon: Icon, label, isCollapsed, active, showActiveIndicat
       {!hideLabel && dot && (
         <span className="relative z-10 h-2 w-2 rounded-full bg-amber-500 shrink-0" title="Reminder today" />
       )}
-      {!hideLabel && shortcut && (
+      {locked && hideLabel && (
+        <span className="absolute top-1.5 right-1.5 z-10 rounded-full bg-card p-0.5" title="Pro feature">
+          <Lock className="h-2.5 w-2.5 text-muted-foreground" />
+        </span>
+      )}
+      {!hideLabel && locked && (
+        <Lock className="relative z-10 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-label="Pro feature" />
+      )}
+      {!hideLabel && !locked && shortcut && (
         <kbd className={`relative z-10 hidden sm:inline-flex h-5 items-center rounded border px-1.5 font-mono text-[10px] ${
           active
             ? 'border-primary-foreground/30 bg-primary-foreground/10 text-primary-foreground'
@@ -118,15 +129,16 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
   }, [isOpen]);
 
   const keybinds = getKeybinds();
+  const plan = usePlan();
 
-  const navItems: { path: string; label: string; icon: LucideIcon; keybindKey?: keyof KeybindMap }[] = [
+  const navItems: { path: string; label: string; icon: LucideIcon; keybindKey?: keyof KeybindMap; feature?: Feature }[] = [
     { path: '/', label: 'Today', icon: Calendar, keybindKey: 'navToday' },
     { path: '/steps', label: 'Steps', icon: ListTodo, keybindKey: 'navSteps' },
     { path: '/paths', label: 'Paths', icon: Target, keybindKey: 'navPaths' },
     { path: '/routines', label: 'Routines', icon: Zap, keybindKey: 'navRoutines' },
     { path: '/reminders', label: 'Reminders', icon: Bell, keybindKey: 'navReminders' },
-    { path: '/notes', label: 'Notes', icon: BookOpen, keybindKey: 'navNotes' },
-    { path: '/analytics', label: 'Analytics', icon: BarChart3, keybindKey: 'navAnalytics' },
+    { path: '/notes', label: 'Notes', icon: BookOpen, keybindKey: 'navNotes', feature: 'notes' },
+    { path: '/analytics', label: 'Analytics', icon: BarChart3, keybindKey: 'navAnalytics', feature: 'analytics' },
     // Tutorials is the single hub for Void's guided tours; sits just above Settings.
     { path: '/tutorials', label: 'Tutorials', icon: Sparkles },
     { path: '/settings', label: 'Settings', icon: Settings, keybindKey: 'navSettings' },
@@ -236,6 +248,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
                 showActiveIndicator
                 shortcut={item.keybindKey && keybinds[item.keybindKey] ? formatKeybindDisplay(keybinds[item.keybindKey]) : undefined}
                 dot={item.path === '/reminders' && hasTodayReminder}
+                locked={item.feature ? !can(plan, item.feature) : false}
                 onClick={() => handleNavigate(item.path)}
               />
             </div>

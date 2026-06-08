@@ -18,6 +18,7 @@ import Analytics from '@/pages/Analytics';
 import Calendar from '@/pages/Calendar';
 import Settings from '@/pages/Settings';
 import Onboarding from '@/pages/Onboarding';
+import FeatureGate from '@/components/FeatureGate';
 import { useOnboarding } from '@/components/void/useOnboarding';
 
 // Lazy - Notes pulls in BlockNote (~1.4MB). Keeps main bundle lean.
@@ -92,14 +93,25 @@ function AuthedApp({ location }: { location: ReturnType<typeof useLocation> }) {
               path="/notes"
               element={
                 <Layout key={location.pathname} fullWidth>
-                  <Suspense fallback={<LoadingScreen />}>
-                    <Notes />
-                  </Suspense>
+                  <FeatureGate feature="notes">
+                    <Suspense fallback={<LoadingScreen />}>
+                      <Notes />
+                    </Suspense>
+                  </FeatureGate>
                 </Layout>
               }
             />
             <Route path="/pathway" element={<Navigate to="/paths" replace />} />
-            <Route path="/analytics" element={<Layout key={location.pathname}><Analytics /></Layout>} />
+            <Route
+              path="/analytics"
+              element={
+                <Layout key={location.pathname}>
+                  <FeatureGate feature="analytics">
+                    <Analytics />
+                  </FeatureGate>
+                </Layout>
+              }
+            />
             <Route path="/settings" element={<Layout key={location.pathname}><Settings /></Layout>} />
           </Routes>
           <VoidOnboarding />

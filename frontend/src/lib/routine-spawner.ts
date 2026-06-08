@@ -1,6 +1,7 @@
 import { db } from './db';
 import type { LocalStep } from './db';
 import { calculateNextOccurrence } from './calculate-next-occurrence';
+import { isSyncEnabled } from './sync-enabled';
 
 const SPAWN_INTERVAL = 15 * 60 * 1000; // 15 minutes
 
@@ -14,6 +15,7 @@ async function enqueue(
   operation: 'create' | 'update',
   data?: Record<string, unknown>
 ) {
+  if (!isSyncEnabled()) return; // Free is local-only: spawned steps stay on-device.
   await db.syncQueue.add({
     entityType,
     entityId,

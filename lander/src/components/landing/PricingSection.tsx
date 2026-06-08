@@ -8,9 +8,14 @@ const APP_URL = "https://app.voidsteps.com/login";
 type Region = "in" | "row";
 
 const PRICES = {
-  pro: { in: "₹499", row: "$10" },
-  lifetime: { in: "₹9,980", row: "$200" },
+  pro: { in: "₹249", row: "$7" },
+  lifetime: { in: "₹4,999", row: "$149" },
 } as const;
+
+// Founding lifetime is a one-time launch offer, hard-capped. Once gone, retired
+// for good. Live remaining-count gets wired to Convex later; until then we state
+// the cap (always true) rather than a stale number.
+const LIFETIME_CAP = 1000;
 
 type Tier = {
   key: string;
@@ -21,6 +26,8 @@ type Tier = {
   cta: string;
   href: string;
   featured?: boolean;
+  badge?: string;
+  scarcity?: string;
   features: { label: string; included: boolean }[];
 };
 
@@ -29,18 +36,19 @@ const tiers: Tier[] = [
     key: "free",
     name: "Free",
     tagline: "A complete tracker, forever.",
-    price: () => "$0",
+    price: (r) => (r === "in" ? "₹0" : "$0"),
     period: "forever",
     cta: "Start free",
     href: APP_URL,
     features: [
       { label: "Unlimited paths, steps & routines", included: true },
-      { label: "Focus timer & all 21 themes", included: true },
-      { label: "Graph visualization", included: true },
+      { label: "Reminders & focus timer", included: true },
+      { label: "Graph visualization & 2 starter themes", included: true },
       { label: "Cloud sync, once a day", included: true },
       { label: "Real-time sync across devices", included: false },
       { label: "Notes & notebooks", included: false },
       { label: "Analytics", included: false },
+      { label: "All 20 themes + custom & AI editor", included: false },
     ],
   },
   {
@@ -51,28 +59,30 @@ const tiers: Tier[] = [
     period: "/ month",
     cta: "Get Pro",
     href: APP_URL,
-    featured: true,
     features: [
       { label: "Everything in Free", included: true },
       { label: "Real-time sync across all devices", included: true },
       { label: "Notes & notebooks", included: true },
       { label: "Full analytics & history", included: true },
-      { label: "Cloud backup", included: true },
+      { label: "All 20 themes + custom & AI theme editor", included: true },
       { label: "All future Pro features", included: true },
     ],
   },
   {
     key: "lifetime",
-    name: "Lifetime",
-    tagline: "Pay once. Keep it forever.",
+    name: "Pro Lifetime",
+    tagline: "Pay once. Pro, yours forever.",
     price: (r) => PRICES.lifetime[r],
     period: "one-time",
     cta: "Get Lifetime",
     href: APP_URL,
+    featured: true,
+    badge: `Only ${LIFETIME_CAP.toLocaleString()} ever`,
+    scarcity: "Founding offer. Once they're gone, it's retired for good.",
     features: [
       { label: "Everything in Pro", included: true },
       { label: "One payment, no subscription", included: true },
-      { label: "All future updates included", included: true },
+      { label: "All future Pro features", included: true },
       { label: "Support an independent tool", included: true },
     ],
   },
@@ -105,9 +115,31 @@ export default function PricingSection() {
             The free plan is genuinely complete. Pro unlocks real-time sync,
             notes, and analytics.
           </p>
+
+          <div className="mt-7 inline-flex rounded-full border border-foreground/10 bg-foreground/[0.03] p-1">
+            {([
+              { id: "in", label: "India ₹" },
+              { id: "row", label: "Global $" },
+            ] as const).map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setRegion(opt.id)}
+                aria-pressed={region === opt.id}
+                className={cn(
+                  "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+                  region === opt.id
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-foreground/50 hover:text-foreground/75"
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </Reveal>
 
-        <div className="mt-14 grid gap-6 md:grid-cols-3 md:items-start">
+        <div className="mt-12 grid gap-6 md:grid-cols-3 md:items-start">
           {tiers.map((tier, i) => (
             <Reveal
               key={tier.key}
@@ -119,9 +151,9 @@ export default function PricingSection() {
                   : "border-foreground/10 bg-background"
               )}
             >
-              {tier.featured && (
+              {tier.badge && (
                 <span className="absolute -top-3 left-7 rounded-full bg-accent px-3 py-1 text-[11px] font-semibold text-accent-foreground">
-                  Most popular
+                  {tier.badge}
                 </span>
               )}
 
@@ -134,6 +166,10 @@ export default function PricingSection() {
                 </span>
                 <span className="text-sm text-foreground/45">{tier.period}</span>
               </div>
+
+              {tier.scarcity && (
+                <p className="mt-2 text-xs font-medium text-accent">{tier.scarcity}</p>
+              )}
 
               <a
                 href={tier.href}
@@ -167,6 +203,11 @@ export default function PricingSection() {
 
         <Reveal as="p" className="mt-10 text-center text-sm text-foreground/45">
           No credit card to start free · Cancel Pro anytime · Secure checkout via Dodo Payments
+        </Reveal>
+        <Reveal as="p" className="mx-auto mt-3 max-w-xl text-center text-xs text-foreground/35">
+          Prices shown for {region === "in" ? "India" : "your region"}. Pro Lifetime covers
+          all current and future Pro features; upcoming AI &amp; integrations will be a
+          separate add-on.
         </Reveal>
       </div>
     </section>

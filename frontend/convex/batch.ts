@@ -1,11 +1,15 @@
 import { v } from "convex/values";
 import { mutation } from "./_generated/server";
-import { requireAuth } from "./lib/auth";
+import { requireAuth, getPlan, isEnforced, requireFeature } from "./lib/auth";
+import { can } from "./lib/entitlements";
 import { getStartOfToday } from "./lib/dbHelpers";
 import { calculateNextOccurrence as nextOccurrence } from "./lib/recurrence";
 
+// Entity types that require the "notes" feature to create.
+const NOTES_TYPES = new Set(["notebooks", "notes"]);
+
 // Dependency order: a type's references must already exist when it is created.
-const CREATE_ORDER = ["paths", "notebooks", "routines", "steps", "notes"] as const;
+const CREATE_ORDER = ["paths", "notebooks", "routines", "steps", "notes", "reminders"] as const;
 // Types whose parentId points at the same table (need parent-before-child ordering).
 const SELF_PARENT = new Set(["paths"]);
 
@@ -23,7 +27,17 @@ export const pushBatch = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
+    // Free is local-only: syncing at all requires Pro/Lifetime. This is the
+    // server choke point for all batched writes (the client never starts the
+    // engine for Free, but a crafted request must still be refused).
+    await requireFeature(ctx, "sync");
     const db: any = ctx.db;
+
+    // Secondary gate: notebooks/notes also require the "notes" feature. Reported
+    // as `rejected` (not inserted) so the client drops the queue entry cleanly.
+    // With the sync gate above this is belt-and-suspenders for syncing plans.
+    const notesAllowed = !isEnforced() || can(await getPlan(ctx), "notes");
+    const rejected: string[] = [];
 
     const idMap = new Map<string, string>(); // tempId -> serverId
     const resolve = (id: any): any => {
@@ -81,6 +95,12 @@ export const pushBatch = mutation({
             body: d.body ?? "", sortOrder: d.sortOrder ?? now, createdAt: now, updatedAt: now,
           });
         }
+        case "reminders":
+          return await db.insert("reminders", {
+            userId, title: d.title, note: d.note, recurrence: d.recurrence,
+            date: d.date, month: d.month, day: d.day,
+            createdAt: d.createdAt ?? now, updatedAt: now,
+          });
         case "steps": {
           const routineId = resolve(d.routineId);
           // Routine spawn idempotency (mirror createStep)
@@ -119,6 +139,12 @@ export const pushBatch = mutation({
     for (const type of CREATE_ORDER) {
       const items = createsByType.get(type) ?? [];
       if (items.length === 0) continue;
+
+      // Policy-blocked type: report tempIds as rejected, don't insert.
+      if (NOTES_TYPES.has(type) && !notesAllowed) {
+        for (const item of items) rejected.push(item.tempId);
+        continue;
+      }
 
       // Order parents before children for self-referential types.
       let ordered = items;
@@ -258,6 +284,6 @@ export const pushBatch = mutation({
       }
     }
 
-    return { created, updatedIds, deletedIds };
+    return { created, updatedIds, deletedIds, rejected };
   },
 });

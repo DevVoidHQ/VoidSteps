@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
-import { requireAuth } from "./lib/auth";
+import { requireAuth, requireFeature } from "./lib/auth";
 import { requireOwned } from "./lib/dbHelpers";
 
 export const getNotes = query({
@@ -44,6 +44,7 @@ export const createNote = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
+    await requireFeature(ctx, "notes");
 
     await requireOwned(ctx, args.notebookId, userId, "Notebook not found");
 
