@@ -2,6 +2,7 @@ import { db } from './db';
 import { convexClient } from './convex-client';
 import { api } from '../../convex/_generated/api';
 import { reportError } from './error-store';
+import { isSyncEnabled } from './sync-enabled';
 
 // Free is local-only, so a browser-data-clear / new device would lose everything.
 // This keeps ONE latest full-dataset snapshot on the server as a safety net:
@@ -73,15 +74,31 @@ export async function maybeBackup(force = false): Promise<void> {
   }
 }
 
-/** True if the local data tables are all empty (fresh device / post-clear). */
-export async function isLocalEmpty(): Promise<boolean> {
-  for (const t of BACKUP_TABLES) {
-    if ((await (db as any)[t].count()) > 0) return false;
-  }
-  return true;
+// Content tables restored as a full replace. Listed in FK-dependency order so
+// the re-imported creates resolve parents before children on push (mirrors
+// batch.ts CREATE_ORDER). userSettings is intentionally left untouched.
+const RESTORE_TABLES = ['paths', 'notebooks', 'routines', 'steps', 'notes', 'reminders'] as const;
+
+// Queue an op only when the user may sync (Pro/Lifetime). For Free this no-ops,
+// so a restore is purely local; for Pro it pushes the replace to the server.
+async function enqueueRestore(
+  entityType: string,
+  entityId: string,
+  operation: 'create' | 'delete',
+  data?: Record<string, unknown>,
+) {
+  if (!isSyncEnabled()) return;
+  await db.syncQueue.add({ entityType: entityType as any, entityId, operation, data, status: 'pending', retryCount: 0, createdAt: Date.now() });
 }
 
-/** Restore the latest server snapshot into local tables. Returns true if one was applied. */
+/**
+ * Restore the latest snapshot as a FULL REPLACE. Wipes current content and
+ * re-imports the snapshot rows under fresh local ids (FKs remapped). For Pro
+ * this also enqueues deletes for the old server rows + creates for the new ones,
+ * so the restore propagates and becomes the truth on every device (the next pull
+ * would otherwise revert a local-only restore). Destructive + propagating; the
+ * caller gates it behind a confirm. Returns true if a snapshot was applied.
+ */
 export async function restoreFromCloud(): Promise<boolean> {
   let backup: { data: string } | null = null;
   try {
@@ -92,21 +109,56 @@ export async function restoreFromCloud(): Promise<boolean> {
   }
   if (!backup) return false;
 
-  let parsed: { data?: Record<string, unknown[]> };
+  let parsed: { data?: Record<string, any[]> };
   try {
     parsed = JSON.parse(backup.data);
   } catch {
     return false;
   }
   const data = parsed?.data ?? {};
+  const now = Date.now();
+  const newId = () => `local_${crypto.randomUUID()}`;
 
-  await db.transaction('rw', BACKUP_TABLES.map((t) => (db as any)[t]), async () => {
-    for (const t of BACKUP_TABLES) {
-      const rows = data[t];
-      if (!Array.isArray(rows)) continue;
-      await (db as any)[t].clear();
-      if (rows.length) await (db as any)[t].bulkAdd(rows);
-    }
-  });
+  await db.transaction(
+    'rw',
+    [db.steps, db.paths, db.routines, db.reminders, db.notebooks, db.notes, db.syncQueue],
+    async () => {
+      // Replace = supersede anything pending; start from a clean queue.
+      await db.syncQueue.clear();
+
+      // 1. Enqueue deletes for currently-synced rows so the server drops them
+      //    (Pro only; Free rows are local-only ids, wiped by the clear below).
+      for (const t of RESTORE_TABLES) {
+        const current = await (db as any)[t].toArray();
+        for (const row of current) {
+          if (!String(row._id).startsWith('local_')) await enqueueRestore(t, row._id, 'delete');
+        }
+      }
+
+      // 2. Map every (non-deleted) snapshot id -> a fresh local id, so the
+      //    re-import is a clean set of creates rather than an id-collision merge.
+      const idMap = new Map<string, string>();
+      const live: Record<string, any[]> = {};
+      for (const t of RESTORE_TABLES) {
+        live[t] = (Array.isArray(data[t]) ? data[t] : []).filter((r: any) => !r._deleted);
+        for (const r of live[t]) idMap.set(r._id, newId());
+      }
+      const remap = (id: any) => (id == null ? id : idMap.get(id) ?? id);
+
+      // 3. Wipe local content, then re-import with new ids + remapped FKs.
+      for (const t of RESTORE_TABLES) await (db as any)[t].clear();
+      for (const t of RESTORE_TABLES) {
+        for (const r of live[t]) {
+          const row: any = { ...r, _id: idMap.get(r._id), updatedAt: now, _localOnly: true, _deleted: false };
+          if ('pathId' in row) row.pathId = remap(row.pathId);
+          if ('routineId' in row) row.routineId = remap(row.routineId);
+          if ('parentId' in row) row.parentId = remap(row.parentId);
+          if ('notebookId' in row) row.notebookId = remap(row.notebookId);
+          await (db as any)[t].add(row);
+          await enqueueRestore(t, row._id, 'create', row);
+        }
+      }
+    },
+  );
   return true;
 }

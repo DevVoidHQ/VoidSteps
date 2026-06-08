@@ -22,7 +22,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
 import DataSettings from "@/components/DataSettings";
 import { Copy, Sparkles, Save, RotateCcw, Shuffle, Dices, Check, Trash2, Lock } from "lucide-react";
-import { maybeBackup } from "@/lib/backup-engine";
+import { maybeBackup, restoreFromCloud } from "@/lib/backup-engine";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/Dialog";
 import {
   getKeybinds,
   setKeybind,
@@ -393,6 +394,11 @@ function BackupCard() {
   const canSync = useCan("sync");
   const status = useQuery(api.backups.backupStatus, {});
   const [busy, setBusy] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+
+  const counts = (status?.counts ?? null) as Record<string, number> | null;
+  const itemCount = counts ? Object.values(counts).reduce((a, b) => a + (Number(b) || 0), 0) : 0;
 
   const backupNow = async () => {
     setBusy(true);
@@ -406,31 +412,76 @@ function BackupCard() {
     }
   };
 
+  const restore = async () => {
+    setRestoring(true);
+    try {
+      const ok = await restoreFromCloud();
+      // Data pages read Dexie via live queries, so the UI updates on its own.
+      if (ok) toast.success("Data restored from your backup");
+      else toast.error("No backup found to restore");
+      setRestoreOpen(false);
+    } catch {
+      toast.error("Restore failed, try again");
+    } finally {
+      setRestoring(false);
+    }
+  };
+
   return (
-    <Card>
-      <CardContent className="p-6 space-y-4">
-        <div>
-          <h2 className="text-xl font-semibold">Backup</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            {canSync
-              ? "Your data syncs live across your devices, and we keep a daily cloud snapshot you can fall back to."
-              : "On Free, your data lives on this device. We keep a daily cloud snapshot so a browser-clear or a new device won't lose it - a point-in-time backup, not live sync. Upgrade to Pro for real-time sync across devices."}
+    <>
+      <Card>
+        <CardContent className="p-6 space-y-4">
+          <div>
+            <h2 className="text-xl font-semibold">Backup</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              {canSync
+                ? "Your data syncs live across your devices, and we keep a daily cloud snapshot you can fall back to."
+                : "On Free, your data lives on this device. We keep a daily cloud snapshot so a browser-clear or a new device won't lose it - a point-in-time backup, not live sync. Upgrade to Pro for real-time sync across devices."}
+            </p>
+          </div>
+
+          <p className="text-sm text-muted-foreground">
+            {status === undefined
+              ? "Checking backup…"
+              : status
+                ? `Last backup ${formatRelativePast(status.updatedAt)}${itemCount ? ` · ${itemCount} item${itemCount === 1 ? "" : "s"}` : ""}.`
+                : "No backup yet - it'll save automatically in a moment."}
           </p>
-        </div>
 
-        <p className="text-sm text-muted-foreground">
-          {status === undefined
-            ? "Checking backup…"
-            : status
-              ? `Last backup ${formatRelativePast(status.updatedAt)}.`
-              : "No backup yet - it'll save automatically in a moment."}
-        </p>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={backupNow} disabled={busy}>
+              {busy ? "Backing up…" : "Back up now"}
+            </Button>
+            {status && (
+              <Button variant="outline" size="sm" onClick={() => setRestoreOpen(true)}>
+                Restore from backup
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
-        <Button variant="outline" size="sm" onClick={backupNow} disabled={busy}>
-          {busy ? "Backing up…" : "Back up now"}
-        </Button>
-      </CardContent>
-    </Card>
+      <Dialog open={restoreOpen} onOpenChange={(o) => { if (!restoring) setRestoreOpen(o); }}>
+        <DialogContent size="md" className="w-[28rem] max-w-[calc(100vw-2rem)]">
+          <DialogHeader>
+            <DialogTitle>Restore from backup</DialogTitle>
+            <DialogDescription>
+              This replaces {canSync ? "your data on this device and every synced device" : "the data on this device"} with your cloud backup
+              {status ? ` from ${formatRelativePast(status.updatedAt)} (${itemCount} item${itemCount === 1 ? "" : "s"})` : ""}.
+              Anything newer {canSync ? "is permanently replaced everywhere" : "here will be replaced"}.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRestoreOpen(false)} disabled={restoring}>
+              Cancel
+            </Button>
+            <Button onClick={restore} disabled={restoring}>
+              {restoring ? "Restoring…" : "Restore"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

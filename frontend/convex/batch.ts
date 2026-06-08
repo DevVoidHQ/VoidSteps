@@ -9,7 +9,7 @@ import { calculateNextOccurrence as nextOccurrence } from "./lib/recurrence";
 const NOTES_TYPES = new Set(["notebooks", "notes"]);
 
 // Dependency order: a type's references must already exist when it is created.
-const CREATE_ORDER = ["paths", "notebooks", "routines", "steps", "notes"] as const;
+const CREATE_ORDER = ["paths", "notebooks", "routines", "steps", "notes", "reminders"] as const;
 // Types whose parentId points at the same table (need parent-before-child ordering).
 const SELF_PARENT = new Set(["paths"]);
 
@@ -95,6 +95,12 @@ export const pushBatch = mutation({
             body: d.body ?? "", sortOrder: d.sortOrder ?? now, createdAt: now, updatedAt: now,
           });
         }
+        case "reminders":
+          return await db.insert("reminders", {
+            userId, title: d.title, note: d.note, recurrence: d.recurrence,
+            date: d.date, month: d.month, day: d.day,
+            createdAt: d.createdAt ?? now, updatedAt: now,
+          });
         case "steps": {
           const routineId = resolve(d.routineId);
           // Routine spawn idempotency (mirror createStep)

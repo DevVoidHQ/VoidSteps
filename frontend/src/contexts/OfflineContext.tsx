@@ -10,7 +10,7 @@ import { useOnlineStatus } from '@/lib/online-status';
 import { reportError } from '@/lib/error-store';
 import { useCan } from '@/lib/use-plan';
 import { setSyncEnabled } from '@/lib/sync-enabled';
-import { maybeBackup, isLocalEmpty, restoreFromCloud } from '@/lib/backup-engine';
+import { maybeBackup } from '@/lib/backup-engine';
 import LoadingScreen from '@/components/LoadingScreen';
 
 interface OfflineContextType {
@@ -93,8 +93,6 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       try {
         // Check if the local cache belongs to a different user
         const cachedUser = await db.syncMeta.get('currentUserId');
-        // Fresh client = brand-new browser / post-clear / a different user.
-        const isFreshClient = !cachedUser || cachedUser.value !== userId;
         if (cachedUser && cachedUser.value !== userId) {
           await clearLocalData();
         }
@@ -102,15 +100,12 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         // Store current user
         await db.syncMeta.put({ key: 'currentUserId', value: userId! });
 
-        // Initial pull only for syncing plans; Free has nothing on the server.
+        // Initial pull for syncing plans only. Free never auto-restores: backup
+        // recovery is always an explicit action (Settings -> Backup -> Restore).
         const lastPull = await db.syncMeta.get('lastPullTimestamp');
 
         if (canSync && !lastPull && isOnline) {
           await performInitialSync(convexClient);
-        } else if (!canSync && isFreshClient && isOnline && (await isLocalEmpty())) {
-          // Free recovery: a fresh client with empty local data -> pull the
-          // safety snapshot so a browser-clear / new device doesn't lose data.
-          await restoreFromCloud();
         }
 
         if (mounted) {
