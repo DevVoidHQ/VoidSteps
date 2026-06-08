@@ -114,7 +114,7 @@ function UsersTab() {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">{from}–{to} of {total}</p>
+        <p className="text-sm text-muted-foreground">{from}-{to} of {total}</p>
         <Button variant="ghost" size="sm" onClick={refresh}>
           <RefreshCw className="w-4 h-4 mr-1.5" /> Refresh
         </Button>

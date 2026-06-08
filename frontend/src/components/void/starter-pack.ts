@@ -1,14 +1,17 @@
 import { db } from "@/lib/db";
+import { isSyncEnabled } from "@/lib/sync-enabled";
 
 // Minimal "starter pack" Void offers when a user skips the tour: a single
-// real (synced) sample path with a few steps so the app isn't an empty void.
-// Unlike the admin demo seeder, this is additive: it never wipes existing data.
+// sample path with a few steps so the app isn't an empty void. Synced for
+// Pro/Lifetime, local-only for Free. Unlike the admin demo seeder, this is
+// additive: it never wipes existing data.
 
 function lid(): string {
   return `local_${crypto.randomUUID()}`;
 }
 
 async function enqueueCreate(entityType: "paths" | "steps", entityId: string, data: Record<string, unknown>) {
+  if (!isSyncEnabled()) return; // Free is local-only.
   await db.syncQueue.add({
     entityType,
     entityId,

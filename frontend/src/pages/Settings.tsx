@@ -9,6 +9,7 @@ import { useOffline } from "@/contexts/OfflineContext";
 import { useToast } from "@/contexts/ToastContext";
 import { useUser } from "@clerk/clerk-react";
 import { THEME_AI_PROMPT } from "@/lib/theme-ai-prompt";
+import { usePlan, useCan, canUseTheme } from "@/lib/use-plan";
 import { seedDemoData, isSeedAdmin } from "@/lib/seed-demo";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -20,8 +21,8 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
 import DataSettings from "@/components/DataSettings";
-import { Copy, Sparkles, Save, RotateCcw, Shuffle, Dices, Check, Trash2, Download } from "lucide-react";
-import { useInstallPrompt, isStandalone } from "@/lib/pwa-install";
+import { Copy, Sparkles, Save, RotateCcw, Shuffle, Dices, Check, Trash2, Lock } from "lucide-react";
+import { maybeBackup } from "@/lib/backup-engine";
 import {
   getKeybinds,
   setKeybind,
@@ -387,48 +388,47 @@ const FEEDBACK_SUBJECTS: Record<string, string> = {
   feature: "Feature request",
 };
 
-function InstallAppCard() {
+function BackupCard() {
   const toast = useToast();
-  const { canInstall, promptInstall } = useInstallPrompt();
+  const canSync = useCan("sync");
+  const status = useQuery(api.backups.backupStatus, {});
+  const [busy, setBusy] = useState(false);
 
-  if (isStandalone()) {
-    return (
-      <Card>
-        <CardContent className="p-6 flex items-center gap-3">
-          <Check className="w-5 h-5 text-accent shrink-0" />
-          <div>
-            <h2 className="text-xl font-semibold">App installed</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              You're running VoidSteps as an installed app.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  const backupNow = async () => {
+    setBusy(true);
+    try {
+      await maybeBackup(true);
+      toast.success("Backed up");
+    } catch {
+      toast.error("Backup failed, try again");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <Card>
-      <CardContent className="p-6 space-y-3">
+      <CardContent className="p-6 space-y-4">
         <div>
-          <h2 className="text-xl font-semibold">Install app</h2>
+          <h2 className="text-xl font-semibold">Backup</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            {canInstall
-              ? "Install VoidSteps as a desktop / home-screen app - its own window and offline access."
-              : "Your browser doesn't offer one-click install here. Use its menu (e.g. “Install app” on Chrome/Edge, or “Add to Home Screen” on iOS Safari)."}
+            {canSync
+              ? "Your data syncs live across your devices, and we keep a daily cloud snapshot you can fall back to."
+              : "On Free, your data lives on this device. We keep a daily cloud snapshot so a browser-clear or a new device won't lose it - a point-in-time backup, not live sync. Upgrade to Pro for real-time sync across devices."}
           </p>
         </div>
-        {canInstall && (
-          <Button
-            onClick={async () => {
-              const outcome = await promptInstall();
-              if (outcome === "accepted") toast.success("Installing VoidSteps…");
-            }}
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Install
-          </Button>
-        )}
+
+        <p className="text-sm text-muted-foreground">
+          {status === undefined
+            ? "Checking backup…"
+            : status
+              ? `Last backup ${formatRelativePast(status.updatedAt)}.`
+              : "No backup yet - it'll save automatically in a moment."}
+        </p>
+
+        <Button variant="outline" size="sm" onClick={backupNow} disabled={busy}>
+          {busy ? "Backing up…" : "Back up now"}
+        </Button>
       </CardContent>
     </Card>
   );
@@ -551,6 +551,8 @@ export default function Settings() {
   const toast = useToast();
   const { user } = useUser();
   const { syncNow } = useOffline();
+  const plan = usePlan();
+  const canCustomTheme = useCan("themes.custom");
   const canSeed = isSeedAdmin(user?.primaryEmailAddress?.emailAddress);
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState("");
@@ -696,7 +698,7 @@ export default function Settings() {
 
         <TabsContent value="general">
           <div className="space-y-6">
-            <InstallAppCard />
+            {/* Install card removed for now; PWA plumbing kept in vite.config. */}
             <GeneralSettings />
           </div>
         </TabsContent>
@@ -706,7 +708,10 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="data">
-          <DataSettings />
+          <div className="space-y-6">
+            <BackupCard />
+            <DataSettings />
+          </div>
         </TabsContent>
 
         <TabsContent value="feedback">
@@ -721,32 +726,45 @@ export default function Settings() {
         <CardContent className="p-6 space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">Preset Themes</h2>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={generateRandomTheme}>
-                <Dices className="w-4 h-4 mr-2" />
-                Random Colors
-              </Button>
-              <Button variant="outline" size="sm" onClick={applyRandomPreset}>
-                <Shuffle className="w-4 h-4 mr-2" />
-                Shuffle
-              </Button>
-            </div>
+            {canCustomTheme && (
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={generateRandomTheme}>
+                  <Dices className="w-4 h-4 mr-2" />
+                  Random Colors
+                </Button>
+                <Button variant="outline" size="sm" onClick={applyRandomPreset}>
+                  <Shuffle className="w-4 h-4 mr-2" />
+                  Shuffle
+                </Button>
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
             {presetNames.map((presetName) => {
               const preset = PRESET_THEMES[presetName];
               const isActive = presetName === activePresetName;
+              const locked = !canUseTheme(plan, presetName);
               return (
                 <button
                   key={presetName}
-                  onClick={() => applyPreset(presetName)}
+                  onClick={() =>
+                    locked
+                      ? window.open("https://voidsteps.com/#pricing", "_blank", "noopener")
+                      : applyPreset(presetName)
+                  }
+                  title={locked ? "Pro theme, upgrade to unlock" : undefined}
                   className={`group relative rounded-lg border-2 p-3 text-left transition-all hover:scale-[1.02] ${
                     isActive
                       ? "border-primary ring-2 ring-primary/30"
                       : "border-border hover:border-muted-foreground/40"
-                  }`}
+                  } ${locked ? "opacity-60" : ""}`}
                   style={{ backgroundColor: `hsl(${preset.background})` }}
                 >
+                  {locked && (
+                    <span className="absolute right-1.5 top-1.5 z-10 rounded-full bg-background/80 p-1">
+                      <Lock className="h-3 w-3 text-muted-foreground" />
+                    </span>
+                  )}
                   {/* 4 brand swatches: primary, accent + their lights */}
                   <div className="flex gap-1 mb-2">
                     {(["primary", "accent", "primaryLight", "accentLight"] as const).map((token) => (
@@ -781,6 +799,8 @@ export default function Settings() {
         </CardContent>
       </Card>
 
+      {canCustomTheme ? (
+      <>
       {/* Custom Colors - Tab-grouped */}
       <Card>
         <CardContent className="p-6 space-y-6">
@@ -935,6 +955,29 @@ export default function Settings() {
           </div>
         </CardContent>
       </Card>
+      </>
+      ) : (
+        <Card>
+          <CardContent className="flex flex-col items-center p-8 text-center">
+            <span className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-light">
+              <Lock className="h-5 w-5 text-primary" />
+            </span>
+            <h2 className="text-xl font-semibold">Custom themes are a Pro feature</h2>
+            <p className="mt-2 max-w-md text-sm text-muted-foreground">
+              Free includes the two starter themes above. Upgrade to Pro to unlock
+              all presets, the custom color editor, saved themes, and AI theme design.
+            </p>
+            <a
+              href="https://voidsteps.com/#pricing"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-5 inline-flex items-center rounded-lg bg-primary px-5 py-2.5 font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              Upgrade to Pro
+            </a>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Demo data - owner only, for screenshots */}
       {canSeed && (

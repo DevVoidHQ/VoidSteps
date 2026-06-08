@@ -17,11 +17,15 @@ const faqs = [
   },
   {
     q: "What's the difference between Free and Pro?",
-    a: "Free is a complete tracker: unlimited paths, steps, routines, themes, and daily sync. Pro adds real-time sync across devices, notes & notebooks, and full analytics. Lifetime is the same as Pro, paid once.",
+    a: "Free is a complete tracker: unlimited paths, steps, routines, reminders, focus timer, graph view, two starter themes, and daily sync. Pro adds real-time sync across devices, notes & notebooks, full analytics, and all 20 themes plus the custom & AI theme editor. Lifetime is the same as Pro, paid once.",
   },
   {
     q: "Why is pricing different for India?",
-    a: "Pricing is adjusted by region so it's fair to local purchasing power. Your country is detected automatically. Pro is ₹499/mo in India and $10/mo elsewhere.",
+    a: "Pricing is adjusted by region so it's fair to local purchasing power. Your country is detected automatically. Pro is ₹249/mo in India and $7/mo elsewhere; Pro Lifetime is ₹4,999 in India and $149 elsewhere, paid once.",
+  },
+  {
+    q: "What's the deal with Pro Lifetime?",
+    a: "It's a one-time payment for Pro, kept forever, no subscription. It's a founding offer capped at 1,000 buyers worldwide; once those are gone it's retired for good. Lifetime covers all current and future Pro features. Upcoming AI and integrations will be a separate add-on.",
   },
   {
     q: "How long does it take to get started?",

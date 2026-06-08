@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { db } from './db';
 import type { LocalStep, LocalPath, LocalRoutine, LocalReminder, LocalNotebook, LocalNote, LocalUserSettings } from './db';
 import { calculateNextOccurrence } from './calculate-next-occurrence';
+import { isSyncEnabled } from './sync-enabled';
 
 // --- Validation constants ---
 
@@ -34,6 +35,9 @@ async function enqueue(
   operation: 'create' | 'update' | 'delete',
   data?: Record<string, unknown>
 ) {
+  // Free is local-only: never queue a write it can't sync (no phantom pending
+  // count, no unbounded queue growth). Pro/Lifetime sets the flag in OfflineContext.
+  if (!isSyncEnabled()) return;
   await db.syncQueue.add({
     entityType,
     entityId,
