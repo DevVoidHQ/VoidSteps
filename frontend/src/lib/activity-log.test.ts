@@ -114,7 +114,6 @@ describe('stepEventsFromPatch', () => {
     for (const e of events) {
       expect(e.createdAt).toBe(NOW);
       expect(e.updatedAt).toBe(NOW);
-      expect(e._localOnly).toBe(true);
     }
   });
 });

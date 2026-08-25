@@ -1,6 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie';
 
-// --- Entity types mirroring Convex schema + local metadata ---
+// --- Entity types ---
 
 export interface LocalStep {
   _id: string;
@@ -22,9 +22,6 @@ export interface LocalStep {
   archivedAt?: number;
   createdAt: number;
   updatedAt: number;
-  // Local metadata
-  _localOnly?: boolean;
-  _deleted?: boolean;
 }
 
 export interface LocalPath {
@@ -36,8 +33,6 @@ export interface LocalPath {
   archivedAt?: number;
   createdAt: number;
   updatedAt: number;
-  _localOnly?: boolean;
-  _deleted?: boolean;
 }
 
 export interface LocalRoutine {
@@ -54,8 +49,6 @@ export interface LocalRoutine {
   autoPrioritize?: boolean;
   createdAt: number;
   updatedAt: number;
-  _localOnly?: boolean;
-  _deleted?: boolean;
 }
 
 export interface LocalReminder {
@@ -68,8 +61,6 @@ export interface LocalReminder {
   day?: number; // yearly + monthly: 1-31
   createdAt: number;
   updatedAt: number;
-  _localOnly?: boolean;
-  _deleted?: boolean;
 }
 
 export interface LocalNotebook {
@@ -81,8 +72,6 @@ export interface LocalNotebook {
   archivedAt?: number;
   createdAt: number;
   updatedAt: number;
-  _localOnly?: boolean;
-  _deleted?: boolean;
 }
 
 export interface LocalNote {
@@ -95,16 +84,13 @@ export interface LocalNote {
   archivedAt?: number;
   createdAt: number;
   updatedAt: number;
-  _localOnly?: boolean;
-  _deleted?: boolean;
 }
 
 export interface LocalUserSettings {
   _id: string;
-  userId: string;
   // Optional so a day-settings-only row can exist before any theme is saved.
   theme?: Record<string, string>;
-  // Day-boundary config - see convex/lib/recurrence.ts DayBoundaryOpts.
+  // Day-boundary config - see recurrence.ts DayBoundaryOpts.
   // "End of day": minutes past midnight when the logical day rolls over.
   dayTurnoverMinutes?: number;
   // "Start of day": minutes past midnight when routines spawn.
@@ -112,14 +98,11 @@ export interface LocalUserSettings {
   // Client-stamped UTC offset for the server cron's day math.
   utcOffsetMinutes?: number;
   updatedAt: number;
-  _localOnly?: boolean;
-  _deleted?: boolean;
 }
 
 // One tracked work session on a step. Immutable by convention: minted only when
-// the timer STOPS (a running timer lives on steps.timerStartedAt, never here),
-// so rows never conflict under sync - the only mutations are rare user edits
-// (fix a forgotten stop) and the `_deleted` tombstone.
+// the timer STOPS (a running timer lives on steps.timerStartedAt, never here).
+// The only mutations are rare user edits, such as fixing a forgotten stop.
 export interface LocalTimeEntry {
   _id: string;
   stepId: string;
@@ -131,8 +114,6 @@ export interface LocalTimeEntry {
   source: 'timer' | 'manual';
   createdAt: number;
   updatedAt: number;
-  _localOnly?: boolean;
-  _deleted?: boolean;
 }
 
 export type ActivityEventType =
@@ -168,20 +149,6 @@ export interface LocalActivityEvent {
   at: number;
   createdAt: number;
   updatedAt: number;
-  _localOnly?: boolean;
-  _deleted?: boolean;
-}
-
-export interface SyncQueueEntry {
-  id?: number; // auto-increment
-  entityType: 'steps' | 'paths' | 'routines' | 'reminders' | 'userSettings' | 'notebooks' | 'notes' | 'timeEntries' | 'activityEvents';
-  entityId: string;
-  operation: 'create' | 'update' | 'delete';
-  data?: Record<string, unknown>;
-  status: 'pending' | 'in-progress' | 'failed';
-  retryCount: number;
-  lastError?: string;
-  createdAt: number;
 }
 
 export interface ErrorLogEntry {
@@ -191,12 +158,6 @@ export interface ErrorLogEntry {
   stack?: string;
   context?: Record<string, unknown>;
   timestamp: number;
-  reported: boolean;
-}
-
-export interface SyncMeta {
-  key: string;
-  value: string | number;
 }
 
 // --- Database class ---
@@ -211,8 +172,6 @@ class VoidStepsDB extends Dexie {
   userSettings!: EntityTable<LocalUserSettings, '_id'>;
   timeEntries!: EntityTable<LocalTimeEntry, '_id'>;
   activityEvents!: EntityTable<LocalActivityEvent, '_id'>;
-  syncQueue!: EntityTable<SyncQueueEntry, 'id'>;
-  syncMeta!: EntityTable<SyncMeta, 'key'>;
   errorLog!: EntityTable<ErrorLogEntry, 'id'>;
 
   constructor() {
@@ -303,6 +262,37 @@ class VoidStepsDB extends Dexie {
       timeEntries: '_id, stepId, start, updatedAt',
       activityEvents: '_id, stepId, at, updatedAt',
     });
+
+    // v10: sync removed. Drop the queue and cursor tables, collapse soft
+    // deletes to hard deletes (`_deleted` only ever existed so a tombstone
+    // could be pushed to the server, and rows carrying it are already invisible
+    // in the UI), and drop `userSettings.userId` now that there is exactly one
+    // local user.
+    this.version(10)
+      .stores({
+        syncQueue: null,
+        syncMeta: null,
+        userSettings: '_id',
+        errorLog: '++id, category, timestamp',
+      })
+      .upgrade(async (tx) => {
+        const tables = [
+          'steps', 'paths', 'routines', 'reminders',
+          'notebooks', 'notes', 'userSettings', 'timeEntries', 'activityEvents',
+        ];
+        for (const name of tables) {
+          const table = tx.table(name);
+          const rows = await table.toArray();
+          const doomed = rows.filter((r) => r._deleted).map((r) => r._id);
+          if (doomed.length) await table.bulkDelete(doomed);
+          const survivors = rows.filter((r) => !r._deleted);
+          if (survivors.length) {
+            await table.bulkPut(
+              survivors.map(({ _localOnly, _deleted, userId, ...rest }) => rest)
+            );
+          }
+        }
+      });
   }
 }
 

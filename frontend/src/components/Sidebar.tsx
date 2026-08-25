@@ -1,8 +1,5 @@
-import { useClerk, useUser } from '@clerk/clerk-react';
 import { motion } from 'framer-motion';
-import { LogOut, Settings, Calendar, ListTodo, Target, Zap, Bell, BookOpen, BarChart3, X, ChevronsLeft, ChevronsRight, Search, Sparkles, Lock } from 'lucide-react';
-import { usePlan } from '@/lib/use-plan';
-import { can, type Feature } from '../../convex/lib/entitlements';
+import { Settings, Calendar, ListTodo, Target, Zap, Bell, BookOpen, BarChart3, X, ChevronsLeft, ChevronsRight, Search, Sparkles, Lock } from 'lucide-react';
 import { getKeybinds, formatKeybindDisplay, type KeybindMap } from '@/lib/keybind-config';
 import type { LucideIcon } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -107,8 +104,6 @@ function SidebarItem({ icon: Icon, label, isCollapsed, active, showActiveIndicat
 }
 
 export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, onOpenCommandBar }: SidebarProps) {
-  const { signOut } = useClerk();
-  const { user } = useUser();
   const navigate = useNavigate();
   const location = useLocation();
   const { reminders } = useData();
@@ -129,16 +124,15 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
   }, [isOpen]);
 
   const keybinds = getKeybinds();
-  const plan = usePlan();
 
-  const navItems: { path: string; label: string; icon: LucideIcon; keybindKey?: keyof KeybindMap; feature?: Feature }[] = [
+  const navItems: { path: string; label: string; icon: LucideIcon; keybindKey?: keyof KeybindMap }[] = [
     { path: '/', label: 'Today', icon: Calendar, keybindKey: 'navToday' },
     { path: '/steps', label: 'Steps', icon: ListTodo, keybindKey: 'navSteps' },
     { path: '/paths', label: 'Paths', icon: Target, keybindKey: 'navPaths' },
     { path: '/routines', label: 'Routines', icon: Zap, keybindKey: 'navRoutines' },
     { path: '/reminders', label: 'Reminders', icon: Bell, keybindKey: 'navReminders' },
-    { path: '/notes', label: 'Notes', icon: BookOpen, keybindKey: 'navNotes', feature: 'notes' },
-    { path: '/analytics', label: 'Analytics', icon: BarChart3, keybindKey: 'navAnalytics', feature: 'analytics' },
+    { path: '/notes', label: 'Notes', icon: BookOpen, keybindKey: 'navNotes' },
+    { path: '/analytics', label: 'Analytics', icon: BarChart3, keybindKey: 'navAnalytics' },
     // Tutorials is the single hub for Void's guided tours; sits just above Settings.
     { path: '/tutorials', label: 'Tutorials', icon: Sparkles },
     { path: '/settings', label: 'Settings', icon: Settings, keybindKey: 'navSettings' },
@@ -191,8 +185,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
             <>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex-1">
-                  <p className="text-sm text-muted-foreground">Welcome, {user?.firstName || 'User'}</p>
-                  <h2 className="text-2xl font-bold mt-1">Today</h2>
+                  <h2 className="text-2xl font-bold">Today</h2>
                 </div>
                 {/* Close button for mobile */}
                 <button
@@ -248,7 +241,6 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
                 showActiveIndicator
                 shortcut={item.keybindKey && keybinds[item.keybindKey] ? formatKeybindDisplay(keybinds[item.keybindKey]) : undefined}
                 dot={item.path === '/reminders' && hasTodayReminder}
-                locked={item.feature ? !can(plan, item.feature) : false}
                 onClick={() => handleNavigate(item.path)}
               />
             </div>
@@ -264,12 +256,6 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
             shortcut={!isCollapsed ? formatKeybindDisplay(keybinds.toggleSidebar) : undefined}
             onClick={onToggleCollapse}
             className="hidden md:flex"
-          />
-          <SidebarItem
-            icon={LogOut}
-            label="Logout"
-            isCollapsed={isCollapsed}
-            onClick={() => signOut({ redirectUrl: '/' })}
           />
         </div>
       </div>

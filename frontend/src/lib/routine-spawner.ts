@@ -2,31 +2,11 @@ import { db } from './db';
 import type { LocalStep } from './db';
 import { calculateNextOccurrence, getLogicalDayStart } from './calculate-next-occurrence';
 import { getDaySettings, toDayBoundaryOpts } from './day-settings';
-import { isSyncEnabled } from './sync-enabled';
 
 const SPAWN_INTERVAL = 15 * 60 * 1000; // 15 minutes
 
 // Prevent overlapping runs when mount + visibilitychange fire close together.
 let isRunning = false;
-
-// Sync queue helper (duplicated to avoid circular dependency)
-async function enqueue(
-  entityType: 'steps' | 'routines',
-  entityId: string,
-  operation: 'create' | 'update',
-  data?: Record<string, unknown>
-) {
-  if (!isSyncEnabled()) return; // Free is local-only: spawned steps stay on-device.
-  await db.syncQueue.add({
-    entityType,
-    entityId,
-    operation,
-    data,
-    status: 'pending',
-    retryCount: 0,
-    createdAt: Date.now(),
-  });
-}
 
 async function prioritizeDueSteps() {
   try {
@@ -39,7 +19,6 @@ async function prioritizeDueSteps() {
 
     const stepsToPrioritize = await db.steps
       .filter(s =>
-        !s._deleted &&
         !s.completed &&
         !s.failed &&
         !s.archived &&
@@ -53,7 +32,6 @@ async function prioritizeDueSteps() {
     const now = Date.now();
     for (const step of stepsToPrioritize) {
       await db.steps.update(step._id, { prioritizedToday: true, updatedAt: now });
-      await enqueue('steps', step._id, 'update', { prioritizedToday: true, updatedAt: now });
     }
   } catch (error) {
     console.error('Due date prioritizer error:', error);
@@ -64,7 +42,7 @@ async function spawnDueRoutines() {
   try {
     const now = Date.now();
     const routines = await db.routines
-      .filter(r => !r._deleted && r.nextOccurrence <= now)
+      .filter(r => r.nextOccurrence <= now)
       .toArray();
 
     // Dedup window = the user's current logical day (configured turnover
@@ -82,7 +60,6 @@ async function spawnDueRoutines() {
       const existingToday = await db.steps
         .filter(s =>
           s.routineId === routine._id &&
-          !s._deleted &&
           s.createdAt >= startOfToday
         )
         .first();
@@ -105,11 +82,9 @@ async function spawnDueRoutines() {
         startDate: undefined,
         createdAt: now,
         updatedAt: now,
-        _localOnly: true,
       };
 
       await db.steps.add(step);
-      await enqueue('steps', stepId, 'create', step as unknown as Record<string, unknown>);
 
       // Update routine's nextOccurrence (lands at the configured start-of-day)
       const nextOccurrence = calculateNextOccurrence(
@@ -125,7 +100,6 @@ async function spawnDueRoutines() {
         nextOccurrence,
         updatedAt: now,
       });
-      await enqueue('routines', routine._id, 'update', { nextOccurrence, updatedAt: now });
     }
   } catch (error) {
     console.error('Routine spawner error:', error);

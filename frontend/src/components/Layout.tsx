@@ -2,7 +2,6 @@ import { useState, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import Sidebar from "./Sidebar";
-import FailedSyncReviewDialog from "./FailedSyncReviewDialog";
 import QuickCreateDialog from "./QuickCreateDialog";
 import QuickCreateRoutineDialog from "./QuickCreateRoutineDialog";
 import QuickCreatePathDialog from "./QuickCreatePathDialog";
@@ -12,7 +11,6 @@ import TimerReconcileGuard from "./TimerReconcileGuard";
 import CommandBar from "./CommandBar";
 import { Button } from "@/components/ui/Button";
 import { Menu } from "lucide-react";
-import { useOffline } from "@/contexts/OfflineContext";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 
 const SIDEBAR_COLLAPSED_KEY = "voidsteps-sidebar-collapsed";
@@ -36,13 +34,11 @@ export default function Layout({
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(getInitialCollapsed);
-  const [isFailedSyncOpen, setIsFailedSyncOpen] = useState(false);
   const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
   const [isQuickCreateRoutineOpen, setIsQuickCreateRoutineOpen] = useState(false);
   const [isQuickCreatePathOpen, setIsQuickCreatePathOpen] = useState(false);
   const [isQuickCreateReminderOpen, setIsQuickCreateReminderOpen] = useState(false);
   const [isCommandBarOpen, setIsCommandBarOpen] = useState(false);
-  const { isOnline, pendingSyncCount, failedSyncCount } = useOffline();
 
   const toggleCollapse = useCallback(() => {
     setIsCollapsed((prev) => {
@@ -86,31 +82,6 @@ export default function Layout({
           <Menu className="w-5 h-5" />
         </Button>
       </div>
-
-      {/* Offline / Sync Indicator */}
-      {(!isOnline || pendingSyncCount > 0 || failedSyncCount > 0) && (
-        <div className="fixed bottom-4 left-4 md:left-auto md:right-4 z-50 flex flex-col gap-1.5">
-          {(!isOnline || pendingSyncCount > 0) && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-muted border border-border shadow-sm">
-              <span
-                className={`w-2 h-2 rounded-full ${isOnline ? 'bg-yellow-500' : 'bg-destructive'}`}
-              />
-              {isOnline
-                ? `Syncing ${pendingSyncCount} change${pendingSyncCount !== 1 ? 's' : ''}...`
-                : 'Offline'}
-            </div>
-          )}
-          {failedSyncCount > 0 && (
-            <button
-              onClick={() => setIsFailedSyncOpen(true)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-destructive/10 border border-destructive/30 shadow-sm text-destructive cursor-pointer hover:bg-destructive/20 transition-colors"
-            >
-              <span className="w-2 h-2 rounded-full bg-destructive" />
-              {failedSyncCount} change{failedSyncCount !== 1 ? 's' : ''} failed to sync
-            </button>
-          )}
-        </div>
-      )}
 
       {/* Command bar (⌘K), navigation + quick actions */}
       <CommandBar
@@ -160,8 +131,6 @@ export default function Layout({
         </AnimatePresence>
       </main>
 
-      {/* Failed Sync Review */}
-      <FailedSyncReviewDialog open={isFailedSyncOpen} onOpenChange={setIsFailedSyncOpen} />
 
       {/* Quick Create Dialogs */}
       <QuickCreateDialog open={isQuickCreateOpen} onOpenChange={setIsQuickCreateOpen} />

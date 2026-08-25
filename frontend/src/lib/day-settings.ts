@@ -1,7 +1,6 @@
 // Day-boundary settings: the user-configurable "start of day" (when routines
 // spawn) and "end of day" (when 'today' rolls over for task semantics). Stored
-// on the synced userSettings row - the server cron needs them too - and read
-// from Dexie here. Free (local-only) users get the same behavior on-device.
+// on the userSettings row and read from Dexie here.
 
 import { db } from './db';
 import type { DayBoundaryOpts } from './calculate-next-occurrence';
@@ -25,7 +24,7 @@ export function currentUtcOffsetMinutes(): number {
 
 /** Read the day settings from the local userSettings row (defaults when unset). */
 export async function getDaySettings(): Promise<DaySettings> {
-  const row = await db.userSettings.filter((s) => !s._deleted).first();
+  const row = await db.userSettings.toCollection().first();
   return {
     dayTurnoverMinutes: row?.dayTurnoverMinutes ?? DEFAULT_DAY_SETTINGS.dayTurnoverMinutes,
     routineSpawnMinutes: row?.routineSpawnMinutes ?? DEFAULT_DAY_SETTINGS.routineSpawnMinutes,

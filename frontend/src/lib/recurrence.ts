@@ -1,21 +1,15 @@
-// Single source of truth for routine recurrence math, shared by the Convex
-// backend (routines / batch / routineSpawner) AND the frontend (src/lib re-exports
-// this). Pure date math, no platform deps, so it bundles cleanly into both the
-// Convex runtime and the browser. Keep it that way, do not import anything here.
+// Single source of truth for routine recurrence math. Pure date math, no
+// platform deps. Keep it that way, do not import anything here.
 //
 // All math runs in a SHIFTED-UTC FRAME: instead of relying on the runtime's
-// local timezone (browser-local on the client, UTC on Convex - which is why
-// server-computed occurrences historically drifted to UTC midnight), the
-// caller's UTC offset is applied to the epoch and all date arithmetic uses UTC
-// accessors. The same code therefore produces the user's local result on both
-// sides, given the user's offset. Defaults preserve the old behavior: offset =
+// local timezone, the caller's UTC offset is applied to the epoch and all date
+// arithmetic uses UTC accessors. Defaults preserve the old behavior: offset =
 // the runtime's current offset, spawn/turnover = midnight.
 //
 // Known approximation: the offset in force NOW is applied to the computed
 // occurrence too, so an occurrence on the far side of a DST transition can be
 // off by the DST delta until the next recompute (the client recomputes on every
-// spawn/app-open, so this self-corrects). Accepted - matches the codebase's
-// client-clock-authoritative policy.
+// spawn/app-open, so this self-corrects). Accepted.
 
 export interface DayBoundaryOpts {
   /** User's UTC offset in minutes (east positive, e.g. IST = 330). Defaults to

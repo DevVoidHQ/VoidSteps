@@ -48,7 +48,6 @@ export function stepEventsFromPatch(
     at,
     createdAt: at,
     updatedAt: at,
-    _localOnly: true as const,
   });
 
   if ('completed' in patch && patch.completed !== undefined && patch.completed !== before.completed) {

@@ -11,14 +11,14 @@ export function useStepTimesheet(stepId: string | null): {
   const entries = useLiveQuery(
     () =>
       stepId
-        ? db.timeEntries.where('stepId').equals(stepId).filter((e) => !e._deleted).toArray()
+        ? db.timeEntries.where('stepId').equals(stepId).toArray()
         : Promise.resolve([] as LocalTimeEntry[]),
     [stepId]
   );
   const events = useLiveQuery(
     () =>
       stepId
-        ? db.activityEvents.where('stepId').equals(stepId).filter((e) => !e._deleted).toArray()
+        ? db.activityEvents.where('stepId').equals(stepId).toArray()
         : Promise.resolve([] as LocalActivityEvent[]),
     [stepId]
   );
@@ -33,7 +33,7 @@ export function useDayTimeEntries(dayStart: number): LocalTimeEntry[] | undefine
       db.timeEntries
         .where('start')
         .below(dayStart + DAY_MS)
-        .filter((e) => !e._deleted && e.end > dayStart)
+        .filter((e) => e.end > dayStart)
         .toArray(),
     [dayStart]
   );
