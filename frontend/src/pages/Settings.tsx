@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/Input";
 import { Toggle } from "@/components/ui/Toggle";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
-import { getDeferDatesMode, setDeferDatesMode, getDueDatesMode, setDueDatesMode, getPrioritizeDefault, setPrioritizeDefault, getOpenFocusOnPlay, setOpenFocusOnPlay, getShowStepDates, setShowStepDates, getStepActions, setStepActionMode, STEP_ACTION_ORDER, STEP_ACTION_LABELS, getStepsClickAction, setStepsClickAction, getTodayClickAction, setTodayClickAction, resetGeneralPreferences, type DeferDatesMode, type StepActionsConfig, type StepClickAction } from "@/lib/preferences";
+import { getDeferDatesMode, setDeferDatesMode, getDueDatesMode, setDueDatesMode, getPrioritizeDefault, setPrioritizeDefault, getOpenFocusOnPlay, setOpenFocusOnPlay, getShowStepDates, setShowStepDates, getFontScale, setFontScale, FONT_SCALE_PX, FONT_SCALE_LABELS, FONT_SCALE_ORDER, type FontScale, getStepActions, setStepActionMode, STEP_ACTION_ORDER, STEP_ACTION_LABELS, getStepsClickAction, setStepsClickAction, getTodayClickAction, setTodayClickAction, resetGeneralPreferences, type DeferDatesMode, type StepActionsConfig, type StepClickAction } from "@/lib/preferences";
 import { useData } from "@/contexts/DataContext";
 import { useUpdateDaySettings } from "@/lib/local-mutations";
 import { formatMinutesAsTime } from "@/lib/day-settings";
@@ -121,6 +121,7 @@ function GeneralSettings() {
   const [prioritizeDefault, setPrioritizeDefaultState] = useState(getPrioritizeDefault());
   const [openFocusOnPlay, setOpenFocusOnPlayState] = useState(getOpenFocusOnPlay());
   const [showStepDates, setShowStepDatesState] = useState(getShowStepDates());
+  const [fontScale, setFontScaleState] = useState<FontScale>(getFontScale());
   const [stepActions, setStepActions] = useState<StepActionsConfig>(getStepActions());
   const [stepsClick, setStepsClick] = useState<StepClickAction>(getStepsClickAction());
   const [todayClick, setTodayClick] = useState<StepClickAction>(getTodayClickAction());
@@ -143,6 +144,7 @@ function GeneralSettings() {
     setPrioritizeDefaultState(getPrioritizeDefault());
     setOpenFocusOnPlayState(getOpenFocusOnPlay());
     setShowStepDatesState(getShowStepDates());
+    setFontScaleState(getFontScale());
     setStepActions(getStepActions());
     setStepsClick(getStepsClickAction());
     setTodayClick(getTodayClickAction());
@@ -157,6 +159,36 @@ function GeneralSettings() {
               <RotateCcw className="w-4 h-4 mr-2" />
               Reset All
             </Button>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Text size</label>
+            <p className="text-sm text-muted-foreground">
+              Scales the whole interface, not just the text, so nothing gets
+              cramped. Applies immediately.
+            </p>
+            <div className="flex flex-wrap items-end gap-2 pt-1">
+              {FONT_SCALE_ORDER.map((scale) => {
+                const active = scale === fontScale;
+                return (
+                  <button
+                    key={scale}
+                    type="button"
+                    onClick={() => { setFontScaleState(scale); setFontScale(scale); }}
+                    aria-pressed={active}
+                    className={`flex flex-col items-center gap-1 rounded-lg border-2 px-4 py-2 transition-colors ${
+                      active
+                        ? "border-primary bg-primary-light/50"
+                        : "border-border hover:border-muted-foreground/40"
+                    }`}
+                  >
+                    {/* Rendered at the size it sets, so the control shows what it does. */}
+                    <span style={{ fontSize: `${FONT_SCALE_PX[scale]}px`, lineHeight: 1.2 }}>Aa</span>
+                    <span className="text-xs text-muted-foreground">{FONT_SCALE_LABELS[scale]}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <Toggle
