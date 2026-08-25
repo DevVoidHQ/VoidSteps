@@ -15,6 +15,7 @@ import { useData } from "@/contexts/DataContext";
 import { useUpdateDaySettings } from "@/lib/local-mutations";
 import { formatMinutesAsTime } from "@/lib/day-settings";
 import { reportError } from "@/lib/error-store";
+import { openExternal } from "@/lib/platform";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
 import DataSettings from "@/components/DataSettings";
@@ -485,7 +486,7 @@ function FeedbackSettings() {
     const href = `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent(
       `VoidSteps: ${FEEDBACK_SUBJECTS[type]}`
     )}&body=${encodeURIComponent(body)}`;
-    window.location.href = href;
+    await openExternal(href);
     setMessage("");
   };
 

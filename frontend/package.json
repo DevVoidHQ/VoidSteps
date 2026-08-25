@@ -10,7 +10,10 @@
     "serve": "serve dist -s -p 4173",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "tauri": "cargo tauri",
+    "desktop:dev": "cargo tauri dev",
+    "desktop:build": "cargo tauri build"
   },
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",

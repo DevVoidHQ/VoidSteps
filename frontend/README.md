@@ -1,52 +1,51 @@
-# Personal Tracker Frontend
+# VoidSteps
 
-React + TypeScript + Vite + Tailwind CSS frontend for the DevVoid Personal Tracker application.
+Local-first tracker for paths, steps, routines and reminders, with a focus
+timer, notes, analytics and a graph view.
 
-## Setup
+Everything lives on your machine. There is no account, no server and no
+network call except the update check. A backup file is the only way data
+leaves the device, and you make it yourself.
 
-1. Install dependencies:
+## Running it
+
 ```bash
 pnpm install
+pnpm desktop:dev     # Tauri window, hot reloads the UI
 ```
 
-1. Configure environment variables in `.env`:
-```
-VITE_API_URL=http://localhost:5000/api
-```
+`pnpm dev` runs the UI alone in a browser, which is faster for pure UI work
+but does not exercise the desktop shell.
 
-1. Start the development server:
+## Building a release
+
 ```bash
-pnpm dev
+pnpm desktop:build
 ```
 
-1. Build for production:
+Output lands in `src-tauri/target/release/bundle/`. macOS builds are
+unsigned unless the Apple Developer ID variables are set, and an unsigned
+build is quarantined on any machine that did not compile it. For local
+testing: `xattr -dr com.apple.quarantine <path to .app>`.
+
+CI builds both platforms on a `v*` tag (`.github/workflows/release.yml`).
+
+## Layout
+
+- `src/` React 19 + Vite + Tailwind
+- `src/lib/db.ts` Dexie schema. Version blocks are a migration history:
+  add a new one, never edit an old one.
+- `src/lib/local-mutations.ts` every write goes through here
+- `src/lib/snapshot.ts` the one backup/restore format
+- `src/lib/recurrence.ts` routine scheduling in a shifted-UTC frame
+- `src-tauri/` the desktop shell
+- `scripts/` one-off tooling, not shipped
+
+## Tests
+
 ```bash
-pnpm build
+pnpm test
 ```
 
-1. Preview production build:
-```bash
-pnpm preview
-```
-
-## Features
-
-- Dark theme inspired by devvoid.org
-- Task management with subtasks
-- Recurring task support
-- Goal tracking with progress visualization
-- Task-Goal associations
-- Priority-based task coloring
-- Due date tracking
-- Responsive design with shadcn/ui components
-
-## Tech Stack
-
-- React 19
-- TypeScript
-- Vite
-- Tailwind CSS
-- shadcn/ui components
-- React Router
-- Axios
-- Lucide React icons
+Pure logic only: recurrence, dates, timesheets, activity log, snapshot
+validation. There is no component or end-to-end layer yet.
