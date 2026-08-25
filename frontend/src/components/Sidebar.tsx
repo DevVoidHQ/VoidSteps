@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Settings, Calendar, ListTodo, Target, Zap, Bell, BookOpen, BarChart3, X, ChevronsLeft, ChevronsRight, Search, Sparkles, Lock } from 'lucide-react';
+import { Settings, Calendar, ListTodo, Target, Zap, Bell, BookOpen, BarChart3, X, ChevronsLeft, ChevronsRight, Search, Lock } from 'lucide-react';
 import { getKeybinds, formatKeybindDisplay, type KeybindMap } from '@/lib/keybind-config';
 import type { LucideIcon } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -133,8 +133,6 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
     { path: '/reminders', label: 'Reminders', icon: Bell, keybindKey: 'navReminders' },
     { path: '/notes', label: 'Notes', icon: BookOpen, keybindKey: 'navNotes' },
     { path: '/analytics', label: 'Analytics', icon: BarChart3, keybindKey: 'navAnalytics' },
-    // Tutorials is the single hub for Void's guided tours; sits just above Settings.
-    { path: '/tutorials', label: 'Tutorials', icon: Sparkles },
     { path: '/settings', label: 'Settings', icon: Settings, keybindKey: 'navSettings' },
   ];
 
@@ -232,7 +230,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
         {/* Navigation */}
         <nav className={`flex-1 min-h-0 overflow-y-auto scrollbar-hide ${isCollapsed ? 'p-2' : 'p-4'} space-y-1`}>
           {navItems.map((item) => (
-            <div key={item.path} data-tour={`nav-${item.path === '/' ? 'today' : item.path.slice(1)}`}>
+            <div key={item.path}>
               <SidebarItem
                 icon={item.icon}
                 label={item.label}
