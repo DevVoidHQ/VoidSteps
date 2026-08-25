@@ -157,9 +157,19 @@ shell, not after.
   JSON snapshots into the app data dir on a schedule, keeping the last N.
 - Manual export and import to a user-chosen file, wired into Settings.
 - Restore flow, including "restore from snapshot" after a bad wipe.
-- **One-time Convex import** reading the export zip above into Dexie. Throwaway
-  after a single successful run, and that is accepted rather than designed
-  around.
+- **The Convex migration is a build-time script, not an app feature.** Rather
+  than an importer inside the app that is dead code after one run,
+  `scripts/convex-export-to-snapshot.mjs` converts the export zip into an
+  ordinary snapshot file, which the normal restore path then reads. Nothing
+  about the migration ships in the binary.
+
+**P1 landed 2026-08-26** (export, import, restore, converter). Still open for
+P2: automatic rotating snapshots to the app data dir, which needs the Tauri
+filesystem. Export today is a browser download.
+
+Migration file built and verified: 3,502 rows (3,436 steps, 19 paths, 36 notes,
+7 notebooks, 4 routines), matching the browser copy exactly, no dangling path
+references, no server-only fields carried over.
 
 ### P2. Tauri shell
 

@@ -18,6 +18,7 @@ import { reportError } from "@/lib/error-store";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
 import DataSettings from "@/components/DataSettings";
+import BackupCard from "@/components/BackupCard";
 import { Copy, Sparkles, Save, RotateCcw, Shuffle, Dices, Check, Trash2 } from "lucide-react";
 import {
   getKeybinds,
@@ -681,7 +682,10 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="data">
-          <DataSettings />
+          <div className="space-y-6">
+            <BackupCard />
+            <DataSettings />
+          </div>
         </TabsContent>
 
         <TabsContent value="feedback">
