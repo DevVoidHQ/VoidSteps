@@ -1,12 +1,32 @@
 // Shared server-side query/mutation helpers. Kept tiny and dependency-free so
 // any Convex function can pull them in without bundling surprises.
 
+import type { DayBoundaryOpts } from "./recurrence";
+
 // Midnight (local server clock) as a ms timestamp. Used for "created today"
 // dedup windows and start-of-day comparisons.
 export function getStartOfToday(now: number = Date.now()): number {
   const d = new Date(now);
   d.setHours(0, 0, 0, 0);
   return d.getTime();
+}
+
+// The user's day-boundary config for server-side day math (spawn dedup
+// windows, nextOccurrence recomputes). Falls back to offset 0 / midnight -
+// the historical server behavior - when the user never saved settings.
+export async function getUserDayOpts(
+  ctx: { db: { query: (table: any) => any } },
+  userId: string
+): Promise<DayBoundaryOpts> {
+  const settings = await ctx.db
+    .query("userSettings")
+    .withIndex("by_user", (q: any) => q.eq("userId", userId))
+    .first();
+  return {
+    utcOffsetMinutes: settings?.utcOffsetMinutes ?? 0,
+    spawnMinutes: settings?.routineSpawnMinutes ?? 0,
+    turnoverMinutes: settings?.dayTurnoverMinutes ?? 0,
+  };
 }
 
 // Fetch a doc and assert the caller owns it, else throw. Returns the doc so

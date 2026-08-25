@@ -1,7 +1,9 @@
 import { useCallback } from 'react';
 import { db } from './db';
-import type { LocalStep, LocalPath, LocalRoutine, LocalReminder, LocalNotebook, LocalNote, LocalUserSettings } from './db';
+import type { LocalStep, LocalPath, LocalRoutine, LocalReminder, LocalNotebook, LocalNote, LocalUserSettings, LocalTimeEntry } from './db';
 import { calculateNextOccurrence } from './calculate-next-occurrence';
+import { getDaySettings, toDayBoundaryOpts, currentUtcOffsetMinutes } from './day-settings';
+import { stepEventsFromPatch } from './activity-log';
 import { isSyncEnabled } from './sync-enabled';
 
 // --- Validation constants ---
@@ -30,7 +32,7 @@ function generateLocalId(): string {
 // --- Sync queue helper ---
 
 async function enqueue(
-  entityType: 'steps' | 'paths' | 'routines' | 'reminders' | 'userSettings' | 'notebooks' | 'notes',
+  entityType: 'steps' | 'paths' | 'routines' | 'reminders' | 'userSettings' | 'notebooks' | 'notes' | 'timeEntries' | 'activityEvents',
   entityId: string,
   operation: 'create' | 'update' | 'delete',
   data?: Record<string, unknown>
@@ -47,6 +49,92 @@ async function enqueue(
     retryCount: 0,
     createdAt: Date.now(),
   });
+}
+
+// --- Activity log + time entry helpers ---
+// Events are written ONLY here, from user-intent mutations - never from the
+// sync engine, restore, or initial hydration - so a pull applying remote
+// changes can't echo them back as fresh events (see activity-log.ts).
+
+/** Diff a step patch and persist the activity events it implies. */
+async function logStepEvents(before: LocalStep, patch: Partial<LocalStep>, at: number) {
+  const events = stepEventsFromPatch(before, patch, at, generateLocalId);
+  for (const ev of events) {
+    await db.activityEvents.add(ev);
+    await enqueue('activityEvents', ev._id, 'create');
+  }
+}
+
+/** Sessions shorter than this are treated as accidental double-taps: no entry
+ * is minted and no time accrues. */
+const MIN_ENTRY_MS = 5_000;
+
+/**
+ * Mint the immutable session row for a finished interval. Skips timer blips
+ * (< 5s) and duplicates - an entry with the same (stepId, start) means another
+ * device already stopped this session, so minting again would double-count.
+ * Returns the recorded duration (0 when skipped) so callers accrue the step's
+ * total by exactly what was recorded.
+ */
+async function mintTimeEntry(
+  step: LocalStep,
+  start: number,
+  end: number,
+  source: 'timer' | 'manual',
+  now: number
+): Promise<number> {
+  const durationMs = Math.max(0, end - start);
+  if (durationMs <= 0 || (source === 'timer' && durationMs < MIN_ENTRY_MS)) return 0;
+  const dup = await db.timeEntries
+    .where('stepId')
+    .equals(step._id)
+    .filter((e) => e.start === start && !e._deleted)
+    .first();
+  if (dup) return 0;
+  const entry: LocalTimeEntry = {
+    _id: generateLocalId(),
+    stepId: step._id,
+    stepTitle: step.title,
+    start,
+    end,
+    durationMs,
+    source,
+    createdAt: now,
+    updatedAt: now,
+    _localOnly: true,
+  };
+  await db.timeEntries.add(entry);
+  await enqueue('timeEntries', entry._id, 'create');
+  return durationMs;
+}
+
+/**
+ * Stop a running timer on `step` at `end`: mint its session entry and fold the
+ * recorded time into the step's total. No-op if the step isn't running. Must be
+ * called inside a 'rw' transaction covering steps, timeEntries and syncQueue.
+ *
+ * `enqueueStepPatch: false` skips queueing the step's timer patch - used when
+ * the step is being deleted in the same transaction (the queued stopTimer
+ * would otherwise run AFTER the batched delete and fail 'Step not found'
+ * forever; the delete supersedes the patch anyway).
+ */
+async function stopTimerOnStep(
+  step: LocalStep,
+  end: number,
+  now: number,
+  opts: { enqueueStepPatch?: boolean } = {}
+) {
+  if (!step.timerStartedAt) return;
+  const recorded = await mintTimeEntry(step, step.timerStartedAt, end, 'timer', now);
+  const patch: Partial<LocalStep> = {
+    timerStartedAt: undefined,
+    totalTimeSpentMs: (step.totalTimeSpentMs || 0) + recorded,
+    updatedAt: now,
+  };
+  await db.steps.update(step._id, patch);
+  if (opts.enqueueStepPatch !== false) {
+    await enqueue('steps', step._id, 'update', patch as Record<string, unknown>);
+  }
 }
 
 // ============================================================
@@ -118,106 +206,151 @@ export function useUpdateStep() {
     if (args.title !== undefined) validateTitle(args.title);
     if (args.description !== undefined) validateDescription(args.description);
     const { id, ...updates } = args;
-    const existing = await db.steps.get(id);
-    if (!existing) throw new Error('Step not found');
-
     const now = Date.now();
-    const patchData: Partial<LocalStep> = { updatedAt: now };
 
-    if (updates.title !== undefined) patchData.title = updates.title;
-    if (updates.description !== undefined) patchData.description = updates.description;
-    if (updates.prioritizedToday !== undefined) patchData.prioritizedToday = updates.prioritizedToday;
+    await db.transaction('rw', [db.steps, db.timeEntries, db.activityEvents, db.syncQueue], async () => {
+      const existing = await db.steps.get(id);
+      if (!existing) throw new Error('Step not found');
 
-    // Handle pathId (null clears)
-    if ('pathId' in updates) {
-      patchData.pathId = updates.pathId === null ? undefined : updates.pathId;
-    }
+      const patchData: Partial<LocalStep> = { updatedAt: now };
 
-    // Handle dueDate (null clears)
-    if ('dueDate' in updates) {
-      patchData.dueDate = updates.dueDate === null ? undefined : updates.dueDate;
-    }
+      if (updates.title !== undefined) patchData.title = updates.title;
+      if (updates.description !== undefined) patchData.description = updates.description;
+      if (updates.prioritizedToday !== undefined) patchData.prioritizedToday = updates.prioritizedToday;
 
-    // Handle startDate (null clears)
-    if ('startDate' in updates) {
-      patchData.startDate = updates.startDate === null ? undefined : updates.startDate;
-    }
-
-    // Handle completedAt when completed status changes
-    if ('completed' in updates && updates.completed !== undefined) {
-      patchData.completed = updates.completed;
-      if (updates.completed && !existing.completed) {
-        patchData.completedAt = now;
-        patchData.failed = false;
-        patchData.failedAt = undefined;
-      } else if (!updates.completed && existing.completed) {
-        patchData.completedAt = undefined;
+      // Handle pathId (null or '' clears - some callers pass the form's empty
+      // string through; '' would fail the server's v.id validation and mint a
+      // bogus "moved to path" activity event)
+      if ('pathId' in updates) {
+        patchData.pathId = updates.pathId === null || updates.pathId === '' ? undefined : updates.pathId;
       }
-    }
 
-    // Handle failedAt when failed status changes
-    if ('failed' in updates && updates.failed !== undefined) {
-      patchData.failed = updates.failed;
-      const currentFailedState = existing.failed ?? false;
-      if (updates.failed && !currentFailedState) {
-        patchData.failedAt = now;
-      } else if (!updates.failed && currentFailedState) {
-        patchData.failedAt = undefined;
+      // Handle dueDate (null clears)
+      if ('dueDate' in updates) {
+        patchData.dueDate = updates.dueDate === null ? undefined : updates.dueDate;
       }
-    }
 
-    await db.steps.update(id, patchData);
-    await enqueue('steps', id, 'update', patchData as unknown as Record<string, unknown>);
+      // Handle startDate (null clears)
+      if ('startDate' in updates) {
+        patchData.startDate = updates.startDate === null ? undefined : updates.startDate;
+      }
+
+      // Handle completedAt when completed status changes
+      if ('completed' in updates && updates.completed !== undefined) {
+        patchData.completed = updates.completed;
+        if (updates.completed && !existing.completed) {
+          patchData.completedAt = now;
+          patchData.failed = false;
+          patchData.failedAt = undefined;
+        } else if (!updates.completed && existing.completed) {
+          patchData.completedAt = undefined;
+        }
+      }
+
+      // Handle failedAt when failed status changes
+      if ('failed' in updates && updates.failed !== undefined) {
+        patchData.failed = updates.failed;
+        const currentFailedState = existing.failed ?? false;
+        if (updates.failed && !currentFailedState) {
+          patchData.failedAt = now;
+        } else if (!updates.failed && currentFailedState) {
+          patchData.failedAt = undefined;
+        }
+      }
+
+      // Completing a step ends its running session.
+      if (patchData.completed === true && existing.timerStartedAt) {
+        await stopTimerOnStep(existing, now, now);
+      }
+
+      await db.steps.update(id, patchData);
+      await logStepEvents(existing, patchData, now);
+      await enqueue('steps', id, 'update', patchData as unknown as Record<string, unknown>);
+    });
   }, []);
 }
 
 export function useDeleteStep() {
   return useCallback(async (args: { id: string }) => {
-    await db.steps.update(args.id, { _deleted: true, updatedAt: Date.now() });
-    await enqueue('steps', args.id, 'delete');
+    const now = Date.now();
+    await db.transaction('rw', [db.steps, db.timeEntries, db.activityEvents, db.syncQueue], async () => {
+      const step = await db.steps.get(args.id);
+      if (!step) return;
+
+      // A running timer's time is real - mint the session before the step goes.
+      // Don't queue the step's own timer patch: the delete below supersedes it,
+      // and a queued stopTimer would run after the batched server delete.
+      await stopTimerOnStep(step, now, now, { enqueueStepPatch: false });
+
+      if (step._id.startsWith('local_')) {
+        // The step never reached the server, so its entries/events never can
+        // either (their stepId would dangle forever and the creates would just
+        // retry until failed). Drop their pending ops; the rows stay local-only.
+        const entryIds = (await db.timeEntries.where('stepId').equals(step._id).primaryKeys()) as string[];
+        const eventIds = (await db.activityEvents.where('stepId').equals(step._id).primaryKeys()) as string[];
+        const ids = [...entryIds, ...eventIds];
+        if (ids.length > 0) await db.syncQueue.where('entityId').anyOf(ids).delete();
+      }
+
+      await db.steps.update(args.id, { _deleted: true, updatedAt: now });
+      await enqueue('steps', args.id, 'delete');
+    });
   }, []);
 }
 
 export function useToggleStepCompletion() {
   return useCallback(async (args: { id: string }) => {
-    const step = await db.steps.get(args.id);
-    if (!step) throw new Error('Step not found');
-
     const now = Date.now();
-    const newCompletedState = !step.completed;
+    await db.transaction('rw', [db.steps, db.timeEntries, db.activityEvents, db.syncQueue], async () => {
+      const step = await db.steps.get(args.id);
+      if (!step) throw new Error('Step not found');
 
-    const patchData: Partial<LocalStep> = {
-      completed: newCompletedState,
-      completedAt: newCompletedState ? now : undefined,
-      failed: false,
-      failedAt: undefined,
-      updatedAt: now,
-    };
+      const newCompletedState = !step.completed;
 
-    await db.steps.update(args.id, patchData);
-    await enqueue('steps', args.id, 'update', patchData as unknown as Record<string, unknown>);
+      // Completing a step with a running timer ends the session too. Same
+      // transaction, so a concurrent pull can't split the entry from the stop.
+      if (newCompletedState) await stopTimerOnStep(step, now, now);
+
+      const patchData: Partial<LocalStep> = {
+        completed: newCompletedState,
+        completedAt: newCompletedState ? now : undefined,
+        failed: false,
+        failedAt: undefined,
+        updatedAt: now,
+      };
+
+      await db.steps.update(args.id, patchData);
+      await logStepEvents(step, patchData, now);
+      await enqueue('steps', args.id, 'update', patchData as unknown as Record<string, unknown>);
+    });
   }, []);
 }
 
 export function useToggleStepFailed() {
   return useCallback(async (args: { id: string }) => {
-    const step = await db.steps.get(args.id);
-    if (!step) throw new Error('Step not found');
-
     const now = Date.now();
-    const currentFailedState = step.failed ?? false;
-    const newFailedState = !currentFailedState;
+    await db.transaction('rw', [db.steps, db.timeEntries, db.activityEvents, db.syncQueue], async () => {
+      const step = await db.steps.get(args.id);
+      if (!step) throw new Error('Step not found');
 
-    const patchData: Partial<LocalStep> = {
-      failed: newFailedState,
-      failedAt: newFailedState ? now : undefined,
-      completed: false,
-      completedAt: undefined,
-      updatedAt: now,
-    };
+      const currentFailedState = step.failed ?? false;
+      const newFailedState = !currentFailedState;
 
-    await db.steps.update(args.id, patchData);
-    await enqueue('steps', args.id, 'update', patchData as unknown as Record<string, unknown>);
+      // Failing a step abandons its running session - record what was real.
+      if (newFailedState) await stopTimerOnStep(step, now, now);
+
+      const patchData: Partial<LocalStep> = {
+        failed: newFailedState,
+        failedAt: newFailedState ? now : undefined,
+        completed: false,
+        completedAt: undefined,
+        updatedAt: now,
+      };
+
+      await db.steps.update(args.id, patchData);
+      await logStepEvents(step, patchData, now);
+      await enqueue('steps', args.id, 'update', patchData as unknown as Record<string, unknown>);
+    });
   }, []);
 }
 
@@ -253,7 +386,21 @@ export function useStartTimer() {
     // Atomic: the step write and its sync-queue entry must commit together, so a
     // concurrent pull never sees the running timer without also seeing it as
     // pending (otherwise "server wins" could clear it right after start).
-    await db.transaction('rw', db.steps, db.syncQueue, async () => {
+    await db.transaction('rw', [db.steps, db.timeEntries, db.syncQueue], async () => {
+      const step = await db.steps.get(args.id);
+      if (!step) throw new Error('Step not found');
+      if (step.timerStartedAt) return; // already running
+
+      // Single-active-timer invariant enforced at the data layer: starting
+      // here auto-stops any other running step, minting its session entry
+      // (call sites also pre-stop, which is then a harmless no-op here).
+      const running = await db.steps
+        .filter((s) => s.timerStartedAt != null && !s._deleted && s._id !== args.id)
+        .toArray();
+      for (const other of running) {
+        await stopTimerOnStep(other, now, now);
+      }
+
       await db.steps.update(args.id, { timerStartedAt: now, updatedAt: now });
       await enqueue('steps', args.id, 'update', { timerStartedAt: now, updatedAt: now });
     });
@@ -267,8 +414,26 @@ export function useSetTotalTime() {
     const totalTimeSpentMs = Math.max(0, args.totalTimeSpentMs);
     // When resetting to 0, clear the field entirely so the badge disappears
     const value = totalTimeSpentMs === 0 ? undefined : totalTimeSpentMs;
-    await db.transaction('rw', db.steps, db.syncQueue, async () => {
+    await db.transaction('rw', [db.steps, db.activityEvents, db.syncQueue], async () => {
+      const step = await db.steps.get(args.id);
+      if (!step) throw new Error('Step not found');
+      const oldTotal = step.totalTimeSpentMs ?? 0;
       await db.steps.update(args.id, { totalTimeSpentMs: value, updatedAt: now });
+      if (oldTotal !== totalTimeSpentMs) {
+        const ev = {
+          _id: generateLocalId(),
+          stepId: args.id,
+          type: 'time_adjusted' as const,
+          oldValue: oldTotal,
+          newValue: totalTimeSpentMs,
+          at: now,
+          createdAt: now,
+          updatedAt: now,
+          _localOnly: true,
+        };
+        await db.activityEvents.add(ev);
+        await enqueue('activityEvents', ev._id, 'create');
+      }
       await enqueue('steps', args.id, 'update', { totalTimeSpentMs: value, updatedAt: now });
     });
   }, []);
@@ -276,24 +441,118 @@ export function useSetTotalTime() {
 
 export function useStopTimer() {
   return useCallback(async (args: { id: string }) => {
-    const step = await db.steps.get(args.id);
-    if (!step) throw new Error('Step not found');
-
     const now = Date.now();
-    const elapsed = step.timerStartedAt ? now - step.timerStartedAt : 0;
-    const newTotal = (step.totalTimeSpentMs || 0) + elapsed;
+    await db.transaction('rw', [db.steps, db.timeEntries, db.syncQueue], async () => {
+      const step = await db.steps.get(args.id);
+      if (!step) throw new Error('Step not found');
+      if (!step.timerStartedAt) return; // not running - nothing to stop
+      await stopTimerOnStep(step, now, now);
+    });
+  }, []);
+}
 
-    await db.transaction('rw', db.steps, db.syncQueue, async () => {
-      await db.steps.update(args.id, {
+/** Stop a running timer at an explicit end instant (clamped to [start, now]).
+ * Used by the forgotten-timer reconcile flow ("Trim to..."). */
+export function useStopTimerAt() {
+  return useCallback(async (args: { id: string; end: number }) => {
+    const now = Date.now();
+    await db.transaction('rw', [db.steps, db.timeEntries, db.syncQueue], async () => {
+      const step = await db.steps.get(args.id);
+      if (!step || !step.timerStartedAt) return;
+      const end = Math.min(Math.max(args.end, step.timerStartedAt), now);
+      await stopTimerOnStep(step, end, now);
+    });
+  }, []);
+}
+
+/** Clear a running timer without recording any time (reconcile "Discard"). */
+export function useDiscardTimer() {
+  return useCallback(async (args: { id: string }) => {
+    const now = Date.now();
+    await db.transaction('rw', [db.steps, db.syncQueue], async () => {
+      const step = await db.steps.get(args.id);
+      if (!step || !step.timerStartedAt) return;
+      const patch: Partial<LocalStep> = {
         timerStartedAt: undefined,
-        totalTimeSpentMs: newTotal,
+        totalTimeSpentMs: step.totalTimeSpentMs || 0,
         updatedAt: now,
-      });
-      await enqueue('steps', args.id, 'update', {
-        timerStartedAt: undefined,
-        totalTimeSpentMs: newTotal,
-        updatedAt: now,
-      });
+      };
+      await db.steps.update(args.id, patch);
+      await enqueue('steps', args.id, 'update', patch as Record<string, unknown>);
+    });
+  }, []);
+}
+
+// ============================================================
+// TIME ENTRIES (per-session timesheet rows)
+// ============================================================
+
+export function useAddTimeEntry() {
+  return useCallback(async (args: { stepId: string; start: number; end: number }) => {
+    if (args.end <= args.start) throw new Error('End must be after start');
+    const now = Date.now();
+    await db.transaction('rw', [db.steps, db.timeEntries, db.syncQueue], async () => {
+      const step = await db.steps.get(args.stepId);
+      if (!step) throw new Error('Step not found');
+      const recorded = await mintTimeEntry(step, args.start, args.end, 'manual', now);
+      if (recorded === 0) return; // duplicate start instant - already recorded
+      const newTotal = (step.totalTimeSpentMs || 0) + recorded;
+      await db.steps.update(step._id, { totalTimeSpentMs: newTotal, updatedAt: now });
+      await enqueue('steps', step._id, 'update', { totalTimeSpentMs: newTotal, updatedAt: now });
+    });
+  }, []);
+}
+
+export function useUpdateTimeEntry() {
+  return useCallback(async (args: { id: string; start: number; end: number }) => {
+    if (args.end <= args.start) throw new Error('End must be after start');
+    const now = Date.now();
+    await db.transaction('rw', [db.steps, db.timeEntries, db.syncQueue], async () => {
+      const entry = await db.timeEntries.get(args.id);
+      if (!entry || entry._deleted) throw new Error('Time entry not found');
+
+      const durationMs = args.end - args.start;
+      const delta = durationMs - entry.durationMs;
+      await db.timeEntries.update(args.id, { start: args.start, end: args.end, durationMs, updatedAt: now });
+      // For a not-yet-synced entry this queue update is dropped at push, but the
+      // create rebuilds its payload from the current row, so the edit still lands.
+      await enqueue('timeEntries', args.id, 'update', { start: args.start, end: args.end, durationMs, updatedAt: now });
+
+      const step = await db.steps.get(entry.stepId);
+      if (step && delta !== 0) {
+        const newTotal = Math.max(0, (step.totalTimeSpentMs || 0) + delta);
+        await db.steps.update(step._id, { totalTimeSpentMs: newTotal === 0 ? undefined : newTotal, updatedAt: now });
+        await enqueue('steps', step._id, 'update', { totalTimeSpentMs: newTotal, updatedAt: now });
+      }
+    });
+  }, []);
+}
+
+export function useDeleteTimeEntry() {
+  return useCallback(async (args: { id: string }) => {
+    const now = Date.now();
+    await db.transaction('rw', [db.steps, db.timeEntries, db.syncQueue], async () => {
+      const entry = await db.timeEntries.get(args.id);
+      if (!entry || entry._deleted) return;
+
+      if (entry._id.startsWith('local_')) {
+        // Never reached the server: hard-delete and drop its pending ops.
+        await db.timeEntries.delete(entry._id);
+        await db.syncQueue.where('entityId').equals(entry._id).delete();
+      } else {
+        // Tombstone. Entry deletion syncs as an update because the cursor pull
+        // for append-only tables can't infer deletes from absence the way the
+        // full-table pull does.
+        await db.timeEntries.update(entry._id, { _deleted: true, updatedAt: now });
+        await enqueue('timeEntries', entry._id, 'update', { deleted: true, updatedAt: now });
+      }
+
+      const step = await db.steps.get(entry.stepId);
+      if (step) {
+        const newTotal = Math.max(0, (step.totalTimeSpentMs || 0) - entry.durationMs);
+        await db.steps.update(step._id, { totalTimeSpentMs: newTotal === 0 ? undefined : newTotal, updatedAt: now });
+        await enqueue('steps', step._id, 'update', { totalTimeSpentMs: newTotal, updatedAt: now });
+      }
     });
   }, []);
 }
@@ -414,8 +673,10 @@ export function useArchivePath() {
         .filter(s => !s._deleted)
         .toArray();
       for (const step of steps) {
-        await db.steps.update(step._id, { archived: true, archivedAt: now, updatedAt: now });
-        await enqueue('steps', step._id, 'update', { archived: true, archivedAt: now, updatedAt: now });
+        const patch: Partial<LocalStep> = { archived: true, archivedAt: now, updatedAt: now };
+        await db.steps.update(step._id, patch);
+        await logStepEvents(step, patch, now);
+        await enqueue('steps', step._id, 'update', patch as Record<string, unknown>);
       }
     }
   }, []);
@@ -451,8 +712,10 @@ export function useUnarchivePath() {
         .filter(s => !s._deleted && s.archived === true)
         .toArray();
       for (const step of steps) {
-        await db.steps.update(step._id, { archived: false, archivedAt: undefined, updatedAt: now });
-        await enqueue('steps', step._id, 'update', { archived: false, archivedAt: undefined, updatedAt: now });
+        const patch: Partial<LocalStep> = { archived: false, archivedAt: undefined, updatedAt: now };
+        await db.steps.update(step._id, patch);
+        await logStepEvents(step, patch, now);
+        await enqueue('steps', step._id, 'update', patch as Record<string, unknown>);
       }
     }
   }, []);
@@ -474,7 +737,9 @@ export function useDeletePathWithMigration() {
 
     for (const step of steps) {
       const newPathId = args.destinationPathId || undefined;
-      await db.steps.update(step._id, { pathId: newPathId, updatedAt: now });
+      const patch: Partial<LocalStep> = { pathId: newPathId, updatedAt: now };
+      await db.steps.update(step._id, patch);
+      await logStepEvents(step, patch, now);
       await enqueue('steps', step._id, 'update', { pathId: newPathId ?? null, updatedAt: now });
     }
 
@@ -522,7 +787,8 @@ export function useCreateRoutine() {
       args.daysOfWeek,
       args.dayOfMonth,
       args.month,
-      args.dayOfYear
+      args.dayOfYear,
+      toDayBoundaryOpts(await getDaySettings())
     );
 
     const routine: LocalRoutine = {
@@ -587,7 +853,7 @@ export function useUpdateRoutine() {
       const month = updates.month === null ? undefined : (updates.month || existing.month);
       const dayOfYear = updates.dayOfYear === null ? undefined : (updates.dayOfYear || existing.dayOfYear);
 
-      patchData.nextOccurrence = calculateNextOccurrence(frequency, daysOfWeek, dayOfMonth, month, dayOfYear);
+      patchData.nextOccurrence = calculateNextOccurrence(frequency, daysOfWeek, dayOfMonth, month, dayOfYear, toDayBoundaryOpts(await getDaySettings()));
     }
 
     await db.routines.update(id, patchData);
@@ -676,6 +942,60 @@ export function useDeleteReminder() {
 // ============================================================
 // USER SETTINGS
 // ============================================================
+
+/**
+ * Save the day-boundary config ("start of day" = routine spawn time, "end of
+ * day" = task turnover) onto the synced userSettings row, stamping the
+ * device's UTC offset so the server cron can do day math in the user's frame.
+ *
+ * Also re-anchors EVERY routine's nextOccurrence to the new boundaries
+ * immediately. Besides applying the new spawn time, this guarantees every
+ * nextOccurrence lands in the future, so shifting the turnover window can't
+ * re-trigger a routine that already spawned earlier today.
+ */
+export function useUpdateDaySettings() {
+  return useCallback(async (args: {
+    userId: string;
+    dayTurnoverMinutes: number;
+    routineSpawnMinutes: number;
+  }) => {
+    const now = Date.now();
+    const fields = {
+      dayTurnoverMinutes: args.dayTurnoverMinutes,
+      routineSpawnMinutes: args.routineSpawnMinutes,
+      utcOffsetMinutes: currentUtcOffsetMinutes(),
+      updatedAt: now,
+    };
+
+    await db.transaction('rw', [db.userSettings, db.routines, db.syncQueue], async () => {
+      const existing = await db.userSettings.filter((s) => s.userId === args.userId && !s._deleted).first();
+      if (existing) {
+        await db.userSettings.update(existing._id, fields);
+        await enqueue('userSettings', existing._id, 'update', fields);
+      } else {
+        const id = generateLocalId();
+        const settings: LocalUserSettings = { _id: id, userId: args.userId, ...fields, _localOnly: true };
+        await db.userSettings.add(settings);
+        await enqueue('userSettings', id, 'create', settings as unknown as Record<string, unknown>);
+      }
+
+      const opts = { spawnMinutes: args.routineSpawnMinutes, turnoverMinutes: args.dayTurnoverMinutes };
+      const routines = await db.routines.filter((r) => !r._deleted).toArray();
+      for (const routine of routines) {
+        const nextOccurrence = calculateNextOccurrence(
+          routine.frequency,
+          routine.daysOfWeek,
+          routine.dayOfMonth,
+          routine.month,
+          routine.dayOfYear,
+          opts
+        );
+        await db.routines.update(routine._id, { nextOccurrence, updatedAt: now });
+        await enqueue('routines', routine._id, 'update', { nextOccurrence, updatedAt: now });
+      }
+    });
+  }, []);
+}
 
 export function useUpdateUserSettings() {
   return useCallback(async (args: {

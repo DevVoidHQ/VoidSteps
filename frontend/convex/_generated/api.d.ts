@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as activityEvents from "../activityEvents.js";
 import type * as admin from "../admin.js";
 import type * as backups from "../backups.js";
 import type * as batch from "../batch.js";
@@ -27,6 +28,7 @@ import type * as reminders from "../reminders.js";
 import type * as routineSpawner from "../routineSpawner.js";
 import type * as routines from "../routines.js";
 import type * as steps from "../steps.js";
+import type * as timeEntries from "../timeEntries.js";
 import type * as userSettings from "../userSettings.js";
 
 import type {
@@ -36,6 +38,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  activityEvents: typeof activityEvents;
   admin: typeof admin;
   backups: typeof backups;
   batch: typeof batch;
@@ -55,6 +58,7 @@ declare const fullApi: ApiFromModules<{
   routineSpawner: typeof routineSpawner;
   routines: typeof routines;
   steps: typeof steps;
+  timeEntries: typeof timeEntries;
   userSettings: typeof userSettings;
 }>;
 

@@ -102,7 +102,71 @@ export interface LocalNote {
 export interface LocalUserSettings {
   _id: string;
   userId: string;
-  theme: Record<string, string>;
+  // Optional so a day-settings-only row can exist before any theme is saved.
+  theme?: Record<string, string>;
+  // Day-boundary config - see convex/lib/recurrence.ts DayBoundaryOpts.
+  // "End of day": minutes past midnight when the logical day rolls over.
+  dayTurnoverMinutes?: number;
+  // "Start of day": minutes past midnight when routines spawn.
+  routineSpawnMinutes?: number;
+  // Client-stamped UTC offset for the server cron's day math.
+  utcOffsetMinutes?: number;
+  updatedAt: number;
+  _localOnly?: boolean;
+  _deleted?: boolean;
+}
+
+// One tracked work session on a step. Immutable by convention: minted only when
+// the timer STOPS (a running timer lives on steps.timerStartedAt, never here),
+// so rows never conflict under sync - the only mutations are rare user edits
+// (fix a forgotten stop) and the `_deleted` tombstone.
+export interface LocalTimeEntry {
+  _id: string;
+  stepId: string;
+  // Denormalized so the Day Log can still render entries whose step was deleted.
+  stepTitle: string;
+  start: number; // ms epoch, client clock (same domain as timerStartedAt)
+  end: number; // never null - the row exists only after stop
+  durationMs: number; // max(0, end - start), client-computed (skew-proof)
+  source: 'timer' | 'manual';
+  createdAt: number;
+  updatedAt: number;
+  _localOnly?: boolean;
+  _deleted?: boolean;
+}
+
+export type ActivityEventType =
+  | 'completed'
+  | 'uncompleted'
+  | 'failed'
+  | 'unfailed'
+  | 'archived'
+  | 'unarchived'
+  | 'field_changed'
+  | 'time_adjusted';
+
+export type ActivityField =
+  | 'title'
+  | 'description'
+  | 'dueDate'
+  | 'startDate'
+  | 'pathId'
+  | 'prioritizedToday';
+
+// Append-only audit log of user interactions with a step (date changed,
+// priority toggled, completed, ...). Written ONLY from user-intent mutations in
+// local-mutations.ts - never from sync/merge/restore paths, or every pull would
+// re-log remote changes as fresh events on every device. "created" is not
+// stored: the activity view synthesizes it from step.createdAt.
+export interface LocalActivityEvent {
+  _id: string;
+  stepId: string;
+  type: ActivityEventType;
+  field?: ActivityField; // only for field_changed
+  oldValue?: string | number | boolean | null;
+  newValue?: string | number | boolean | null;
+  at: number;
+  createdAt: number;
   updatedAt: number;
   _localOnly?: boolean;
   _deleted?: boolean;
@@ -110,7 +174,7 @@ export interface LocalUserSettings {
 
 export interface SyncQueueEntry {
   id?: number; // auto-increment
-  entityType: 'steps' | 'paths' | 'routines' | 'reminders' | 'userSettings' | 'notebooks' | 'notes';
+  entityType: 'steps' | 'paths' | 'routines' | 'reminders' | 'userSettings' | 'notebooks' | 'notes' | 'timeEntries' | 'activityEvents';
   entityId: string;
   operation: 'create' | 'update' | 'delete';
   data?: Record<string, unknown>;
@@ -145,6 +209,8 @@ class VoidStepsDB extends Dexie {
   notebooks!: EntityTable<LocalNotebook, '_id'>;
   notes!: EntityTable<LocalNote, '_id'>;
   userSettings!: EntityTable<LocalUserSettings, '_id'>;
+  timeEntries!: EntityTable<LocalTimeEntry, '_id'>;
+  activityEvents!: EntityTable<LocalActivityEvent, '_id'>;
   syncQueue!: EntityTable<SyncQueueEntry, 'id'>;
   syncMeta!: EntityTable<SyncMeta, 'key'>;
   errorLog!: EntityTable<ErrorLogEntry, 'id'>;
@@ -230,6 +296,12 @@ class VoidStepsDB extends Dexie {
     // v8: note→path linking removed - drop the pathId index on notes.
     this.version(8).stores({
       notes: '_id, notebookId, updatedAt',
+    });
+
+    // v9: timesheets - per-session time entries + append-only activity log.
+    this.version(9).stores({
+      timeEntries: '_id, stepId, start, updatedAt',
+      activityEvents: '_id, stepId, at, updatedAt',
     });
   }
 }

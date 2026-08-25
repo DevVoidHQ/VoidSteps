@@ -1,7 +1,8 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { requireAuth } from "./lib/auth";
-import { getStartOfToday, requireOwned } from "./lib/dbHelpers";
+import { getStartOfToday, getUserDayOpts, requireOwned } from "./lib/dbHelpers";
+import { getLogicalDayStart } from "./lib/recurrence";
 
 // Queries
 export const getSteps = query({
@@ -215,10 +216,11 @@ export const createStep = mutation({
 
     // Routine spawn idempotency: the server cron and the client-side spawner
     // can both try to create today's step for the same routine. Before inserting,
-    // return any existing step for this routine created today so the caller
-    // converges onto a single server id.
+    // return any existing step for this routine created in the user's current
+    // LOGICAL day (their configured turnover boundary) so the caller converges
+    // onto a single server id.
     if (args.routineId) {
-      const startOfTodayMs = getStartOfToday(now);
+      const startOfTodayMs = getLogicalDayStart(now, await getUserDayOpts(ctx, userId));
 
       const existing = await ctx.db
         .query("steps")

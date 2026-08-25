@@ -12,7 +12,7 @@ const PREFS_EVENT = "voidsteps-prefs-changed";
 
 // Per-action placement on a step: "open" = its own inline icon, "compact" =
 // tucked into the step's "more" menu.
-export type StepActionKey = "failed" | "timer" | "priority" | "time" | "edit" | "delete";
+export type StepActionKey = "failed" | "timer" | "priority" | "time" | "open" | "edit" | "delete";
 export type StepActionMode = "open" | "compact";
 export type StepActionsConfig = Record<StepActionKey, StepActionMode>;
 
@@ -21,16 +21,18 @@ export const STEP_ACTION_LABELS: Record<StepActionKey, string> = {
   timer: "Timer",
   priority: "Prioritize",
   time: "Edit time",
+  open: "Activity",
   edit: "Edit",
   delete: "Delete",
 };
-export const STEP_ACTION_ORDER: StepActionKey[] = ["timer", "priority", "failed", "time", "edit", "delete"];
+export const STEP_ACTION_ORDER: StepActionKey[] = ["timer", "priority", "failed", "time", "open", "edit", "delete"];
 
 const DEFAULT_STEP_ACTIONS: StepActionsConfig = {
   failed: "open",
   timer: "open",
   priority: "open",
   time: "compact",
+  open: "compact",
   edit: "compact",
   delete: "compact",
 };
@@ -71,14 +73,14 @@ export function useStepActions(): StepActionsConfig {
 
 // What clicking a step row does, configurable per page. Steps page defaults to
 // toggling priority; Today defaults to starting/stopping the timer.
-export type StepClickAction = "prioritize" | "play" | "complete" | "none";
+export type StepClickAction = "prioritize" | "play" | "complete" | "open" | "none";
 export const STEPS_CLICK_ACTION_KEY = "voidsteps-steps-click-action";
 export const TODAY_CLICK_ACTION_KEY = "voidsteps-today-click-action";
 
 function readClickAction(key: string, fallback: StepClickAction): StepClickAction {
   try {
     const v = localStorage.getItem(key);
-    if (v === "prioritize" || v === "play" || v === "complete" || v === "none") return v;
+    if (v === "prioritize" || v === "play" || v === "complete" || v === "open" || v === "none") return v;
     return fallback;
   } catch {
     return fallback;

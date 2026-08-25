@@ -1,19 +1,9 @@
 import { useState, useCallback, useRef, useEffect, memo } from "react";
 import type { Step, Path } from "@/types/index";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { IconButton } from "@/components/ui/IconButton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/Dialog";
-import { DatePicker } from "@/components/ui/DatePicker";
 import { useToast } from "@/contexts/ToastContext";
 import {
   Check,
@@ -24,6 +14,7 @@ import {
   XCircle,
   Clock,
   Calendar,
+  History,
   Play,
   Pause,
   Timer,
@@ -33,18 +24,14 @@ import {
 } from "lucide-react";
 import { useElapsedTime, formatDuration } from "@/hooks/useTimer";
 import { TimeEditDialog } from "@/components/TimeEditDialog";
+import { StepDialog, type StepDialogTab } from "@/components/StepDialog";
 import {
   getDueDateStatus,
   formatRelativeDate,
   formatRelativePast,
   formatAbsoluteDateTime,
-  formatDateForInput,
-  parseDateInput,
-  parseStartDateInput,
 } from "@/lib/date-utils";
-import { HierarchicalPathSelector } from "@/components/HierarchicalPathSelector";
-import { MAX_TITLE_LENGTH, MAX_DESCRIPTION_LENGTH } from "@/lib/local-mutations";
-import { useDeferDatesMode, useDueDatesMode, useShowStepDates, useStepActions, STEP_ACTION_ORDER, type StepActionKey, type StepClickAction } from "@/lib/preferences";
+import { useShowStepDates, useStepActions, STEP_ACTION_ORDER, type StepActionKey, type StepClickAction } from "@/lib/preferences";
 import type { ReactNode } from "react";
 
 export interface StepCardProps {
@@ -81,20 +68,11 @@ function StepCardComponent({
   clickAction,
 }: StepCardProps) {
   const { success } = useToast();
-  const deferEnabled = useDeferDatesMode() !== "off";
-  const dueEnabled = useDueDatesMode() !== "off";
   const showStepDates = useShowStepDates();
   const actionCfg = useStepActions();
 
-  // Local edit state - changes here don't re-render other cards
-  const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState({
-    title: "",
-    description: "",
-    pathId: "",
-    dueDate: "",
-    startDate: "",
-  });
+  // The step's detail dialog (Details edit form | Activity timeline).
+  const [dialog, setDialog] = useState<{ open: boolean; tab: StepDialogTab }>({ open: false, tab: "details" });
 
   // Delete confirmation state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -137,53 +115,19 @@ function StepCardComponent({
   }, [menuOpen, resetConfirm]);
 
   const handleStartEdit = useCallback(() => {
-    setIsEditing(true);
-    setEditForm({
-      title: step.title,
-      description: step.description || "",
-      pathId:
-        typeof step.pathId === "object" && step.pathId
-          ? step.pathId._id
-          : (step.pathId as unknown as string) || "",
-      dueDate: formatDateForInput(step.dueDate),
-      startDate: formatDateForInput(step.startDate),
-    });
-  }, [step.title, step.description, step.pathId, step.dueDate, step.startDate]);
-
-  const handleCancelEdit = useCallback(() => {
-    setIsEditing(false);
-    setEditForm({ title: "", description: "", pathId: "", dueDate: "", startDate: "" });
+    setDialog({ open: true, tab: "details" });
   }, []);
 
-  const handleSave = useCallback(() => {
-    onSaveEdit(step._id, {
-      title: editForm.title,
-      description: editForm.description,
-      pathId: editForm.pathId as unknown as Path | null,
-      dueDate: parseDateInput(editForm.dueDate),
-      startDate: parseStartDateInput(editForm.startDate),
-    });
-    setIsEditing(false);
-    setEditForm({ title: "", description: "", pathId: "", dueDate: "", startDate: "" });
-    success("Step updated");
-  }, [step._id, editForm, onSaveEdit, success]);
+  const handleOpenActivity = useCallback(() => {
+    setDialog({ open: true, tab: "activity" });
+  }, []);
 
-  const handleEditKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" && !(e.target as HTMLElement).matches("textarea, button, [role=listbox], [role=option]")) {
-        if (!editForm.title.trim()) return;
-        e.preventDefault();
-        handleSave();
-      }
+  const handleSaveEdit = useCallback(
+    (id: string, updates: Partial<Step>) => {
+      onSaveEdit(id, updates);
+      success("Step updated");
     },
-    [editForm.title, handleSave]
-  );
-
-  const handleEditFormChange = useCallback(
-    (updates: Partial<{ title: string; description: string; pathId: string; dueDate: string; startDate: string }>) => {
-      setEditForm((prev) => ({ ...prev, ...updates }));
-    },
-    []
+    [onSaveEdit, success]
   );
 
   const handleDelete = useCallback(() => {
@@ -249,6 +193,13 @@ function StepCardComponent({
       onClick: () => setShowTimeEdit(true),
     },
     {
+      key: "open",
+      available: true,
+      label: "Activity",
+      icon: <History className="w-4 h-4" />,
+      onClick: handleOpenActivity,
+    },
+    {
       key: "edit",
       available: true,
       label: "Edit step",
@@ -285,6 +236,7 @@ function StepCardComponent({
         if (clickAction === "prioritize") onTogglePriority(step._id, step.prioritizedToday);
         else if (clickAction === "play") { if (onToggleTimer && !step.completed) onToggleTimer(step._id); }
         else if (clickAction === "complete") onToggle(step._id);
+        else if (clickAction === "open") handleOpenActivity();
       }
     : undefined;
 
@@ -491,59 +443,15 @@ function StepCardComponent({
         </CardContent>
       </Card>
 
-      {/* Edit Dialog */}
-      <Dialog open={isEditing} onOpenChange={(open) => { if (!open) handleCancelEdit(); }}>
-        <DialogContent size="md">
-          <DialogHeader>
-            <DialogTitle>Edit Step</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3" onKeyDown={handleEditKeyDown}>
-            <Input
-              placeholder="Step title"
-              value={editForm.title}
-              onChange={(e) => handleEditFormChange({ title: e.target.value })}
-              maxLength={MAX_TITLE_LENGTH}
-            />
-            <Input
-              placeholder="Description (optional)"
-              value={editForm.description}
-              onChange={(e) => handleEditFormChange({ description: e.target.value })}
-              maxLength={MAX_DESCRIPTION_LENGTH}
-            />
-            <HierarchicalPathSelector
-              paths={paths || []}
-              selectedPathId={editForm.pathId || null}
-              onChange={(id) => handleEditFormChange({ pathId: id || "" })}
-              placeholder="No Path"
-              allowEmpty={true}
-            />
-            {(dueEnabled || step.dueDate || deferEnabled || step.startDate) && (
-              <div className="flex gap-2">
-                {(dueEnabled || step.dueDate) && (
-                  <DatePicker
-                    label="Due Date"
-                    value={editForm.dueDate}
-                    onChange={(val) => handleEditFormChange({ dueDate: val })}
-                    className="flex-1"
-                  />
-                )}
-                {(deferEnabled || step.startDate) && (
-                  <DatePicker
-                    label="Defer until"
-                    value={editForm.startDate}
-                    onChange={(val) => handleEditFormChange({ startDate: val })}
-                    className="flex-1"
-                  />
-                )}
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={handleCancelEdit}>Cancel</Button>
-            <Button onClick={handleSave} disabled={!editForm.title.trim()}>Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Detail dialog: Details (edit form) | Activity (timesheet + audit log) */}
+      <StepDialog
+        step={step}
+        paths={paths}
+        open={dialog.open}
+        initialTab={dialog.tab}
+        onOpenChange={(open) => setDialog((prev) => ({ ...prev, open }))}
+        onSaveEdit={handleSaveEdit}
+      />
 
       {/* Time Edit Dialog */}
       {onSetTotalTime && (

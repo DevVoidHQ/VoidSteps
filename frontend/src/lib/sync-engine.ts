@@ -107,17 +107,21 @@ export class SyncEngine {
   }
 
   // Build the create payload for a queue entry from its current local record.
+  // A missing OR soft-deleted row returns null, which drops the create from the
+  // queue: pushing a create for a row deleted before it ever synced would
+  // resurrect it on the server (the local delete op resolves purely locally
+  // for local_ ids, so nothing would clean the server row up).
   private async buildCreateData(entry: SyncQueueEntry): Promise<Record<string, unknown> | null> {
     const r = this.resolveId.bind(this);
     switch (entry.entityType) {
       case 'paths': {
         const p = await db.paths.get(entry.entityId);
-        if (!p) return null;
+        if (!p || p._deleted) return null;
         return { title: p.title, description: p.description, parentId: r(p.parentId) };
       }
       case 'steps': {
         const s = await db.steps.get(entry.entityId);
-        if (!s) return null;
+        if (!s || s._deleted) return null;
         return { title: s.title, description: s.description, pathId: r(s.pathId),
           routineId: r(s.routineId), prioritizedToday: s.prioritizedToday,
           dueDate: s.dueDate, startDate: s.startDate, createdAt: s.createdAt,
@@ -126,25 +130,41 @@ export class SyncEngine {
       }
       case 'routines': {
         const x = await db.routines.get(entry.entityId);
-        if (!x) return null;
+        if (!x || x._deleted) return null;
         return { title: x.title, description: x.description, pathId: r(x.pathId), frequency: x.frequency,
           daysOfWeek: x.daysOfWeek, dayOfMonth: x.dayOfMonth, month: x.month, dayOfYear: x.dayOfYear,
-          autoPrioritize: x.autoPrioritize };
+          autoPrioritize: x.autoPrioritize,
+          // Client-computed: bakes the user's configured start-of-day into the
+          // absolute instant. Without it the server recomputes at ITS midnight.
+          nextOccurrence: x.nextOccurrence };
       }
       case 'reminders': {
         const x = await db.reminders.get(entry.entityId);
-        if (!x) return null;
+        if (!x || x._deleted) return null;
         return { title: x.title, note: x.note, recurrence: x.recurrence, date: x.date, month: x.month, day: x.day };
       }
       case 'notebooks': {
         const x = await db.notebooks.get(entry.entityId);
-        if (!x) return null;
+        if (!x || x._deleted) return null;
         return { title: x.title, description: x.description, sortOrder: x.sortOrder };
       }
       case 'notes': {
         const x = await db.notes.get(entry.entityId);
-        if (!x) return null;
+        if (!x || x._deleted) return null;
         return { notebookId: r(x.notebookId), title: x.title, body: x.body, sortOrder: x.sortOrder };
+      }
+      case 'timeEntries': {
+        const x = await db.timeEntries.get(entry.entityId);
+        // A tombstoned local-only entry never needs to reach the server.
+        if (!x || x._deleted) return null;
+        return { stepId: r(x.stepId), stepTitle: x.stepTitle, start: x.start, end: x.end,
+          durationMs: x.durationMs, source: x.source, createdAt: x.createdAt };
+      }
+      case 'activityEvents': {
+        const x = await db.activityEvents.get(entry.entityId);
+        if (!x) return null;
+        return { stepId: r(x.stepId), type: x.type, field: x.field,
+          oldValue: x.oldValue ?? null, newValue: x.newValue ?? null, at: x.at };
       }
       default:
         return null;
@@ -162,7 +182,11 @@ export class SyncEngine {
     const deletes: { type: string; id: string }[] = [];
 
     const createEntries = new Map<string, SyncQueueEntry>(); // tempId -> entry
-    const updateEntries = new Map<string, SyncQueueEntry>(); // sent id -> entry
+    // sent id -> entries. Multiple queued updates for one id are all sent (the
+    // server applies them in order); the ack must clear ALL of them - leaving
+    // an evicted older op pending would re-push stale data on the next cycle
+    // and revert the newer edit on the server, then locally via pull.
+    const updateEntries = new Map<string, SyncQueueEntry[]>();
     const deleteEntries = new Map<string, SyncQueueEntry>(); // sent id -> entry
     const timerEntries: SyncQueueEntry[] = [];               // step timer updates -> per-entry
 
@@ -190,7 +214,9 @@ export class SyncEngine {
           continue;
         }
         updates.push({ type: entityType, id: resolvedId, data: entry.data ?? {} });
-        updateEntries.set(resolvedId, entry);
+        const pending = updateEntries.get(resolvedId);
+        if (pending) pending.push(entry);
+        else updateEntries.set(resolvedId, [entry]);
       } else if (operation === 'delete') {
         const resolvedId = this.resolveId(entityId)!;
         if (this.isLocalId(resolvedId)) {
@@ -214,11 +240,11 @@ export class SyncEngine {
         await db.syncQueue.delete(entry.id!);
         createEntries.delete(tempId);
       }
-      // Updates that succeeded.
+      // Updates that succeeded: an acked id clears every queued op sent for it.
       for (const id of result.updatedIds as string[]) {
-        const entry = updateEntries.get(id);
-        if (!entry) continue;
-        await db.syncQueue.delete(entry.id!);
+        const acked = updateEntries.get(id);
+        if (!acked) continue;
+        for (const entry of acked) await db.syncQueue.delete(entry.id!);
         updateEntries.delete(id);
       }
       // Deletes that succeeded: remove the local row too.
@@ -242,7 +268,11 @@ export class SyncEngine {
       }
 
       // Anything sent but not acknowledged → retry/fail.
-      const leftovers = [...createEntries.values(), ...updateEntries.values(), ...deleteEntries.values()];
+      const leftovers = [
+        ...createEntries.values(),
+        ...[...updateEntries.values()].flat(),
+        ...deleteEntries.values(),
+      ];
       for (const entry of leftovers) {
         await this.failEntry(entry, new Error('Not acknowledged by batch'));
       }
@@ -453,6 +483,10 @@ export class SyncEngine {
       if ('month' in data) updateData.month = data.month ?? null;
       if ('dayOfYear' in data) updateData.dayOfYear = data.dayOfYear ?? null;
       if (data.autoPrioritize !== undefined) updateData.autoPrioritize = data.autoPrioritize;
+      // Post-spawn / settings-change recomputes: the client is authoritative
+      // (this used to be silently dropped, which dragged server spawn times to
+      // UTC midnight after the first cron spawn).
+      if (data.nextOccurrence !== undefined) updateData.nextOccurrence = data.nextOccurrence;
 
       const keys = Object.keys(updateData).filter(k => k !== 'id');
       if (keys.length > 0) {
@@ -617,6 +651,9 @@ export class SyncEngine {
     await this.client.mutation(api.userSettings.updateUserSettings, {
       userId: resolvedUserId,
       theme: localSettings.theme as any,
+      dayTurnoverMinutes: localSettings.dayTurnoverMinutes,
+      routineSpawnMinutes: localSettings.routineSpawnMinutes,
+      utcOffsetMinutes: localSettings.utcOffsetMinutes,
     });
 
     // Mark as no longer local-only
@@ -627,10 +664,10 @@ export class SyncEngine {
   // ID REMAPPING
   // ========================
 
-  private async remapId(localId: string, serverId: string, table: 'steps' | 'paths' | 'routines' | 'reminders' | 'notebooks' | 'notes') {
+  private async remapId(localId: string, serverId: string, table: 'steps' | 'paths' | 'routines' | 'reminders' | 'notebooks' | 'notes' | 'timeEntries' | 'activityEvents') {
     this.idMap.set(localId, serverId);
 
-    await db.transaction('rw', [db.steps, db.paths, db.routines, db.reminders, db.notebooks, db.notes, db.syncQueue], async () => {
+    await db.transaction('rw', [db.steps, db.paths, db.routines, db.reminders, db.notebooks, db.notes, db.timeEntries, db.activityEvents, db.syncQueue], async () => {
       // Get the local record to preserve its data
       const tableRef = db[table] as any;
       const localRecord = await tableRef.get(localId);
@@ -686,6 +723,18 @@ export class SyncEngine {
         }
       }
 
+      // Update foreign keys in time entries + activity events
+      if (table === 'steps') {
+        const entriesForStep = await db.timeEntries.where('stepId').equals(localId).toArray();
+        for (const e of entriesForStep) {
+          await db.timeEntries.update(e._id, { stepId: serverId });
+        }
+        const eventsForStep = await db.activityEvents.where('stepId').equals(localId).toArray();
+        for (const e of eventsForStep) {
+          await db.activityEvents.update(e._id, { stepId: serverId });
+        }
+      }
+
       // Update remaining sync queue entries referencing old local ID
       const pendingEntries = await db.syncQueue.where('entityId').equals(localId).toArray();
       for (const entry of pendingEntries) {
@@ -698,13 +747,43 @@ export class SyncEngine {
   // PULL SYNC (server → local)
   // ========================
 
+  /** Drain a paginated `listSince` query into a flat array. Runs BEFORE the
+   * merge transaction - Dexie transactions can't span network awaits.
+   *
+   * Never throws: a failure here (older deployment without the function, or a
+   * transient error mid-drain) must not abort the whole pull for every other
+   * table. Returning what was received is safe - pages arrive in ascending
+   * updatedAt order and the cursor only advances to the max row actually
+   * merged, so anything missed is re-fetched next pull. */
+  private async drainSince(queryRef: unknown, since: number): Promise<any[]> {
+    const acc: any[] = [];
+    let cursor: string | null = null;
+    try {
+      do {
+        const page: { page: any[]; isDone: boolean; continueCursor: string } =
+          await this.client.query(queryRef as any, { since, paginationOpts: { numItems: 500, cursor } });
+        acc.push(...page.page);
+        cursor = page.isDone ? null : page.continueCursor;
+      } while (cursor);
+    } catch (error) {
+      reportError('sync', error, { phase: 'drainSince' });
+    }
+    return acc;
+  }
+
   async pullSync() {
     if (this.isPulling || !navigator.onLine) return;
     this.isPulling = true;
 
     try {
+      // Cursors for the incremental tables (server-stamped updatedAt domain).
+      // These tables are append-only logs: pulling them whole every cycle would
+      // be O(all history) per minute, so they never join the full-table pull.
+      const entriesCursor = ((await db.syncMeta.get('timeEntriesPullCursor'))?.value as number) ?? 0;
+      const eventsCursor = ((await db.syncMeta.get('activityEventsPullCursor'))?.value as number) ?? 0;
+
       // Fetch all data from Convex
-      const [serverSteps, serverPaths, serverRoutines, serverReminders, serverNotebooks, serverNotes, serverUserSettings] = await Promise.all([
+      const [serverSteps, serverPaths, serverRoutines, serverReminders, serverNotebooks, serverNotes, serverUserSettings, serverTimeEntries, serverActivityEvents] = await Promise.all([
         this.client.query(api.steps.getSteps),
         this.client.query(api.paths.getPaths),
         this.client.query(api.routines.getRoutines),
@@ -712,9 +791,11 @@ export class SyncEngine {
         this.client.query(api.notebooks.getNotebooks),
         this.client.query(api.notes.getNotes),
         this.client.query(api.userSettings.getAllUserSettings),
+        this.drainSince(api.timeEntries.listSince, entriesCursor),
+        this.drainSince(api.activityEvents.listSince, eventsCursor),
       ]);
 
-      await db.transaction('rw', [db.steps, db.paths, db.routines, db.reminders, db.notebooks, db.notes, db.userSettings, db.syncMeta, db.syncQueue], async () => {
+      await db.transaction('rw', [db.steps, db.paths, db.routines, db.reminders, db.notebooks, db.notes, db.userSettings, db.timeEntries, db.activityEvents, db.syncMeta, db.syncQueue], async () => {
         // Derive pending entity IDs INSIDE the merge transaction so step state
         // and queue state are read from one consistent snapshot. Reading this
         // before the transaction left a race: a local timer start (which writes
@@ -817,6 +898,25 @@ export class SyncEngine {
           );
         }
 
+        // Merge the incremental tables. These are exempt from mergeEntities'
+        // delete-by-absence: a cursor pull only ever sees a window of rows, so
+        // absence means "unchanged", never "deleted" (deletes arrive as
+        // tombstone rows instead).
+        const skippedFloor = await this.mergeTimeEntries(serverTimeEntries, pendingEntityIds);
+        await this.mergeActivityEvents(serverActivityEvents);
+
+        // Advance the cursors to the newest server updatedAt seen. `gte` on the
+        // server side means same-millisecond writes are re-sent next pull
+        // rather than skipped; the merges above are idempotent upserts. The
+        // cursor never advances past a row we SKIPPED (pending local edit) -
+        // unlike the full-table pull there is no later chance to see it, so
+        // it must keep re-fetching until the local edit resolves.
+        let maxEntriesCursor = serverTimeEntries.reduce((m: number, r: any) => Math.max(m, r.updatedAt ?? 0), entriesCursor);
+        if (skippedFloor !== null) maxEntriesCursor = Math.min(maxEntriesCursor, skippedFloor);
+        const maxEventsCursor = serverActivityEvents.reduce((m: number, r: any) => Math.max(m, r.updatedAt ?? 0), eventsCursor);
+        await db.syncMeta.put({ key: 'timeEntriesPullCursor', value: maxEntriesCursor });
+        await db.syncMeta.put({ key: 'activityEventsPullCursor', value: maxEventsCursor });
+
         // Update last pull timestamp
         await db.syncMeta.put({ key: 'lastPullTimestamp', value: Date.now() });
       });
@@ -824,6 +924,113 @@ export class SyncEngine {
       reportError('sync', error, { phase: 'pull' });
     } finally {
       this.isPulling = false;
+    }
+  }
+
+  /** Queue a tombstone update for a time entry (used by duplicate compaction). */
+  private async enqueueEntryTombstone(entryId: string) {
+    const now = Date.now();
+    await db.syncQueue.add({
+      entityType: 'timeEntries', entityId: entryId, operation: 'update',
+      data: { deleted: true, updatedAt: now }, status: 'pending', retryCount: 0, createdAt: now,
+    });
+  }
+
+  /**
+   * Idempotent upsert merge for pulled time entries. Handles the one real race
+   * this table has: a session started on device A and stopped on BOTH devices
+   * (one offline) mints two entries with the same (stepId, start). Server-side
+   * create idempotency can't catch that - the two rows have different client
+   * ids - so it's compacted here deterministically: the smaller _id survives,
+   * the other is tombstoned. Both devices converge on the same survivor.
+   *
+   * Returns the smallest server updatedAt among rows SKIPPED because of a
+   * pending local edit (null if none) so the caller can hold the pull cursor
+   * at that point until the edit pushes.
+   */
+  private async mergeTimeEntries(serverRecords: any[], pendingEntityIds: Set<string>): Promise<number | null> {
+    let skippedFloor: number | null = null;
+    for (const raw of serverRecords) {
+      const record = {
+        _id: raw._id.toString(),
+        stepId: raw.stepId?.toString(),
+        stepTitle: raw.stepTitle ?? '',
+        start: raw.start,
+        end: raw.end,
+        durationMs: raw.durationMs,
+        source: raw.source,
+        createdAt: raw.createdAt,
+        updatedAt: raw.updatedAt,
+        _localOnly: false,
+        _deleted: !!raw.deleted,
+      };
+
+      const local = await db.timeEntries.get(record._id);
+      if (local) {
+        // Known row: server wins unless a local edit is still pending push.
+        const serverUpdated = typeof record.updatedAt === 'number' ? record.updatedAt : 0;
+        const localUpdated = typeof local.updatedAt === 'number' ? local.updatedAt : 0;
+        if (pendingEntityIds.has(record._id)) {
+          skippedFloor = Math.min(skippedFloor ?? Infinity, serverUpdated);
+        } else if (serverUpdated >= localUpdated) {
+          await db.timeEntries.put(record);
+        }
+        continue;
+      }
+
+      if (record._deleted) {
+        // Incoming tombstone for a row we never had - store it hidden so the
+        // cursor stays consistent and the row can't come back as a dup.
+        await db.timeEntries.put(record);
+        continue;
+      }
+
+      // New row: compact same-session duplicates before inserting.
+      const dup = await db.timeEntries
+        .where('stepId')
+        .equals(record.stepId)
+        .filter((e) => e.start === record.start && e._id !== record._id && !e._deleted)
+        .first();
+
+      if (!dup) {
+        await db.timeEntries.put(record);
+      } else if (this.isLocalId(dup._id)) {
+        // Our unsynced duplicate of the same session: the server row wins.
+        // Drop ours together with its pending create.
+        await db.timeEntries.delete(dup._id);
+        await db.syncQueue.where('entityId').equals(dup._id).delete();
+        await db.timeEntries.put(record);
+      } else if (record._id < dup._id) {
+        await db.timeEntries.put(record);
+        await db.timeEntries.update(dup._id, { _deleted: true, updatedAt: Date.now() });
+        await this.enqueueEntryTombstone(dup._id);
+      } else {
+        await db.timeEntries.put({ ...record, _deleted: true });
+        await this.enqueueEntryTombstone(record._id);
+      }
+    }
+    return skippedFloor;
+  }
+
+  /** Insert-if-absent merge for pulled activity events (immutable rows). */
+  private async mergeActivityEvents(serverRecords: any[]) {
+    for (const raw of serverRecords) {
+      const id = raw._id.toString();
+      const existing = await db.activityEvents.get(id);
+      if (existing) continue;
+      await db.activityEvents.put({
+        _id: id,
+        stepId: raw.stepId?.toString(),
+        type: raw.type,
+        field: raw.field,
+        oldValue: raw.oldValue,
+        newValue: raw.newValue,
+        at: raw.at,
+        createdAt: raw.createdAt,
+        updatedAt: raw.updatedAt,
+        _localOnly: false,
+        _deleted: false,
+      });
     }
   }
 

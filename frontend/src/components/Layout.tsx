@@ -8,6 +8,7 @@ import QuickCreateRoutineDialog from "./QuickCreateRoutineDialog";
 import QuickCreatePathDialog from "./QuickCreatePathDialog";
 import QuickCreateReminderDialog from "./QuickCreateReminderDialog";
 import GlobalTimerBar from "./GlobalTimerBar";
+import TimerReconcileGuard from "./TimerReconcileGuard";
 import CommandBar from "./CommandBar";
 import { Button } from "@/components/ui/Button";
 import { Menu } from "lucide-react";
@@ -126,6 +127,9 @@ export default function Layout({
 
       {/* Global running-timer bar (central, persists across pages) */}
       <GlobalTimerBar />
+
+      {/* Forgotten-timer reconcile + cross-device single-timer convergence */}
+      <TimerReconcileGuard />
 
       {/* Sidebar */}
       <Sidebar

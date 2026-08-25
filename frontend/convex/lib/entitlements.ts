@@ -14,14 +14,22 @@ export type Feature =
   | "sync" // cloud sync + backup at all (Free is fully local-only)
   | "notes" // notebooks + notes (the only server-synced gated entity)
   | "analytics" // analytics & history page (client-derived)
+  | "history" // extended activity-log retention (Free keeps a rolling window)
   | "themes.custom"; // custom theme editor + import + AI prompt (cosmetic)
 
 const FEATURES: Record<Feature, readonly Plan[]> = {
   sync: ["pro", "lifetime"],
   notes: ["pro", "lifetime"],
   analytics: ["pro", "lifetime"],
+  history: ["pro", "lifetime"],
   "themes.custom": ["pro", "lifetime"],
 };
+
+// Local activity-log retention window by history entitlement. Timer/time
+// entries (the actual timesheet data) are never pruned - this only bounds the
+// append-only audit log.
+export const ACTIVITY_RETENTION_DAYS_FREE = 60;
+export const ACTIVITY_RETENTION_DAYS_PRO = 365;
 
 // Preset themes a Free user may apply. Everything else in themePresets is Pro.
 // Keep the brand default in here so Free never looks broken.

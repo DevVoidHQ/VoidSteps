@@ -76,9 +76,9 @@ export async function getPathCascadeImpact(): Promise<{ steps: number }> {
 /**
  * Delete every row of `name` matching `predicate`. Enqueues server deletes for
  * already-synced rows, purges any pending queue ops for removed rows, then
- * hard-removes them locally. Returns the number removed.
+ * hard-removes them locally. Returns the ids removed.
  */
-async function deleteMatching(name: WipeEntity, predicate: (r: Row) => boolean = () => true): Promise<number> {
+async function deleteMatching(name: WipeEntity, predicate: (r: Row) => boolean = () => true): Promise<string[]> {
   const rows = (await tableFor(name).toArray()).filter((r) => !r._deleted && predicate(r));
   for (const row of rows) {
     // Drop any pending create/update so a half-synced row isn't recreated.
@@ -96,7 +96,42 @@ async function deleteMatching(name: WipeEntity, predicate: (r: Row) => boolean =
     }
   }
   await tableFor(name).bulkDelete(rows.map((r) => r._id));
-  return rows.length;
+  return rows.map((r) => r._id);
+}
+
+/**
+ * Forced cascade: wiped steps take their time entries and activity events.
+ * Without this, queued entry/event creates keep referencing wiped local_ steps
+ * and fail server validation forever. Synced entries are tombstoned (the
+ * cursor pull can't learn a delete from absence, but it delivers the tombstone
+ * to other devices); events are immutable server-side and only removed locally.
+ */
+async function cleanupStepChildren(stepIds: Set<string>): Promise<void> {
+  if (stepIds.size === 0) return;
+  const now = Date.now();
+
+  const entries = (await db.timeEntries.toArray()).filter((e) => stepIds.has(e.stepId));
+  for (const e of entries) {
+    await db.syncQueue.where("entityId").equals(e._id).delete();
+    if (!e._localOnly && !e._deleted) {
+      await db.syncQueue.add({
+        entityType: "timeEntries",
+        entityId: e._id,
+        operation: "update",
+        data: { deleted: true, updatedAt: now },
+        status: "pending",
+        retryCount: 0,
+        createdAt: now,
+      });
+    }
+  }
+  await db.timeEntries.bulkDelete(entries.map((e) => e._id));
+
+  const events = (await db.activityEvents.toArray()).filter((ev) => stepIds.has(ev.stepId));
+  for (const ev of events) {
+    await db.syncQueue.where("entityId").equals(ev._id).delete();
+  }
+  await db.activityEvents.bulkDelete(events.map((ev) => ev._id));
 }
 
 /**
@@ -110,20 +145,24 @@ export async function wipeData(names: WipeEntity[], opts: { cascade?: boolean } 
 
   await db.transaction(
     "rw",
-    [db.steps, db.paths, db.routines, db.reminders, db.notebooks, db.notes, db.syncQueue],
+    [db.steps, db.paths, db.routines, db.reminders, db.notebooks, db.notes, db.timeEntries, db.activityEvents, db.syncQueue],
     async () => {
+      const removedStepIds = new Set<string>();
       // Forced: notebooks take all their notes.
       if (set.has("notebooks")) {
         await deleteMatching("notes");
       }
       // Optional: paths take the steps that reference a path.
       if (set.has("paths") && cascade) {
-        await deleteMatching("steps", (s) => s.pathId != null);
+        for (const id of await deleteMatching("steps", (s) => s.pathId != null)) removedStepIds.add(id);
       }
       // Primary per-type deletes.
       for (const name of set) {
-        await deleteMatching(name);
+        const ids = await deleteMatching(name);
+        if (name === "steps") for (const id of ids) removedStepIds.add(id);
       }
+      // Forced: wiped steps take their timesheet entries + activity log.
+      await cleanupStepChildren(removedStepIds);
     }
   );
 }

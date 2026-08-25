@@ -130,3 +130,69 @@ describe('unknown frequency', () => {
     expect(calculateNextOccurrence('something_else')).toBe(midnight(2025, 5, 19))
   })
 })
+
+// ── day-boundary options (start of day / end of day config) ─────────
+
+import { getLogicalDayStart } from './calculate-next-occurrence'
+
+// Helper: local wall-clock instant
+function at(year: number, month: number, day: number, hour = 0, minute = 0): number {
+  return new Date(year, month, day, hour, minute, 0, 0).getTime()
+}
+
+describe('day-boundary options', () => {
+  it('daily occurrence lands at the configured spawn time', () => {
+    vi.setSystemTime(new Date(2025, 5, 18, 12, 0, 0))
+    expect(
+      calculateNextOccurrence('daily', undefined, undefined, undefined, undefined, { spawnMinutes: 360 })
+    ).toBe(at(2025, 5, 19, 6))
+  })
+
+  it('at 1am with a 3am turnover, the occurrence lands later the SAME calendar day', () => {
+    // 1am Wednesday is logically still Tuesday, so "tomorrow" = Wednesday 6am.
+    vi.setSystemTime(new Date(2025, 5, 18, 1, 0, 0))
+    expect(
+      calculateNextOccurrence('daily', undefined, undefined, undefined, undefined, { turnoverMinutes: 180, spawnMinutes: 360 })
+    ).toBe(at(2025, 5, 18, 6))
+  })
+
+  it('after the turnover the occurrence moves to the next calendar day', () => {
+    vi.setSystemTime(new Date(2025, 5, 18, 4, 0, 0)) // past the 3am turnover
+    expect(
+      calculateNextOccurrence('daily', undefined, undefined, undefined, undefined, { turnoverMinutes: 180, spawnMinutes: 360 })
+    ).toBe(at(2025, 5, 19, 6))
+  })
+
+  it('weekly respects the spawn time too', () => {
+    // Wednesday June 18, 2025; routine on Fridays (5); spawn 9:00.
+    vi.setSystemTime(new Date(2025, 5, 18, 12, 0, 0))
+    expect(
+      calculateNextOccurrence('weekly', [5], undefined, undefined, undefined, { spawnMinutes: 540 })
+    ).toBe(at(2025, 5, 20, 9))
+  })
+
+  it('an explicit utcOffset computes the occurrence in that frame', () => {
+    // Frozen at 06:30 UTC = noon IST (+330). Tomorrow IST-midnight = 18:30 UTC today.
+    vi.setSystemTime(new Date(Date.UTC(2025, 5, 18, 6, 30)))
+    expect(
+      calculateNextOccurrence('daily', undefined, undefined, undefined, undefined, { utcOffsetMinutes: 330 })
+    ).toBe(Date.UTC(2025, 5, 18, 18, 30))
+  })
+})
+
+describe('getLogicalDayStart', () => {
+  it('is local midnight by default', () => {
+    vi.setSystemTime(new Date(2025, 5, 18, 12, 0, 0))
+    expect(getLogicalDayStart(Date.now())).toBe(at(2025, 5, 18))
+  })
+
+  it('before the turnover the current day still belongs to yesterday', () => {
+    vi.setSystemTime(new Date(2025, 5, 18, 1, 0, 0))
+    expect(getLogicalDayStart(Date.now(), { turnoverMinutes: 180 })).toBe(at(2025, 5, 17, 3))
+  })
+
+  it('after the turnover the day starts today at the turnover instant', () => {
+    vi.setSystemTime(new Date(2025, 5, 18, 4, 0, 0))
+    expect(getLogicalDayStart(Date.now(), { turnoverMinutes: 180 })).toBe(at(2025, 5, 18, 3))
+  })
+})

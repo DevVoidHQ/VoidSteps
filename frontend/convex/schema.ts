@@ -94,6 +94,56 @@ export default defineSchema({
     .index("by_path", ["pathId"])
     .index("by_routine", ["routineId"]),
 
+  // One tracked work session on a step (timesheets). Rows are minted client-side
+  // when a timer stops (the running timer lives on steps.timerStartedAt) and are
+  // immutable apart from rare user edits and the `deleted` tombstone. Deletion
+  // syncs as a tombstone update - NOT by row absence - because clients pull this
+  // table incrementally by updatedAt cursor, never as a full snapshot.
+  // Timestamps are client-clock ms (same domain as steps.timerStartedAt; see the
+  // clock-skew notes on steps.startTimer/stopTimer). updatedAt is server-stamped
+  // on every write so the pull cursor lives in a single clock domain.
+  timeEntries: defineTable({
+    userId: v.optional(v.string()),
+    stepId: v.id("steps"), // May dangle after the step is deleted - entries are kept.
+    stepTitle: v.string(), // Denormalized so a deleted step's time still renders.
+    start: v.number(),
+    end: v.number(),
+    durationMs: v.number(), // Client-computed (skew-proof), trusted like stopTimer totals.
+    source: v.union(v.literal("timer"), v.literal("manual")),
+    deleted: v.optional(v.boolean()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"])
+    .index("by_step", ["stepId"])
+    .index("by_user_updated", ["userId", "updatedAt"]),
+
+  // Append-only audit log of user interactions with a step (field changes,
+  // completion toggles, ...). Written only by client user-intent mutations;
+  // never updated or deleted by clients. Pulled incrementally by updatedAt
+  // cursor like timeEntries.
+  activityEvents: defineTable({
+    userId: v.optional(v.string()),
+    stepId: v.id("steps"), // May dangle after the step is deleted.
+    type: v.union(
+      v.literal("completed"),
+      v.literal("uncompleted"),
+      v.literal("failed"),
+      v.literal("unfailed"),
+      v.literal("archived"),
+      v.literal("unarchived"),
+      v.literal("field_changed"),
+      v.literal("time_adjusted")
+    ),
+    field: v.optional(v.string()),
+    oldValue: v.optional(v.union(v.string(), v.number(), v.boolean(), v.null())),
+    newValue: v.optional(v.union(v.string(), v.number(), v.boolean(), v.null())),
+    at: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"])
+    .index("by_step", ["stepId"])
+    .index("by_user_updated", ["userId", "updatedAt"]),
+
   // Notebooks - top-level container for notes. 2-level hierarchy: notebooks → notes.
   notebooks: defineTable({
     userId: v.optional(v.string()),
@@ -166,7 +216,19 @@ export default defineSchema({
 
   userSettings: defineTable({
     userId: v.string(),
-    theme: v.object({
+    // Day-boundary config (timesheets/routines). All optional - absence means
+    // the defaults (midnight boundaries, UTC offset 0 server-side).
+    // "End of day": minutes past local midnight when the logical day rolls
+    // over for task semantics (today lists, spawn dedup windows).
+    dayTurnoverMinutes: v.optional(v.number()),
+    // "Start of day": minutes past local midnight when routines spawn.
+    routineSpawnMinutes: v.optional(v.number()),
+    // Client-stamped UTC offset (east positive, IST=330) so the server cron
+    // can do day math in the user's local frame. Refreshed by the client on
+    // app load; may lag one DST transition until then (accepted).
+    utcOffsetMinutes: v.optional(v.number()),
+    // Optional so a day-settings-only row can exist before any theme is saved.
+    theme: v.optional(v.object({
       background: v.string(),
       foreground: v.string(),
       card: v.string(),
@@ -186,7 +248,7 @@ export default defineSchema({
       border: v.string(),
       input: v.string(),
       ring: v.string(),
-    }),
+    })),
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),
 });

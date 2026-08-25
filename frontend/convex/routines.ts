@@ -1,7 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuth } from "./lib/auth";
-import { applyNullableFields, requireOwned } from "./lib/dbHelpers";
+import { applyNullableFields, getUserDayOpts, requireOwned } from "./lib/dbHelpers";
 import { calculateNextOccurrence } from "./lib/recurrence";
 
 export const getRoutines = query({
@@ -43,16 +43,21 @@ export const createRoutine = mutation({
     month: v.optional(v.number()),
     dayOfYear: v.optional(v.number()),
     autoPrioritize: v.optional(v.boolean()),
+    // Client-computed occurrence instant (bakes in the user's local day-start).
+    // The client is authoritative; the server computes in the user's frame
+    // only as a fallback.
+    nextOccurrence: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
     const now = Date.now();
-    const nextOccurrence = calculateNextOccurrence(
+    const nextOccurrence = args.nextOccurrence ?? calculateNextOccurrence(
       args.frequency,
       args.daysOfWeek,
       args.dayOfMonth,
       args.month,
-      args.dayOfYear
+      args.dayOfYear,
+      await getUserDayOpts(ctx, userId)
     );
 
     return await ctx.db.insert("routines", {
@@ -93,6 +98,8 @@ export const updateRoutine = mutation({
     month: v.optional(v.union(v.number(), v.null())),
     dayOfYear: v.optional(v.union(v.number(), v.null())),
     autoPrioritize: v.optional(v.boolean()),
+    // Client-computed occurrence instant - trusted when provided (see createRoutine).
+    nextOccurrence: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
@@ -107,15 +114,17 @@ export const updateRoutine = mutation({
     if (updates.autoPrioritize !== undefined) cleanUpdates.autoPrioritize = updates.autoPrioritize;
     applyNullableFields(cleanUpdates, updates, ["pathId", "daysOfWeek", "dayOfMonth", "month", "dayOfYear"]);
 
-    // Recalculate nextOccurrence if frequency or schedule changed
-    if (updates.frequency || updates.daysOfWeek !== undefined || updates.dayOfMonth !== undefined || updates.month !== undefined || updates.dayOfYear !== undefined) {
+    if (updates.nextOccurrence !== undefined) {
+      cleanUpdates.nextOccurrence = updates.nextOccurrence;
+    } else if (updates.frequency || updates.daysOfWeek !== undefined || updates.dayOfMonth !== undefined || updates.month !== undefined || updates.dayOfYear !== undefined) {
+      // Recalculate in the user's frame if frequency or schedule changed
       const frequency = updates.frequency || existing.frequency;
       const daysOfWeek = updates.daysOfWeek === null ? undefined : (updates.daysOfWeek || existing.daysOfWeek);
       const dayOfMonth = updates.dayOfMonth === null ? undefined : (updates.dayOfMonth || existing.dayOfMonth);
       const month = updates.month === null ? undefined : (updates.month || existing.month);
       const dayOfYear = updates.dayOfYear === null ? undefined : (updates.dayOfYear || existing.dayOfYear);
 
-      cleanUpdates.nextOccurrence = calculateNextOccurrence(frequency, daysOfWeek, dayOfMonth, month, dayOfYear);
+      cleanUpdates.nextOccurrence = calculateNextOccurrence(frequency, daysOfWeek, dayOfMonth, month, dayOfYear, await getUserDayOpts(ctx, userId));
     }
 
     await ctx.db.patch(id, cleanUpdates);

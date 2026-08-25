@@ -86,6 +86,17 @@ export default function GlobalTimerBar() {
     step?.totalTimeSpentMs || 0
   );
 
+  // Surface the running timer in the tab title so a backgrounded PWA tab still
+  // shows it (there's no service-worker notification channel).
+  useEffect(() => {
+    if (!isRunning) return;
+    const base = "VoidSteps";
+    document.title = `▶ ${elapsed} · ${base}`;
+    return () => {
+      document.title = base;
+    };
+  }, [isRunning, elapsed]);
+
   const clear = useCallback(() => {
     setFocusId(null);
     writeFocusId(null);

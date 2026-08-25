@@ -9,8 +9,10 @@ import { startRoutineSpawner } from '@/lib/routine-spawner';
 import { useOnlineStatus } from '@/lib/online-status';
 import { reportError } from '@/lib/error-store';
 import { useCan } from '@/lib/use-plan';
-import { setSyncEnabled } from '@/lib/sync-enabled';
+import { setSyncEnabled, isSyncEnabled } from '@/lib/sync-enabled';
 import { maybeBackup } from '@/lib/backup-engine';
+import { currentUtcOffsetMinutes } from '@/lib/day-settings';
+import { ACTIVITY_RETENTION_DAYS_FREE, ACTIVITY_RETENTION_DAYS_PRO } from '../../convex/lib/entitlements';
 import LoadingScreen from '@/components/LoadingScreen';
 
 interface OfflineContextType {
@@ -32,7 +34,7 @@ async function clearLocalData() {
   // a truly empty local store. errorLog is diagnostic, not content, so left as-is.
   await db.transaction(
     'rw',
-    [db.steps, db.paths, db.routines, db.reminders, db.notebooks, db.notes, db.userSettings, db.syncQueue, db.syncMeta],
+    [db.steps, db.paths, db.routines, db.reminders, db.notebooks, db.notes, db.userSettings, db.timeEntries, db.activityEvents, db.syncQueue, db.syncMeta],
     async () => {
       await db.steps.clear();
       await db.paths.clear();
@@ -41,6 +43,8 @@ async function clearLocalData() {
       await db.notebooks.clear();
       await db.notes.clear();
       await db.userSettings.clear();
+      await db.timeEntries.clear();
+      await db.activityEvents.clear();
       await db.syncQueue.clear();
       await db.syncMeta.clear();
     }
@@ -163,6 +167,54 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       document.removeEventListener('visibilitychange', onHide);
     };
   }, [isInitialSyncing, isSignedIn, isOnline]);
+
+  // Keep the stored UTC offset current (DST transitions, travel) so the server
+  // cron keeps spawning routines in the user's actual local frame. Only when a
+  // settings row already exists - defaults need no row.
+  useEffect(() => {
+    if (isInitialSyncing || !userId) return;
+    (async () => {
+      try {
+        const row = await db.userSettings.filter((s) => s.userId === userId && !s._deleted).first();
+        if (!row) return;
+        const offset = currentUtcOffsetMinutes();
+        if (row.utcOffsetMinutes === offset) return;
+        const now = Date.now();
+        await db.transaction('rw', [db.userSettings, db.syncQueue], async () => {
+          await db.userSettings.update(row._id, { utcOffsetMinutes: offset, updatedAt: now });
+          if (isSyncEnabled()) {
+            await db.syncQueue.add({
+              entityType: 'userSettings', entityId: row._id, operation: 'update',
+              data: { utcOffsetMinutes: offset, updatedAt: now },
+              status: 'pending', retryCount: 0, createdAt: now,
+            });
+          }
+        });
+      } catch (e) {
+        reportError('mutation', e, { phase: 'utcOffsetRefresh' });
+      }
+    })();
+  }, [isInitialSyncing, userId]);
+
+  // Trim the local activity log so the append-only audit table can't grow
+  // unbounded on-device. Time entries (the actual timesheet data) are never
+  // pruned. The pull cursor never re-fetches old rows, so pruned events don't
+  // come back. Server rows are left for the retention window of a future
+  // device; a server-side sweep can follow later.
+  const canHistory = useCan('history');
+  useEffect(() => {
+    if (isInitialSyncing) return;
+    const days = canHistory ? ACTIVITY_RETENTION_DAYS_PRO : ACTIVITY_RETENTION_DAYS_FREE;
+    const timer = setTimeout(() => {
+      const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+      db.activityEvents
+        .where('at')
+        .below(cutoff)
+        .delete()
+        .catch((e) => reportError('mutation', e, { phase: 'activityPrune' }));
+    }, 12_000);
+    return () => clearTimeout(timer);
+  }, [isInitialSyncing, canHistory]);
 
   // Start routine spawner
   useEffect(() => {

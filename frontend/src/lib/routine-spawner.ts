@@ -1,6 +1,7 @@
 import { db } from './db';
 import type { LocalStep } from './db';
-import { calculateNextOccurrence } from './calculate-next-occurrence';
+import { calculateNextOccurrence, getLogicalDayStart } from './calculate-next-occurrence';
+import { getDaySettings, toDayBoundaryOpts } from './day-settings';
 import { isSyncEnabled } from './sync-enabled';
 
 const SPAWN_INTERVAL = 15 * 60 * 1000; // 15 minutes
@@ -29,13 +30,12 @@ async function enqueue(
 
 async function prioritizeDueSteps() {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const startOfToday = today.getTime();
-
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const startOfTomorrow = tomorrow.getTime();
+    // "Due today" = due inside the user's current LOGICAL day (their
+    // configured end-of-day turnover), so at 1am with a 3am turnover
+    // yesterday's due-todays are still yesterday's.
+    const settings = await getDaySettings();
+    const startOfToday = getLogicalDayStart(Date.now(), toDayBoundaryOpts(settings));
+    const startOfTomorrow = startOfToday + 24 * 60 * 60 * 1000;
 
     const stepsToPrioritize = await db.steps
       .filter(s =>
@@ -67,10 +67,11 @@ async function spawnDueRoutines() {
       .filter(r => !r._deleted && r.nextOccurrence <= now)
       .toArray();
 
-    // Start of today for de-duplication check
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const startOfToday = today.getTime();
+    // Dedup window = the user's current logical day (configured turnover
+    // boundary - must match the server cron's window or routines double-spawn).
+    const daySettings = await getDaySettings();
+    const dayOpts = toDayBoundaryOpts(daySettings);
+    const startOfToday = getLogicalDayStart(now, dayOpts);
 
     for (const routine of routines) {
       // De-duplicate: skip if a step with same routineId was already created today.
@@ -110,13 +111,14 @@ async function spawnDueRoutines() {
       await db.steps.add(step);
       await enqueue('steps', stepId, 'create', step as unknown as Record<string, unknown>);
 
-      // Update routine's nextOccurrence
+      // Update routine's nextOccurrence (lands at the configured start-of-day)
       const nextOccurrence = calculateNextOccurrence(
         routine.frequency,
         routine.daysOfWeek,
         routine.dayOfMonth,
         routine.month,
-        routine.dayOfYear
+        routine.dayOfYear,
+        dayOpts
       );
 
       await db.routines.update(routine._id, {

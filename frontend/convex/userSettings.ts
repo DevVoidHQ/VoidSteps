@@ -27,11 +27,13 @@ export const getUserSettings = query({
   },
 });
 
-// Update or create user settings
+// Update or create user settings. Every field is optional and only provided
+// fields are written, so a theme-only push can't clobber day settings and
+// vice-versa.
 export const updateUserSettings = mutation({
   args: {
     userId: v.string(),
-    theme: v.object({
+    theme: v.optional(v.object({
       background: v.string(),
       foreground: v.string(),
       card: v.string(),
@@ -51,11 +53,20 @@ export const updateUserSettings = mutation({
       border: v.string(),
       input: v.string(),
       ring: v.string(),
-    }),
+    })),
+    dayTurnoverMinutes: v.optional(v.number()),
+    routineSpawnMinutes: v.optional(v.number()),
+    utcOffsetMinutes: v.optional(v.number()),
   },
-  handler: async (ctx, { userId, theme }) => {
+  handler: async (ctx, { userId, ...fields }) => {
     const authedUserId = await requireAuth(ctx);
     if (userId !== authedUserId) throw new Error("Unauthorized");
+
+    const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    if (fields.theme !== undefined) patch.theme = fields.theme;
+    if (fields.dayTurnoverMinutes !== undefined) patch.dayTurnoverMinutes = fields.dayTurnoverMinutes;
+    if (fields.routineSpawnMinutes !== undefined) patch.routineSpawnMinutes = fields.routineSpawnMinutes;
+    if (fields.utcOffsetMinutes !== undefined) patch.utcOffsetMinutes = fields.utcOffsetMinutes;
 
     // Check if settings already exist
     const existing = await ctx.db
@@ -64,20 +75,9 @@ export const updateUserSettings = mutation({
       .first();
 
     if (existing) {
-      // Update existing settings
-      await ctx.db.patch(existing._id, {
-        theme,
-        updatedAt: Date.now(),
-      });
+      await ctx.db.patch(existing._id, patch);
       return existing._id;
-    } else {
-      // Create new settings
-      const id = await ctx.db.insert("userSettings", {
-        userId,
-        theme,
-        updatedAt: Date.now(),
-      });
-      return id;
     }
+    return await ctx.db.insert("userSettings", { userId, ...patch } as any);
   },
 });

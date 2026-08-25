@@ -27,6 +27,7 @@ import {
 } from "@/lib/calendar-utils";
 import TodayView from "@/components/calendar/TodayView";
 import MonthView from "@/components/calendar/MonthView";
+import DayLogView from "@/components/calendar/DayLogView";
 import DayDetailPanel from "@/components/calendar/DayDetailPanel";
 import {
   Dialog,
@@ -35,7 +36,7 @@ import {
   DialogTitle,
 } from "@/components/ui/Dialog";
 
-type CalendarView = "today" | "month";
+type CalendarView = "today" | "daylog" | "month";
 
 // Persist the active view + month so leaving and returning to this page restores
 // where you were (the URL params drop when navigating away via the sidebar).
@@ -43,7 +44,7 @@ const VIEW_KEY = "voidsteps-today-view";
 const DATE_KEY = "voidsteps-today-date";
 // Shared with Steps/Today so a chosen path stays consistent across the app.
 const PATH_FILTER_KEY = "voidsteps-path-filter";
-const ALLOWED_VIEWS: CalendarView[] = ["today", "month"];
+const ALLOWED_VIEWS: CalendarView[] = ["today", "daylog", "month"];
 
 function persistedView(): CalendarView | null {
   try {
@@ -70,7 +71,15 @@ export default function Calendar() {
   const currentView: CalendarView =
     (urlView && ALLOWED_VIEWS.includes(urlView) ? urlView : null) || persistedView() || "today";
   const dateParam = searchParams.get("date") || persistedDate();
-  const viewDate = dateParam ? new Date(dateParam) : new Date();
+  // Parse the YYYY-MM-DD param as LOCAL midnight. A bare date-only string is
+  // spec-defined as UTC midnight, which lands on the previous local day in
+  // UTC-negative timezones and breaks day-granularity navigation (Day Log's
+  // "next day" becomes a no-op, "prev" skips a day).
+  const viewDate = dateParam
+    ? /^\d{4}-\d{2}-\d{2}$/.test(dateParam)
+      ? new Date(`${dateParam}T00:00:00`)
+      : new Date(dateParam)
+    : new Date();
   if (isNaN(viewDate.getTime())) viewDate.setTime(Date.now());
 
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -242,11 +251,12 @@ export default function Calendar() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold tracking-tight">
-          {currentView === "today" ? "Today's Focus" : "Calendar"}
+          {currentView === "today" ? "Today's Focus" : currentView === "daylog" ? "Day Log" : "Calendar"}
         </h1>
         <Tabs defaultValue="today" value={currentView} onValueChange={(v) => setView(v as CalendarView)}>
           <TabsList>
             <TabsTrigger value="today">Today</TabsTrigger>
+            <TabsTrigger value="daylog">Day Log</TabsTrigger>
             <TabsTrigger value="month">Month</TabsTrigger>
           </TabsList>
         </Tabs>
@@ -291,6 +301,7 @@ export default function Calendar() {
 
       {/* Views */}
       {currentView === "today" && <TodayView />}
+      {currentView === "daylog" && <DayLogView viewDate={viewDate} onNavigate={setViewDate} />}
       {currentView === "month" && (
         <MonthView
           viewDate={viewDate}

@@ -2,14 +2,16 @@ import { v } from "convex/values";
 import { mutation } from "./_generated/server";
 import { requireAuth, getPlan, isEnforced, requireFeature } from "./lib/auth";
 import { can } from "./lib/entitlements";
-import { getStartOfToday } from "./lib/dbHelpers";
-import { calculateNextOccurrence as nextOccurrence } from "./lib/recurrence";
+import { getUserDayOpts } from "./lib/dbHelpers";
+import { calculateNextOccurrence as nextOccurrence, getLogicalDayStart, type DayBoundaryOpts } from "./lib/recurrence";
 
 // Entity types that require the "notes" feature to create.
 const NOTES_TYPES = new Set(["notebooks", "notes"]);
 
 // Dependency order: a type's references must already exist when it is created.
-const CREATE_ORDER = ["paths", "notebooks", "routines", "steps", "notes", "reminders"] as const;
+// timeEntries/activityEvents reference steps, so they come after; an entry whose
+// step create failed this batch fails v.id validation and is retried later.
+const CREATE_ORDER = ["paths", "notebooks", "routines", "steps", "timeEntries", "activityEvents", "notes", "reminders"] as const;
 // Types whose parentId points at the same table (need parent-before-child ordering).
 const SELF_PARENT = new Set(["paths"]);
 
@@ -32,6 +34,10 @@ export const pushBatch = mutation({
     // engine for Free, but a crafted request must still be refused).
     await requireFeature(ctx, "sync");
     const db: any = ctx.db;
+
+    // The caller's day-boundary config, for spawn dedup windows and any
+    // server-side nextOccurrence fallback computation.
+    const dayOpts: DayBoundaryOpts = await getUserDayOpts(ctx, userId);
 
     // Secondary gate: notebooks/notes also require the "notes" feature. Reported
     // as `rejected` (not inserted) so the client drops the queue entry cleanly.
@@ -84,7 +90,10 @@ export const pushBatch = mutation({
             userId, title: d.title, description: d.description, pathId: resolve(d.pathId),
             frequency: d.frequency, daysOfWeek: d.daysOfWeek, dayOfMonth: d.dayOfMonth,
             month: d.month, dayOfYear: d.dayOfYear, autoPrioritize: d.autoPrioritize,
-            nextOccurrence: nextOccurrence(d.frequency, d.daysOfWeek, d.dayOfMonth, d.month, d.dayOfYear),
+            // The client is authoritative for nextOccurrence (it bakes the
+            // user's local day-start into the absolute timestamp); recompute
+            // in the user's frame only when it wasn't provided.
+            nextOccurrence: d.nextOccurrence ?? nextOccurrence(d.frequency, d.daysOfWeek, d.dayOfMonth, d.month, d.dayOfYear, dayOpts),
             createdAt: now, updatedAt: now,
           });
         case "notes": {
@@ -103,12 +112,13 @@ export const pushBatch = mutation({
           });
         case "steps": {
           const routineId = resolve(d.routineId);
-          // Routine spawn idempotency (mirror createStep)
+          // Routine spawn idempotency (mirror createStep): dedup within the
+          // user's current logical day, not server midnight.
           if (routineId) {
             const existing = await db
               .query("steps")
               .withIndex("by_routine", (q: any) => q.eq("routineId", routineId))
-              .filter((q: any) => q.gte(q.field("createdAt"), getStartOfToday(now)))
+              .filter((q: any) => q.gte(q.field("createdAt"), getLogicalDayStart(now, dayOpts)))
               .first();
             if (existing && existing.userId === userId) return existing._id;
           }
@@ -131,6 +141,21 @@ export const pushBatch = mutation({
             createdAt: d.createdAt ?? now, updatedAt: now,
           });
         }
+        case "timeEntries":
+          return await db.insert("timeEntries", {
+            userId, stepId: resolve(d.stepId), stepTitle: d.stepTitle ?? "",
+            start: d.start, end: d.end,
+            // Trust the client's duration (same clock-domain policy as stopTimer).
+            durationMs: d.durationMs ?? Math.max(0, (d.end ?? 0) - (d.start ?? 0)),
+            source: d.source ?? "timer", deleted: d.deleted || undefined,
+            createdAt: d.createdAt ?? now, updatedAt: now,
+          });
+        case "activityEvents":
+          return await db.insert("activityEvents", {
+            userId, stepId: resolve(d.stepId), type: d.type, field: d.field,
+            oldValue: d.oldValue, newValue: d.newValue,
+            at: d.at ?? now, createdAt: d.at ?? now, updatedAt: now,
+          });
         default:
           throw new Error(`Unknown create type: ${type}`);
       }
@@ -229,13 +254,17 @@ export const pushBatch = mutation({
           if ("month" in d) patch.month = d.month ?? undefined;
           if ("dayOfYear" in d) patch.dayOfYear = d.dayOfYear ?? undefined;
           if (d.autoPrioritize !== undefined) patch.autoPrioritize = d.autoPrioritize;
-          if (d.frequency || "daysOfWeek" in d || "dayOfMonth" in d || "month" in d || "dayOfYear" in d) {
+          if (d.nextOccurrence !== undefined) {
+            // Client-computed (bakes in the user's local day-start) - trust it.
+            patch.nextOccurrence = d.nextOccurrence;
+          } else if (d.frequency || "daysOfWeek" in d || "dayOfMonth" in d || "month" in d || "dayOfYear" in d) {
             patch.nextOccurrence = nextOccurrence(
               patch.frequency ?? existing.frequency,
               patch.daysOfWeek ?? existing.daysOfWeek,
               patch.dayOfMonth ?? existing.dayOfMonth,
               patch.month ?? existing.month,
               patch.dayOfYear ?? existing.dayOfYear,
+              dayOpts,
             );
           }
         } else if (u.type === "notebooks") {
@@ -249,6 +278,12 @@ export const pushBatch = mutation({
           if (d.notebookId !== undefined) patch.notebookId = resolve(d.notebookId);
           if (d.sortOrder !== undefined) patch.sortOrder = d.sortOrder;
           if (d.archived !== undefined) { patch.archived = d.archived; patch.archivedAt = d.archived ? now : undefined; }
+        } else if (u.type === "timeEntries") {
+          // Only user edits (fix a forgotten stop) and the delete tombstone.
+          if (d.start !== undefined) patch.start = d.start;
+          if (d.end !== undefined) patch.end = d.end;
+          if (d.durationMs !== undefined) patch.durationMs = d.durationMs;
+          if (d.deleted !== undefined) patch.deleted = d.deleted || undefined;
         } else {
           continue;
         }

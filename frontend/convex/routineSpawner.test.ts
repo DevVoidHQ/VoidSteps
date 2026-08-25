@@ -175,3 +175,106 @@ describe("routineSpawner", () => {
 
   });
 });
+
+describe("routineSpawner day-boundary settings", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+
+  it("recomputes nextOccurrence at the user's configured spawn time and offset", async () => {
+    const t = convexTest(schema, modules);
+    const now = Date.now();
+    const OFFSET = 330; // IST
+    const SPAWN = 360; // 6:00
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert("userSettings", {
+        userId: "user-123",
+        routineSpawnMinutes: SPAWN,
+        dayTurnoverMinutes: 0,
+        utcOffsetMinutes: OFFSET,
+        updatedAt: now,
+      });
+      await ctx.db.insert("routines", {
+        userId: "user-123",
+        title: "Morning routine",
+        frequency: "daily",
+        nextOccurrence: now - 1000,
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+
+    const result = await t.mutation(internal.routineSpawner.spawnDueSteps, {});
+    expect(result.spawned).toBe(1);
+
+    await t.run(async (ctx) => {
+      const routine = (await ctx.db.query("routines").collect())[0];
+      // The recomputed occurrence must land at 6:00 in the user's frame:
+      // (occurrence + offset) modulo 24h == spawn minutes.
+      const inUserFrame = routine.nextOccurrence + OFFSET * 60_000;
+      expect(((inUserFrame % DAY) + DAY) % DAY).toBe(SPAWN * 60_000);
+      expect(routine.nextOccurrence).toBeGreaterThan(now);
+    });
+  });
+
+  it("dedups within the user's logical day, not server midnight", async () => {
+    const t = convexTest(schema, modules);
+    const now = Date.now();
+    // Give the user a turnover far enough back that a step created 1h ago is
+    // inside the current logical day regardless of when the test runs.
+    await t.run(async (ctx) => {
+      await ctx.db.insert("userSettings", {
+        userId: "user-123",
+        routineSpawnMinutes: 0,
+        dayTurnoverMinutes: 0,
+        utcOffsetMinutes: 0,
+        updatedAt: now,
+      });
+      const routineId = await ctx.db.insert("routines", {
+        userId: "user-123",
+        title: "Daily",
+        frequency: "daily",
+        nextOccurrence: now - 1000,
+        createdAt: now,
+        updatedAt: now,
+      });
+      // A step spawned earlier in the current UTC day
+      await ctx.db.insert("steps", {
+        userId: "user-123",
+        title: "Daily",
+        completed: false,
+        prioritizedToday: false,
+        routineId,
+        createdAt: now - 1,
+        updatedAt: now - 1,
+      });
+    });
+
+    const result = await t.mutation(internal.routineSpawner.spawnDueSteps, {});
+    expect(result.spawned).toBe(0);
+  });
+
+  it("falls back to server-midnight behavior for users without settings", async () => {
+    const t = convexTest(schema, modules);
+    const now = Date.now();
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert("routines", {
+        userId: "user-456",
+        title: "No settings",
+        frequency: "daily",
+        nextOccurrence: now - 1000,
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+
+    const result = await t.mutation(internal.routineSpawner.spawnDueSteps, {});
+    expect(result.spawned).toBe(1);
+
+    await t.run(async (ctx) => {
+      const routine = (await ctx.db.query("routines").collect())[0];
+      // Old behavior preserved: next occurrence at UTC midnight (offset 0).
+      expect(routine.nextOccurrence % DAY).toBe(0);
+    });
+  });
+});

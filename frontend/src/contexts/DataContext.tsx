@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useMemo, useCallback, useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
-import { isUpcoming as isStepUpcomingUtil } from '@/lib/date-utils';
+import { getLogicalDayStart } from '@/lib/calculate-next-occurrence';
 import type { Path, Step, Routine, Reminder } from '@/types';
 import type { LocalUserSettings } from '@/lib/db';
 
@@ -146,12 +146,29 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return localSteps.map(s => enrichStepWithPath(s, pathsMap));
   }, [localSteps, pathsMap]);
 
-  // Start of today for filtering
-  const startOfToday = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return today.getTime();
-  }, []);
+  // Start of "today" for task semantics: the user's configured end-of-day
+  // turnover (default midnight), NOT necessarily calendar midnight - at 1am
+  // with a 3am turnover, "today" is still yesterday. Kept fresh with a
+  // minute tick + visibility kick: the old `useMemo(..., [])` froze the
+  // boundary at mount, so a long-lived tab never rolled over.
+  const turnoverMinutes = userSettings?.dayTurnoverMinutes ?? 0;
+  const [startOfToday, setStartOfToday] = useState(() =>
+    getLogicalDayStart(Date.now(), { turnoverMinutes })
+  );
+  useEffect(() => {
+    const tick = () =>
+      setStartOfToday((prev) => {
+        const current = getLogicalDayStart(Date.now(), { turnoverMinutes });
+        return current !== prev ? current : prev;
+      });
+    tick();
+    const id = setInterval(tick, 60_000);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', tick);
+    };
+  }, [turnoverMinutes]);
 
   // Active steps: not completed, not failed, not archived, startDate <= startOfToday or no startDate
   const activeSteps = useMemo(() => {
@@ -214,10 +231,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return stepWithTimer?._id ?? null;
   }, [allSteps]);
 
-  // isStepUpcoming helper
+  // isStepUpcoming helper - same turnover boundary as activeSteps/upcomingSteps
+  // so a deferred step can't read "upcoming" in one place and "active" in another.
   const isStepUpcoming = useCallback((step: Step) => {
-    return isStepUpcomingUtil(step.startDate);
-  }, []);
+    return !!step.startDate && step.startDate > startOfToday;
+  }, [startOfToday]);
 
   // No-op optimistic update functions (writes are now instant via IndexedDB)
   const applyOptimisticUpdate = useCallback((_id: string, _updates: Partial<Step>) => {}, []);
