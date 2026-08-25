@@ -173,12 +173,35 @@ references, no server-only fields carried over.
 
 ### P2. Tauri shell
 
-- Scaffold `src-tauri/` around the existing Vite build.
-- Window state persistence, sane minimum size, native menu.
-- **Highest risk item: IndexedDB durability.** Dexie is now the only copy of
-  the data. Verify explicitly that WKWebView and WebView2 storage survives app
-  updates and is not subject to eviction, and confirm where on disk it lives on
-  both platforms. P1 snapshots are the mitigation if it is not guaranteed.
+**Shell landed 2026-08-26.** Release binary is 5.8MB, launches clean, window
+state persists, external links go through the OS opener.
+
+**IndexedDB durability, measured rather than assumed (macOS only):**
+
+- Storage lives under
+  `~/Library/WebKit/<key>/WebsiteData/Default/<hash>/.../IndexedDB/`. A bundled
+  `.app` keys that on the bundle identifier; a bare binary keys it on the
+  executable name. So `identifier` is load-bearing: changing it after a release
+  orphans every install.
+- Dexie v10 migrated correctly under WKWebView: `DatabaseVersion 100`, exactly
+  ten object stores, with `syncQueue`, `syncMeta` and `pathways` all absent.
+- Quit and relaunch reuses the same file (inode and birth time unchanged), so
+  the store is not recreated per launch.
+- WebKit keeps IndexedDB in a SQLite WAL and checkpoints on clean shutdown.
+  Crash-safe by design, but any external reader must copy the `-wal` and `-shm`
+  files alongside `IndexedDB.sqlite3` or it sees an empty database.
+
+Identifier changed from `com.voidsteps.app` to `com.devvoid.voidsteps`: Tauri
+warns against one ending in `.app` because it collides with the macOS bundle
+extension, and this was the last moment it could change for free.
+
+**Still open in P2:**
+
+- Row-level persistence is only shown at schema level. Driving the UI headlessly
+  is not possible here, so writing rows, quitting and confirming they return
+  still needs one manual pass.
+- **Windows and WebView2 are entirely unverified.** Everything above is macOS.
+- Automatic rotating snapshots to the app data dir (the other half of P1).
 - Smoke test the heavy render deps under WKWebView rather than Chromium:
   `cytoscape`, `react-force-graph-2d`, and the ~1.4MB BlockNote editor.
 
