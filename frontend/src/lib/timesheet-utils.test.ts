@@ -72,11 +72,6 @@ describe('buildDayIntervals', () => {
     expect(result[1].pathTitle).toBe('Work');
   });
 
-  it('skips tombstoned entries', () => {
-    const result = buildDayIntervals([entry({ _deleted: true })], stepsById, null, DAY, DAY + 13 * H);
-    expect(result).toHaveLength(0);
-  });
-
   it('appends the running session clipped to now', () => {
     const running: StepForTimeline = { _id: 's2', title: 'Task two', timerStartedAt: DAY + 12 * H };
     const result = buildDayIntervals([], stepsById, running, DAY, DAY + 12.5 * H);

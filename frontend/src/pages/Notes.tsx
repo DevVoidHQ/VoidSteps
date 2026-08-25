@@ -69,11 +69,11 @@ function formatDateTitle(d: Date): string {
 
 export default function Notes() {
   const notebooks = useLiveQuery(
-    () => db.notebooks.filter((n) => !n._deleted).toArray(),
+    () => db.notebooks.toArray(),
     []
   );
   const notes = useLiveQuery(
-    () => db.notes.filter((n) => !n._deleted).toArray(),
+    () => db.notes.toArray(),
     []
   );
 

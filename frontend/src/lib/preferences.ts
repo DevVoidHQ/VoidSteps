@@ -8,6 +8,7 @@ export const PRIORITIZE_DEFAULT_KEY = "voidsteps-prioritize-default";
 export const STEP_ACTIONS_KEY = "voidsteps-step-actions";
 export const OPEN_FOCUS_ON_PLAY_KEY = "voidsteps-open-focus-on-play";
 export const SHOW_STEP_DATES_KEY = "voidsteps-show-step-dates";
+export const FONT_SCALE_KEY = "voidsteps-font-scale";
 const PREFS_EVENT = "voidsteps-prefs-changed";
 
 // Per-action placement on a step: "open" = its own inline icon, "compact" =
@@ -286,6 +287,73 @@ export function useDueDatesMode(): DeferDatesMode {
 }
 
 /** Reset every General-tab preference back to its default. */
+// Base type size. Everything is rem-based, so this scales the whole interface
+// rather than only the text, which is what makes it actually readable instead
+// of just larger words in the same small boxes.
+export type FontScale = "small" | "default" | "large" | "larger";
+
+export const FONT_SCALE_PX: Record<FontScale, number> = {
+  small: 14,
+  default: 16,
+  large: 18,
+  larger: 20,
+};
+
+export const FONT_SCALE_LABELS: Record<FontScale, string> = {
+  small: "Small",
+  default: "Default",
+  large: "Large",
+  larger: "Larger",
+};
+
+export const FONT_SCALE_ORDER: FontScale[] = ["small", "default", "large", "larger"];
+
+export function getFontScale(): FontScale {
+  try {
+    const v = localStorage.getItem(FONT_SCALE_KEY);
+    return v && v in FONT_SCALE_PX ? (v as FontScale) : "default";
+  } catch {
+    return "default";
+  }
+}
+
+/** Write the scale to the document. Safe to call before React mounts. */
+export function applyFontScale(scale: FontScale = getFontScale()): void {
+  document.documentElement.style.setProperty("--app-font-size", `${FONT_SCALE_PX[scale]}px`);
+}
+
+export function setFontScale(scale: FontScale): void {
+  try {
+    localStorage.setItem(FONT_SCALE_KEY, scale);
+  } catch {
+    /* ignore */
+  }
+  applyFontScale(scale);
+  window.dispatchEvent(new Event(PREFS_EVENT));
+}
+
+/** Step the text size up or down, clamped at the ends. Returns the new value. */
+export function stepFontScale(delta: number): FontScale {
+  const i = FONT_SCALE_ORDER.indexOf(getFontScale());
+  const next = FONT_SCALE_ORDER[Math.min(FONT_SCALE_ORDER.length - 1, Math.max(0, i + delta))];
+  setFontScale(next);
+  return next;
+}
+
+export function useFontScale(): FontScale {
+  const [value, setValue] = useState(getFontScale);
+  useEffect(() => {
+    const handler = () => setValue(getFontScale());
+    window.addEventListener(PREFS_EVENT, handler);
+    window.addEventListener("storage", handler);
+    return () => {
+      window.removeEventListener(PREFS_EVENT, handler);
+      window.removeEventListener("storage", handler);
+    };
+  }, []);
+  return value;
+}
+
 export function resetGeneralPreferences(): void {
   const keys = [
     PRIORITIZE_DEFAULT_KEY,
@@ -296,11 +364,13 @@ export function resetGeneralPreferences(): void {
     DEFER_DATES_KEY,
     OPEN_FOCUS_ON_PLAY_KEY,
     SHOW_STEP_DATES_KEY,
+    FONT_SCALE_KEY,
   ];
   try {
     for (const k of keys) localStorage.removeItem(k);
   } catch {
     /* ignore */
   }
+  applyFontScale();
   window.dispatchEvent(new Event(PREFS_EVENT));
 }

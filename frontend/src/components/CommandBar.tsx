@@ -13,7 +13,6 @@ import {
   Search,
   Plus,
   PanelLeft,
-  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { getKeybinds, formatKeybindDisplay, type KeybindMap } from "@/lib/keybind-config";
@@ -52,7 +51,6 @@ const NAV: { label: string; path: string; icon: LucideIcon; keybindKey?: keyof K
   { label: "Reminders", path: "/reminders", icon: Bell, keybindKey: "navReminders" },
   { label: "Notes", path: "/notes", icon: BookOpen, keybindKey: "navNotes" },
   { label: "Analytics", path: "/analytics", icon: BarChart3, keybindKey: "navAnalytics", keywords: "stats charts" },
-  { label: "Tutorials", path: "/tutorials", icon: Sparkles, keywords: "onboarding guide void learn" },
   { label: "Settings", path: "/settings", icon: Settings, keybindKey: "navSettings", keywords: "preferences keybinds" },
 ];
 

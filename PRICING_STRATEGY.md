@@ -1,3 +1,8 @@
+> **Archived 2026-08-26.** VoidSteps ships free with no tiers. This whole
+> strategy assumes sync cadence is the paywall, and sync no longer exists.
+> It is kept because the reasoning is still the starting point for whenever
+> paid sync returns. Nothing here describes the current product.
+
 # VoidSteps - Pricing Strategy
 
 _Finalized 2026-06-06. India-first launch. Supersedes all earlier pricing notes._

@@ -1,4 +1,4 @@
-# Convex
 .env.local
-convex/_generated/
 node_modules
+dist
+.migration/

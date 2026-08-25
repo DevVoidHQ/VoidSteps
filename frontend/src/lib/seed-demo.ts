@@ -2,10 +2,7 @@
  * Demo-data seeder for screenshots / marketing.
  *
  * Wipes existing content, then writes a realistic, good-looking dataset into
- * local Dexie. By default rows are `_localOnly` and skip the sync queue (fast,
- * consistent screenshots; survives pulls). Pass `{ sync: true }` to instead
- * enqueue them for batch sync so the demo data also lands on the server.
- * Gate access with `isSeedAdmin`.
+ * local Dexie. Only mounted in dev builds.
  */
 import { db } from "./db";
 import type { LocalStep, LocalPath, LocalRoutine, LocalNotebook, LocalNote, LocalReminder } from "./db";
@@ -14,74 +11,14 @@ import { calculateNextOccurrence } from "./calculate-next-occurrence";
 const DAY = 24 * 60 * 60 * 1000;
 const MIN = 60 * 1000;
 
-/** Who is allowed to see/run the seeder. Set VITE_SEED_ADMIN_EMAILS=a@x.com,b@y.com.
- *  Lives in ./admin-access (dependency-free) and is re-exported here. */
-export { isSeedAdmin } from "./admin-access";
-
 function lid(): string {
   return `local_${crypto.randomUUID()}`;
 }
 
-// When true, seeded rows are enqueued for batch sync to the server; when false
-// they stay local-only (default - fast, consistent screenshots). Set per run.
-let SEED_SYNC = false;
-
-async function enqueueCreate(
-  entityType: "steps" | "paths" | "routines" | "notebooks" | "notes" | "reminders",
-  entityId: string,
-  data: Record<string, unknown>,
-) {
-  if (!SEED_SYNC) return;
-  await db.syncQueue.add({
-    entityType,
-    entityId,
-    operation: "create",
-    data,
-    status: "pending",
-    retryCount: 0,
-    createdAt: Date.now(),
-  });
-}
-
-/**
- * Seeded rows are intentionally NOT pushed to the server. The sync engine's
- * create path doesn't carry completion/time state, so a server round-trip would
- * wipe the backdated history that makes Analytics look good. Instead we keep
- * everything `_localOnly: true` and skip the sync queue - pull explicitly
- * preserves local-only rows, and every page reads from local Dexie.
- *
- * Wipe all content so seeding starts from a clean slate. Clears the pending
- * sync queue, enqueues deletes for already-synced items so the server clears
- * too, then empties the local tables.
- */
+/** Wipe all content so seeding starts from a clean slate. */
 async function clearAllContent(): Promise<void> {
-  const tables = [
-    { name: "steps" as const, table: db.steps },
-    { name: "paths" as const, table: db.paths },
-    { name: "routines" as const, table: db.routines },
-    { name: "reminders" as const, table: db.reminders },
-    { name: "notebooks" as const, table: db.notebooks },
-    { name: "notes" as const, table: db.notes },
-  ];
-
-  // Drop any pending creates/updates so they don't get pushed after we wipe.
-  await db.syncQueue.clear();
-
-  for (const { name, table } of tables) {
-    const items = await table.toArray();
-    for (const item of items) {
-      // Only synced items exist on the server; local-only ones just vanish.
-      if (!item._localOnly) {
-        await db.syncQueue.add({
-          entityType: name,
-          entityId: item._id,
-          operation: "delete",
-          status: "pending",
-          retryCount: 0,
-          createdAt: Date.now(),
-        });
-      }
-    }
+  const tables = [db.steps, db.paths, db.routines, db.reminders, db.notebooks, db.notes];
+  for (const table of tables) {
     await table.clear();
   }
 }
@@ -114,10 +51,8 @@ async function addPath(p: {
     archivedAt: p.archived ? now : undefined,
     createdAt: now,
     updatedAt: now,
-    _localOnly: !SEED_SYNC,
   };
   await db.paths.add(path);
-  await enqueueCreate("paths", id, path as unknown as Record<string, unknown>);
   return id;
 }
 
@@ -141,10 +76,8 @@ async function addReminder(r: {
     day: r.day,
     createdAt: now,
     updatedAt: now,
-    _localOnly: !SEED_SYNC,
   };
   await db.reminders.add(reminder);
-  await enqueueCreate("reminders", id, reminder as unknown as Record<string, unknown>);
   return id;
 }
 
@@ -188,10 +121,8 @@ async function addStep(s: {
     archivedAt: s.archived ? s.archivedAt ?? now : undefined,
     createdAt: now,
     updatedAt: now,
-    _localOnly: !SEED_SYNC,
   };
   await db.steps.add(step);
-  await enqueueCreate("steps", id, step as unknown as Record<string, unknown>);
   return id;
 }
 
@@ -222,10 +153,8 @@ async function addRoutine(r: {
     autoPrioritize: r.autoPrioritize,
     createdAt: now,
     updatedAt: now,
-    _localOnly: !SEED_SYNC,
   };
   await db.routines.add(routine);
-  await enqueueCreate("routines", id, routine as unknown as Record<string, unknown>);
   return id;
 }
 
@@ -239,10 +168,8 @@ async function addNotebook(title: string, description?: string): Promise<string>
     sortOrder: now,
     createdAt: now,
     updatedAt: now,
-    _localOnly: !SEED_SYNC,
   };
   await db.notebooks.add(nb);
-  await enqueueCreate("notebooks", id, nb as unknown as Record<string, unknown>);
   return id;
 }
 
@@ -257,10 +184,8 @@ async function addNote(n: { notebookId: string; title: string; body: string }): 
     sortOrder: now,
     createdAt: now,
     updatedAt: now,
-    _localOnly: !SEED_SYNC,
   };
   await db.notes.add(note);
-  await enqueueCreate("notes", id, note as unknown as Record<string, unknown>);
   return id;
 }
 
@@ -279,12 +204,8 @@ export interface SeedResult {
  * steps in every state (prioritized, due/overdue, deferred, running timer,
  * failed, archived, routine-spawned, and 30 days of completed history).
  *
- * @param opts.sync when true, seeded rows are pushed to the server via batch
- *   sync; otherwise they stay local-only (default - for fast screenshots).
  */
-export async function seedDemoData(opts: { sync?: boolean } = {}): Promise<SeedResult> {
-  SEED_SYNC = opts.sync ?? false;
-
+export async function seedDemoData(): Promise<SeedResult> {
   // Start from a clean slate so screenshots are consistent.
   await clearAllContent();
 
@@ -305,7 +226,7 @@ export async function seedDemoData(opts: { sync?: boolean } = {}): Promise<SeedR
 
   const ship = await addPath({ title: "Ship VoidSteps v1", description: "Public launch with pricing." });
   const shipFrontend = await addPath({ title: "Frontend", description: "UI, polish, PWA.", parentId: ship });
-  const shipBackend = await addPath({ title: "Backend & Sync", description: "Convex, batch sync, auth.", parentId: ship });
+  const shipBackend = await addPath({ title: "Backend", description: "Storage, migrations, packaging.", parentId: ship });
   const shipLaunch = await addPath({ title: "Launch", description: "Pricing, demo, comms.", parentId: ship });
 
   const marathon = await addPath({ title: "Marathon Training", description: "Sub-4:00 in October." });
@@ -324,7 +245,7 @@ export async function seedDemoData(opts: { sync?: boolean } = {}): Promise<SeedR
   await step({ title: "Spanish lesson: past tense", pathId: spanishGrammar, prioritizedToday: true });
 
   // --- A step with a running timer ---------------------------------------
-  await step({ title: "Deep work: refactor sync engine", pathId: shipBackend, prioritizedToday: true, timerStartedAt: Date.now() - 22 * MIN, totalTimeSpentMs: 35 * MIN });
+  await step({ title: "Deep work: refactor the storage layer", pathId: shipBackend, prioritizedToday: true, timerStartedAt: Date.now() - 22 * MIN, totalTimeSpentMs: 35 * MIN });
 
   // --- Active steps (mix of due dates) -----------------------------------
   await step({ title: "Wire Dodo checkout", pathId: shipBackend, dueDate: todayHour(22) + DAY });

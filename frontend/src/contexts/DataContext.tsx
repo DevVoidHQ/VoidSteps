@@ -70,28 +70,28 @@ function enrichRoutineWithPath(routine: any, pathsMap: Map<string, any>): Routin
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Read all non-deleted data from IndexedDB reactively
   const localSteps = useLiveQuery(
-    () => db.steps.filter(s => !s._deleted).toArray(),
+    () => db.steps.toArray(),
     []
   );
 
   const localPaths = useLiveQuery(
-    () => db.paths.filter(p => !p._deleted).toArray(),
+    () => db.paths.toArray(),
     []
   );
 
   const localRoutines = useLiveQuery(
-    () => db.routines.filter(r => !r._deleted).toArray(),
+    () => db.routines.toArray(),
     []
   );
 
   const localReminders = useLiveQuery(
-    () => db.reminders.filter(r => !r._deleted).toArray(),
+    () => db.reminders.toArray(),
     []
   );
 
   // Read user settings (single-user app, take first)
   const userSettings = useLiveQuery(
-    () => db.userSettings.filter(s => !s._deleted).first(),
+    () => db.userSettings.toCollection().first(),
     []
   );
 

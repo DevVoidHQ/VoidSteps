@@ -70,7 +70,6 @@ export function buildDayIntervals(
   const intervals: DayInterval[] = [];
 
   for (const entry of entries) {
-    if (entry._deleted) continue;
     const clipped = clipToDay(entry.start, entry.end, dayStart);
     if (!clipped) continue;
     const step = stepsById.get(entry.stepId);
@@ -194,13 +193,11 @@ export function buildActivityFeed(
 
   let entriesMs = 0;
   for (const entry of entries) {
-    if (entry._deleted) continue;
     entriesMs += entry.durationMs;
     items.push({ kind: 'entry', at: entry.start, entry });
   }
 
   for (const event of events) {
-    if (event._deleted) continue;
     items.push({ kind: 'event', at: event.at, event });
   }
 
@@ -213,7 +210,7 @@ export function buildActivityFeed(
 
   // Steps completed before event tracking shipped have completedAt but no
   // stored event - surface the state change anyway.
-  const hasCompletedEvent = events.some((e) => e.type === 'completed' && !e._deleted);
+  const hasCompletedEvent = events.some((e) => e.type === 'completed');
   if (step.completed && step.completedAt && !hasCompletedEvent) {
     items.push({
       kind: 'event',
