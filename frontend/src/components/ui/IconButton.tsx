@@ -7,7 +7,7 @@ export interface IconButtonProps
   extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "children">,
     Omit<VariantProps<typeof buttonVariants>, "size"> {
   icon: React.ReactNode;
-  size?: "icon-sm" | "icon" | "icon-lg";
+  size?: "icon-sm" | "icon";
   "aria-label": string;
   loading?: boolean;
 }

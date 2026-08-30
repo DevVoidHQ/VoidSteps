@@ -1,8 +1,5 @@
-import { useClerk, useUser } from '@clerk/clerk-react';
 import { motion } from 'framer-motion';
-import { LogOut, Settings, Calendar, ListTodo, Target, Zap, Bell, BookOpen, BarChart3, X, ChevronsLeft, ChevronsRight, Search, Sparkles, Lock } from 'lucide-react';
-import { usePlan } from '@/lib/use-plan';
-import { can, type Feature } from '../../convex/lib/entitlements';
+import { Settings, Calendar, ListTodo, Target, Zap, Bell, BookOpen, BarChart3, X, ChevronsLeft, ChevronsRight, Search, Lock } from 'lucide-react';
 import { getKeybinds, formatKeybindDisplay, type KeybindMap } from '@/lib/keybind-config';
 import type { LucideIcon } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -37,7 +34,7 @@ function SidebarItem({ icon: Icon, label, isCollapsed, active, showActiveIndicat
   const hideLabel = isCollapsed || iconOnly;
   const baseClass = `relative w-full flex items-center ${
     hideLabel ? 'justify-center px-2 py-3' : 'gap-3 px-4 py-3 text-left'
-  } rounded-lg transition-colors ${
+  } rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
     active
       ? 'text-primary-foreground font-medium'
       : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -55,11 +52,11 @@ function SidebarItem({ icon: Icon, label, isCollapsed, active, showActiveIndicat
       <Icon className="relative z-10 w-5 h-5 shrink-0" />
       {/* Collapsed: dot on the icon corner. Expanded: dot is rendered inline after the label. */}
       {dot && hideLabel && (
-        <span className="absolute top-1.5 right-1.5 z-10 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-card" title="Reminder today" />
+        <span className="absolute top-1.5 right-1.5 z-10 h-2 w-2 rounded-full bg-warning ring-2 ring-card" title="Reminder today" />
       )}
       {!hideLabel && <span className="relative z-10 flex-1">{label}</span>}
       {!hideLabel && dot && (
-        <span className="relative z-10 h-2 w-2 rounded-full bg-amber-500 shrink-0" title="Reminder today" />
+        <span className="relative z-10 h-2 w-2 rounded-full bg-warning shrink-0" title="Reminder today" />
       )}
       {locked && hideLabel && (
         <span className="absolute top-1.5 right-1.5 z-10 rounded-full bg-card p-0.5" title="Pro feature">
@@ -107,8 +104,6 @@ function SidebarItem({ icon: Icon, label, isCollapsed, active, showActiveIndicat
 }
 
 export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, onOpenCommandBar }: SidebarProps) {
-  const { signOut } = useClerk();
-  const { user } = useUser();
   const navigate = useNavigate();
   const location = useLocation();
   const { reminders } = useData();
@@ -129,18 +124,15 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
   }, [isOpen]);
 
   const keybinds = getKeybinds();
-  const plan = usePlan();
 
-  const navItems: { path: string; label: string; icon: LucideIcon; keybindKey?: keyof KeybindMap; feature?: Feature }[] = [
+  const navItems: { path: string; label: string; icon: LucideIcon; keybindKey?: keyof KeybindMap }[] = [
     { path: '/', label: 'Today', icon: Calendar, keybindKey: 'navToday' },
     { path: '/steps', label: 'Steps', icon: ListTodo, keybindKey: 'navSteps' },
     { path: '/paths', label: 'Paths', icon: Target, keybindKey: 'navPaths' },
     { path: '/routines', label: 'Routines', icon: Zap, keybindKey: 'navRoutines' },
     { path: '/reminders', label: 'Reminders', icon: Bell, keybindKey: 'navReminders' },
-    { path: '/notes', label: 'Notes', icon: BookOpen, keybindKey: 'navNotes', feature: 'notes' },
-    { path: '/analytics', label: 'Analytics', icon: BarChart3, keybindKey: 'navAnalytics', feature: 'analytics' },
-    // Tutorials is the single hub for Void's guided tours; sits just above Settings.
-    { path: '/tutorials', label: 'Tutorials', icon: Sparkles },
+    { path: '/notes', label: 'Notes', icon: BookOpen, keybindKey: 'navNotes' },
+    { path: '/analytics', label: 'Analytics', icon: BarChart3, keybindKey: 'navAnalytics' },
     { path: '/settings', label: 'Settings', icon: Settings, keybindKey: 'navSettings' },
   ];
 
@@ -174,7 +166,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
           ${isCollapsed ? 'w-64 md:w-16' : 'w-64'} h-screen bg-card border-r border-border flex flex-col overflow-hidden
           shadow-2xl md:shadow-none
           z-50
-          transition-all duration-300 ease-in-out
+          transition-all duration-200 ease-in-out
           ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}
         style={{ opacity: 1 }}
@@ -191,13 +183,12 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
             <>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex-1">
-                  <p className="text-sm text-muted-foreground">Welcome, {user?.firstName || 'User'}</p>
-                  <h2 className="text-2xl font-bold mt-1">Today</h2>
+                  <h2 className="text-2xl font-bold">Today</h2>
                 </div>
                 {/* Close button for mobile */}
                 <button
                   onClick={onClose}
-                  className="md:hidden p-2 hover:bg-muted rounded-lg"
+                  className="md:hidden p-2 hover:bg-muted rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -220,8 +211,8 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
             title="Search & commands"
             className={
               isCollapsed
-                ? 'w-full flex items-center justify-center rounded-lg py-3 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors'
-                : 'w-full flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors'
+                ? 'w-full flex items-center justify-center rounded-lg py-3 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background'
+                : 'w-full flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background'
             }
           >
             <Search className="w-4 h-4 shrink-0" />
@@ -239,7 +230,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
         {/* Navigation */}
         <nav className={`flex-1 min-h-0 overflow-y-auto scrollbar-hide ${isCollapsed ? 'p-2' : 'p-4'} space-y-1`}>
           {navItems.map((item) => (
-            <div key={item.path} data-tour={`nav-${item.path === '/' ? 'today' : item.path.slice(1)}`}>
+            <div key={item.path}>
               <SidebarItem
                 icon={item.icon}
                 label={item.label}
@@ -248,7 +239,6 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
                 showActiveIndicator
                 shortcut={item.keybindKey && keybinds[item.keybindKey] ? formatKeybindDisplay(keybinds[item.keybindKey]) : undefined}
                 dot={item.path === '/reminders' && hasTodayReminder}
-                locked={item.feature ? !can(plan, item.feature) : false}
                 onClick={() => handleNavigate(item.path)}
               />
             </div>
@@ -264,12 +254,6 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
             shortcut={!isCollapsed ? formatKeybindDisplay(keybinds.toggleSidebar) : undefined}
             onClick={onToggleCollapse}
             className="hidden md:flex"
-          />
-          <SidebarItem
-            icon={LogOut}
-            label="Logout"
-            isCollapsed={isCollapsed}
-            onClick={() => signOut({ redirectUrl: '/' })}
           />
         </div>
       </div>

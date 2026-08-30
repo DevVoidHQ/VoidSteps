@@ -1,16 +1,16 @@
 import type { CalendarDay } from "@/hooks/useCalendarEvents";
 import { getMonthGrid, getStartOfDay } from "@/lib/calendar-utils";
+import { DAY_LABELS as DAY_NAMES } from "@/lib/date-utils";
 
-const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const EVENT_COLORS: Record<string, string> = {
   due: "bg-primary",
   "due-overdue": "bg-destructive",
-  start: "bg-blue-500",
-  completed: "bg-green-500",
+  start: "bg-info",
+  completed: "bg-success",
   failed: "bg-destructive",
-  routine: "bg-violet-500",
-  reminder: "bg-amber-500",
+  routine: "bg-routine",
+  reminder: "bg-warning",
 };
 
 interface MonthViewProps {

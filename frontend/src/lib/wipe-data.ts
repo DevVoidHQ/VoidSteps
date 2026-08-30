@@ -1,18 +1,15 @@
 /**
  * Data wipe utilities for the Settings → Data (danger zone) tab.
  *
- * Every wipe is destructive and propagates to the server: for each removed row
- * that already exists on the server we enqueue a `delete` op and drop any
- * pending create/update for it, then hard-remove the local row. The next sync
- * pushes the deletes so the data is gone on every device. There is no recovery.
+ * Every wipe is destructive and local: rows are hard-removed from Dexie. There
+ * is no recovery beyond a snapshot restore.
  *
  * Cascade rules (only meaningful for "delete all of a type"):
  *  - Notebooks ALWAYS take their notes with them (a note can't exist without a
  *    notebook, so there's no valid orphan state). Forced, not optional.
  *  - Paths optionally take their steps (cascade=true). With cascade off, paths
  *    are removed and any step keeps its now-dangling pathId, which the UI
- *    tolerates (renders as unfiled). This matches how the server leaves steps
- *    untouched when a path is deleted.
+ *    tolerates (renders as unfiled).
  */
 import { db } from "./db";
 
@@ -44,8 +41,8 @@ export const WIPE_ENTITY_LABELS: Record<WipeEntity, string> = {
 };
 
 // Dexie tables are differently-typed per entity; index loosely and treat rows
-// as a common shape with the local metadata fields we care about.
-type Row = { _id: string; _deleted?: boolean; _localOnly?: boolean; pathId?: string };
+// as a common shape with the fields we care about.
+type Row = { _id: string; pathId?: string };
 
 function tableFor(name: WipeEntity) {
   return db[name] as unknown as {
@@ -54,12 +51,12 @@ function tableFor(name: WipeEntity) {
   };
 }
 
-/** Live (not soft-deleted) counts per entity, for the confirm modal. */
+/** Row counts per entity, for the confirm modal. */
 export async function getDataCounts(): Promise<Record<WipeEntity, number>> {
   const entries = await Promise.all(
     WIPE_ENTITIES.map(async (name) => {
       const rows = await tableFor(name).toArray();
-      return [name, rows.filter((r) => !r._deleted).length] as const;
+      return [name, rows.length] as const;
     })
   );
   return Object.fromEntries(entries) as Record<WipeEntity, number>;
@@ -69,34 +66,26 @@ export async function getDataCounts(): Promise<Record<WipeEntity, number>> {
 export async function getPathCascadeImpact(): Promise<{ steps: number }> {
   const steps = await tableFor("steps").toArray();
   return {
-    steps: steps.filter((s) => !s._deleted && s.pathId != null).length,
+    steps: steps.filter((s) => s.pathId != null).length,
   };
 }
 
-/**
- * Delete every row of `name` matching `predicate`. Enqueues server deletes for
- * already-synced rows, purges any pending queue ops for removed rows, then
- * hard-removes them locally. Returns the number removed.
- */
-async function deleteMatching(name: WipeEntity, predicate: (r: Row) => boolean = () => true): Promise<number> {
-  const rows = (await tableFor(name).toArray()).filter((r) => !r._deleted && predicate(r));
-  for (const row of rows) {
-    // Drop any pending create/update so a half-synced row isn't recreated.
-    await db.syncQueue.where("entityId").equals(row._id).delete();
-    // Only rows that exist on the server need an explicit delete pushed.
-    if (!row._localOnly) {
-      await db.syncQueue.add({
-        entityType: name,
-        entityId: row._id,
-        operation: "delete",
-        status: "pending",
-        retryCount: 0,
-        createdAt: Date.now(),
-      });
-    }
-  }
+/** Delete every row of `name` matching `predicate`. Returns the ids removed. */
+async function deleteMatching(name: WipeEntity, predicate: (r: Row) => boolean = () => true): Promise<string[]> {
+  const rows = (await tableFor(name).toArray()).filter(predicate);
   await tableFor(name).bulkDelete(rows.map((r) => r._id));
-  return rows.length;
+  return rows.map((r) => r._id);
+}
+
+/** Forced cascade: wiped steps take their time entries and activity events. */
+async function cleanupStepChildren(stepIds: Set<string>): Promise<void> {
+  if (stepIds.size === 0) return;
+
+  const entries = (await db.timeEntries.toArray()).filter((e) => stepIds.has(e.stepId));
+  await db.timeEntries.bulkDelete(entries.map((e) => e._id));
+
+  const events = (await db.activityEvents.toArray()).filter((ev) => stepIds.has(ev.stepId));
+  await db.activityEvents.bulkDelete(events.map((ev) => ev._id));
 }
 
 /**
@@ -110,20 +99,24 @@ export async function wipeData(names: WipeEntity[], opts: { cascade?: boolean } 
 
   await db.transaction(
     "rw",
-    [db.steps, db.paths, db.routines, db.reminders, db.notebooks, db.notes, db.syncQueue],
+    [db.steps, db.paths, db.routines, db.reminders, db.notebooks, db.notes, db.timeEntries, db.activityEvents],
     async () => {
+      const removedStepIds = new Set<string>();
       // Forced: notebooks take all their notes.
       if (set.has("notebooks")) {
         await deleteMatching("notes");
       }
       // Optional: paths take the steps that reference a path.
       if (set.has("paths") && cascade) {
-        await deleteMatching("steps", (s) => s.pathId != null);
+        for (const id of await deleteMatching("steps", (s) => s.pathId != null)) removedStepIds.add(id);
       }
       // Primary per-type deletes.
       for (const name of set) {
-        await deleteMatching(name);
+        const ids = await deleteMatching(name);
+        if (name === "steps") for (const id of ids) removedStepIds.add(id);
       }
+      // Forced: wiped steps take their timesheet entries + activity log.
+      await cleanupStepChildren(removedStepIds);
     }
   );
 }

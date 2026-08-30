@@ -1,6 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie';
 
-// --- Entity types mirroring Convex schema + local metadata ---
+// --- Entity types ---
 
 export interface LocalStep {
   _id: string;
@@ -22,9 +22,6 @@ export interface LocalStep {
   archivedAt?: number;
   createdAt: number;
   updatedAt: number;
-  // Local metadata
-  _localOnly?: boolean;
-  _deleted?: boolean;
 }
 
 export interface LocalPath {
@@ -36,8 +33,6 @@ export interface LocalPath {
   archivedAt?: number;
   createdAt: number;
   updatedAt: number;
-  _localOnly?: boolean;
-  _deleted?: boolean;
 }
 
 export interface LocalRoutine {
@@ -54,8 +49,6 @@ export interface LocalRoutine {
   autoPrioritize?: boolean;
   createdAt: number;
   updatedAt: number;
-  _localOnly?: boolean;
-  _deleted?: boolean;
 }
 
 export interface LocalReminder {
@@ -68,8 +61,6 @@ export interface LocalReminder {
   day?: number; // yearly + monthly: 1-31
   createdAt: number;
   updatedAt: number;
-  _localOnly?: boolean;
-  _deleted?: boolean;
 }
 
 export interface LocalNotebook {
@@ -81,8 +72,6 @@ export interface LocalNotebook {
   archivedAt?: number;
   createdAt: number;
   updatedAt: number;
-  _localOnly?: boolean;
-  _deleted?: boolean;
 }
 
 export interface LocalNote {
@@ -95,29 +84,71 @@ export interface LocalNote {
   archivedAt?: number;
   createdAt: number;
   updatedAt: number;
-  _localOnly?: boolean;
-  _deleted?: boolean;
 }
 
 export interface LocalUserSettings {
   _id: string;
-  userId: string;
-  theme: Record<string, string>;
+  // Optional so a day-settings-only row can exist before any theme is saved.
+  theme?: Record<string, string>;
+  // Day-boundary config - see recurrence.ts DayBoundaryOpts.
+  // "End of day": minutes past midnight when the logical day rolls over.
+  dayTurnoverMinutes?: number;
+  // "Start of day": minutes past midnight when routines spawn.
+  routineSpawnMinutes?: number;
+  // Client-stamped UTC offset for the server cron's day math.
+  utcOffsetMinutes?: number;
   updatedAt: number;
-  _localOnly?: boolean;
-  _deleted?: boolean;
 }
 
-export interface SyncQueueEntry {
-  id?: number; // auto-increment
-  entityType: 'steps' | 'paths' | 'routines' | 'reminders' | 'userSettings' | 'notebooks' | 'notes';
-  entityId: string;
-  operation: 'create' | 'update' | 'delete';
-  data?: Record<string, unknown>;
-  status: 'pending' | 'in-progress' | 'failed';
-  retryCount: number;
-  lastError?: string;
+// One tracked work session on a step. Immutable by convention: minted only when
+// the timer STOPS (a running timer lives on steps.timerStartedAt, never here).
+// The only mutations are rare user edits, such as fixing a forgotten stop.
+export interface LocalTimeEntry {
+  _id: string;
+  stepId: string;
+  // Denormalized so the Day Log can still render entries whose step was deleted.
+  stepTitle: string;
+  start: number; // ms epoch, client clock (same domain as timerStartedAt)
+  end: number; // never null - the row exists only after stop
+  durationMs: number; // max(0, end - start), client-computed (skew-proof)
+  source: 'timer' | 'manual';
   createdAt: number;
+  updatedAt: number;
+}
+
+export type ActivityEventType =
+  | 'completed'
+  | 'uncompleted'
+  | 'failed'
+  | 'unfailed'
+  | 'archived'
+  | 'unarchived'
+  | 'field_changed'
+  | 'time_adjusted';
+
+export type ActivityField =
+  | 'title'
+  | 'description'
+  | 'dueDate'
+  | 'startDate'
+  | 'pathId'
+  | 'prioritizedToday';
+
+// Append-only audit log of user interactions with a step (date changed,
+// priority toggled, completed, ...). Written ONLY from user-intent mutations in
+// local-mutations.ts - never from sync/merge/restore paths, or every pull would
+// re-log remote changes as fresh events on every device. "created" is not
+// stored: the activity view synthesizes it from step.createdAt.
+export interface LocalActivityEvent {
+  _id: string;
+  stepId: string;
+  type: ActivityEventType;
+  field?: ActivityField; // only for field_changed
+  oldValue?: string | number | boolean | null;
+  newValue?: string | number | boolean | null;
+  at: number;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface ErrorLogEntry {
@@ -127,12 +158,6 @@ export interface ErrorLogEntry {
   stack?: string;
   context?: Record<string, unknown>;
   timestamp: number;
-  reported: boolean;
-}
-
-export interface SyncMeta {
-  key: string;
-  value: string | number;
 }
 
 // --- Database class ---
@@ -145,8 +170,8 @@ class VoidStepsDB extends Dexie {
   notebooks!: EntityTable<LocalNotebook, '_id'>;
   notes!: EntityTable<LocalNote, '_id'>;
   userSettings!: EntityTable<LocalUserSettings, '_id'>;
-  syncQueue!: EntityTable<SyncQueueEntry, 'id'>;
-  syncMeta!: EntityTable<SyncMeta, 'key'>;
+  timeEntries!: EntityTable<LocalTimeEntry, '_id'>;
+  activityEvents!: EntityTable<LocalActivityEvent, '_id'>;
   errorLog!: EntityTable<ErrorLogEntry, 'id'>;
 
   constructor() {
@@ -231,6 +256,43 @@ class VoidStepsDB extends Dexie {
     this.version(8).stores({
       notes: '_id, notebookId, updatedAt',
     });
+
+    // v9: timesheets - per-session time entries + append-only activity log.
+    this.version(9).stores({
+      timeEntries: '_id, stepId, start, updatedAt',
+      activityEvents: '_id, stepId, at, updatedAt',
+    });
+
+    // v10: sync removed. Drop the queue and cursor tables, collapse soft
+    // deletes to hard deletes (`_deleted` only ever existed so a tombstone
+    // could be pushed to the server, and rows carrying it are already invisible
+    // in the UI), and drop `userSettings.userId` now that there is exactly one
+    // local user.
+    this.version(10)
+      .stores({
+        syncQueue: null,
+        syncMeta: null,
+        userSettings: '_id',
+        errorLog: '++id, category, timestamp',
+      })
+      .upgrade(async (tx) => {
+        const tables = [
+          'steps', 'paths', 'routines', 'reminders',
+          'notebooks', 'notes', 'userSettings', 'timeEntries', 'activityEvents',
+        ];
+        for (const name of tables) {
+          const table = tx.table(name);
+          const rows = await table.toArray();
+          const doomed = rows.filter((r) => r._deleted).map((r) => r._id);
+          if (doomed.length) await table.bulkDelete(doomed);
+          const survivors = rows.filter((r) => !r._deleted);
+          if (survivors.length) {
+            await table.bulkPut(
+              survivors.map(({ _localOnly, _deleted, userId, ...rest }) => rest)
+            );
+          }
+        }
+      });
   }
 }
 

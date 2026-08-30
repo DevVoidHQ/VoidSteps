@@ -86,6 +86,17 @@ export default function GlobalTimerBar() {
     step?.totalTimeSpentMs || 0
   );
 
+  // Surface the running timer in the tab title so a backgrounded PWA tab still
+  // shows it (there's no service-worker notification channel).
+  useEffect(() => {
+    if (!isRunning) return;
+    const base = "VoidSteps";
+    document.title = `▶ ${elapsed} · ${base}`;
+    return () => {
+      document.title = base;
+    };
+  }, [isRunning, elapsed]);
+
   const clear = useCallback(() => {
     setFocusId(null);
     writeFocusId(null);
@@ -142,8 +153,8 @@ export default function GlobalTimerBar() {
   const controls = (size: "sm" | "lg") => {
     const btnClass =
       size === "lg"
-        ? "flex items-center gap-2 rounded-lg px-5 py-2.5 text-base font-medium transition-colors"
-        : "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors";
+        ? "flex items-center gap-2 rounded-lg px-5 py-2.5 text-base font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        : "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
     const iconSize = size === "lg" ? "w-5 h-5" : "w-4 h-4";
     return (
       <div className={size === "lg" ? "flex items-center gap-3" : "flex items-center gap-1"}>

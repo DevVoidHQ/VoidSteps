@@ -1,7 +1,7 @@
 // Analytics utility functions
 
 /** Default duration for steps without tracked time (15 minutes) */
-export const DEFAULT_STEP_DURATION_MS = 15 * 60 * 1000;
+const DEFAULT_STEP_DURATION_MS = 15 * 60 * 1000;
 
 /**
  * Returns actual time spent if tracked, otherwise the 15-min default.

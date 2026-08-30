@@ -2,17 +2,18 @@ import { useEffect, useState } from "react";
 
 // Local UI preferences (per-device). Reactive via a window event so a change in
 // Settings updates open dialogs/cards without a reload.
-export const DEFER_DATES_KEY = "voidsteps-defer-dates";
-export const DUE_DATES_KEY = "voidsteps-due-dates";
-export const PRIORITIZE_DEFAULT_KEY = "voidsteps-prioritize-default";
-export const STEP_ACTIONS_KEY = "voidsteps-step-actions";
-export const OPEN_FOCUS_ON_PLAY_KEY = "voidsteps-open-focus-on-play";
-export const SHOW_STEP_DATES_KEY = "voidsteps-show-step-dates";
+const DEFER_DATES_KEY = "voidsteps-defer-dates";
+const DUE_DATES_KEY = "voidsteps-due-dates";
+const PRIORITIZE_DEFAULT_KEY = "voidsteps-prioritize-default";
+const STEP_ACTIONS_KEY = "voidsteps-step-actions";
+const OPEN_FOCUS_ON_PLAY_KEY = "voidsteps-open-focus-on-play";
+const SHOW_STEP_DATES_KEY = "voidsteps-show-step-dates";
+const FONT_SCALE_KEY = "voidsteps-font-scale";
 const PREFS_EVENT = "voidsteps-prefs-changed";
 
 // Per-action placement on a step: "open" = its own inline icon, "compact" =
 // tucked into the step's "more" menu.
-export type StepActionKey = "failed" | "timer" | "priority" | "time" | "edit" | "delete";
+export type StepActionKey = "failed" | "timer" | "priority" | "time" | "open" | "edit" | "delete";
 export type StepActionMode = "open" | "compact";
 export type StepActionsConfig = Record<StepActionKey, StepActionMode>;
 
@@ -21,16 +22,18 @@ export const STEP_ACTION_LABELS: Record<StepActionKey, string> = {
   timer: "Timer",
   priority: "Prioritize",
   time: "Edit time",
+  open: "Activity",
   edit: "Edit",
   delete: "Delete",
 };
-export const STEP_ACTION_ORDER: StepActionKey[] = ["timer", "priority", "failed", "time", "edit", "delete"];
+export const STEP_ACTION_ORDER: StepActionKey[] = ["timer", "priority", "failed", "time", "open", "edit", "delete"];
 
 const DEFAULT_STEP_ACTIONS: StepActionsConfig = {
   failed: "open",
   timer: "open",
   priority: "open",
   time: "compact",
+  open: "compact",
   edit: "compact",
   delete: "compact",
 };
@@ -71,14 +74,14 @@ export function useStepActions(): StepActionsConfig {
 
 // What clicking a step row does, configurable per page. Steps page defaults to
 // toggling priority; Today defaults to starting/stopping the timer.
-export type StepClickAction = "prioritize" | "play" | "complete" | "none";
-export const STEPS_CLICK_ACTION_KEY = "voidsteps-steps-click-action";
-export const TODAY_CLICK_ACTION_KEY = "voidsteps-today-click-action";
+export type StepClickAction = "prioritize" | "play" | "complete" | "open" | "none";
+const STEPS_CLICK_ACTION_KEY = "voidsteps-steps-click-action";
+const TODAY_CLICK_ACTION_KEY = "voidsteps-today-click-action";
 
 function readClickAction(key: string, fallback: StepClickAction): StepClickAction {
   try {
     const v = localStorage.getItem(key);
-    if (v === "prioritize" || v === "play" || v === "complete" || v === "none") return v;
+    if (v === "prioritize" || v === "play" || v === "complete" || v === "open" || v === "none") return v;
     return fallback;
   } catch {
     return fallback;
@@ -284,6 +287,73 @@ export function useDueDatesMode(): DeferDatesMode {
 }
 
 /** Reset every General-tab preference back to its default. */
+// Base type size. Everything is rem-based, so this scales the whole interface
+// rather than only the text, which is what makes it actually readable instead
+// of just larger words in the same small boxes.
+export type FontScale = "small" | "default" | "large" | "larger";
+
+export const FONT_SCALE_PX: Record<FontScale, number> = {
+  small: 14,
+  default: 16,
+  large: 18,
+  larger: 20,
+};
+
+export const FONT_SCALE_LABELS: Record<FontScale, string> = {
+  small: "Small",
+  default: "Default",
+  large: "Large",
+  larger: "Larger",
+};
+
+export const FONT_SCALE_ORDER: FontScale[] = ["small", "default", "large", "larger"];
+
+export function getFontScale(): FontScale {
+  try {
+    const v = localStorage.getItem(FONT_SCALE_KEY);
+    return v && v in FONT_SCALE_PX ? (v as FontScale) : "default";
+  } catch {
+    return "default";
+  }
+}
+
+/** Write the scale to the document. Safe to call before React mounts. */
+export function applyFontScale(scale: FontScale = getFontScale()): void {
+  document.documentElement.style.setProperty("--app-font-size", `${FONT_SCALE_PX[scale]}px`);
+}
+
+export function setFontScale(scale: FontScale): void {
+  try {
+    localStorage.setItem(FONT_SCALE_KEY, scale);
+  } catch {
+    /* ignore */
+  }
+  applyFontScale(scale);
+  window.dispatchEvent(new Event(PREFS_EVENT));
+}
+
+/** Step the text size up or down, clamped at the ends. Returns the new value. */
+export function stepFontScale(delta: number): FontScale {
+  const i = FONT_SCALE_ORDER.indexOf(getFontScale());
+  const next = FONT_SCALE_ORDER[Math.min(FONT_SCALE_ORDER.length - 1, Math.max(0, i + delta))];
+  setFontScale(next);
+  return next;
+}
+
+export function useFontScale(): FontScale {
+  const [value, setValue] = useState(getFontScale);
+  useEffect(() => {
+    const handler = () => setValue(getFontScale());
+    window.addEventListener(PREFS_EVENT, handler);
+    window.addEventListener("storage", handler);
+    return () => {
+      window.removeEventListener(PREFS_EVENT, handler);
+      window.removeEventListener("storage", handler);
+    };
+  }, []);
+  return value;
+}
+
 export function resetGeneralPreferences(): void {
   const keys = [
     PRIORITIZE_DEFAULT_KEY,
@@ -294,11 +364,13 @@ export function resetGeneralPreferences(): void {
     DEFER_DATES_KEY,
     OPEN_FOCUS_ON_PLAY_KEY,
     SHOW_STEP_DATES_KEY,
+    FONT_SCALE_KEY,
   ];
   try {
     for (const k of keys) localStorage.removeItem(k);
   } catch {
     /* ignore */
   }
+  applyFontScale();
   window.dispatchEvent(new Event(PREFS_EVENT));
 }

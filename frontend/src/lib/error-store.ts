@@ -1,8 +1,7 @@
 import { db } from './db';
 import type { ErrorLogEntry } from './db';
-import { captureError } from './sentry';
 
-export async function logError(
+export async function reportError(
   category: ErrorLogEntry['category'],
   error: unknown,
   context?: Record<string, unknown>
@@ -13,7 +12,6 @@ export async function logError(
     stack: error instanceof Error ? error.stack : undefined,
     context,
     timestamp: Date.now(),
-    reported: false,
   };
   await db.errorLog.add(entry);
   // Auto-prune: keep last 200 entries
@@ -22,13 +20,4 @@ export async function logError(
     const oldest = await db.errorLog.orderBy('timestamp').limit(count - 200).toArray();
     await db.errorLog.bulkDelete(oldest.map(e => e.id!));
   }
-}
-
-export async function reportError(
-  category: ErrorLogEntry['category'],
-  error: unknown,
-  context?: Record<string, unknown>
-) {
-  await logError(category, error, context);
-  captureError(error, { category, ...context });
 }

@@ -1,29 +1,26 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { useMutation, useQuery } from "convex/react";
-import { api } from "../../convex/_generated/api";
 import { collectDiagnostics } from "@/lib/feedback-diagnostics";
-import { formatRelativePast } from "@/lib/date-utils";
 import { useTheme, PRESET_THEMES } from "@/contexts/ThemeContext";
 import type { ThemeColors } from "@/contexts/ThemeContext";
-import { useOffline } from "@/contexts/OfflineContext";
 import { useToast } from "@/contexts/ToastContext";
-import { useUser } from "@clerk/clerk-react";
 import { THEME_AI_PROMPT } from "@/lib/theme-ai-prompt";
-import { usePlan, useCan, canUseTheme } from "@/lib/use-plan";
-import { seedDemoData, isSeedAdmin } from "@/lib/seed-demo";
+import { seedDemoData } from "@/lib/seed-demo";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Toggle } from "@/components/ui/Toggle";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
-import { getDeferDatesMode, setDeferDatesMode, getDueDatesMode, setDueDatesMode, getPrioritizeDefault, setPrioritizeDefault, getOpenFocusOnPlay, setOpenFocusOnPlay, getShowStepDates, setShowStepDates, getStepActions, setStepActionMode, STEP_ACTION_ORDER, STEP_ACTION_LABELS, getStepsClickAction, setStepsClickAction, getTodayClickAction, setTodayClickAction, resetGeneralPreferences, type DeferDatesMode, type StepActionsConfig, type StepClickAction } from "@/lib/preferences";
+import { getDeferDatesMode, setDeferDatesMode, getDueDatesMode, setDueDatesMode, getPrioritizeDefault, setPrioritizeDefault, getOpenFocusOnPlay, setOpenFocusOnPlay, getShowStepDates, setShowStepDates, getFontScale, setFontScale, FONT_SCALE_PX, FONT_SCALE_LABELS, FONT_SCALE_ORDER, type FontScale, getStepActions, setStepActionMode, STEP_ACTION_ORDER, STEP_ACTION_LABELS, getStepsClickAction, setStepsClickAction, getTodayClickAction, setTodayClickAction, resetGeneralPreferences, type DeferDatesMode, type StepActionsConfig, type StepClickAction } from "@/lib/preferences";
+import { useData } from "@/contexts/DataContext";
+import { useUpdateDaySettings } from "@/lib/local-mutations";
+import { formatMinutesAsTime } from "@/lib/day-settings";
+import { reportError } from "@/lib/error-store";
+import { openExternal } from "@/lib/platform";
 import { Card, CardContent } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
 import DataSettings from "@/components/DataSettings";
-import { Copy, Sparkles, Save, RotateCcw, Shuffle, Dices, Check, Trash2, Lock } from "lucide-react";
-import { maybeBackup, restoreFromCloud } from "@/lib/backup-engine";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/Dialog";
+import BackupCard from "@/components/BackupCard";
+import { Copy, Sparkles, Save, RotateCcw, Shuffle, Dices, Check, Trash2 } from "lucide-react";
 import {
   getKeybinds,
   setKeybind,
@@ -124,6 +121,7 @@ function GeneralSettings() {
   const [prioritizeDefault, setPrioritizeDefaultState] = useState(getPrioritizeDefault());
   const [openFocusOnPlay, setOpenFocusOnPlayState] = useState(getOpenFocusOnPlay());
   const [showStepDates, setShowStepDatesState] = useState(getShowStepDates());
+  const [fontScale, setFontScaleState] = useState<FontScale>(getFontScale());
   const [stepActions, setStepActions] = useState<StepActionsConfig>(getStepActions());
   const [stepsClick, setStepsClick] = useState<StepClickAction>(getStepsClickAction());
   const [todayClick, setTodayClick] = useState<StepClickAction>(getTodayClickAction());
@@ -136,6 +134,7 @@ function GeneralSettings() {
     { value: "prioritize", label: "Prioritize / deprioritize" },
     { value: "play", label: "Start / stop timer" },
     { value: "complete", label: "Mark complete" },
+    { value: "open", label: "Open activity" },
     { value: "none", label: "Do nothing" },
   ];
   const handleResetGeneral = () => {
@@ -145,6 +144,7 @@ function GeneralSettings() {
     setPrioritizeDefaultState(getPrioritizeDefault());
     setOpenFocusOnPlayState(getOpenFocusOnPlay());
     setShowStepDatesState(getShowStepDates());
+    setFontScaleState(getFontScale());
     setStepActions(getStepActions());
     setStepsClick(getStepsClickAction());
     setTodayClick(getTodayClickAction());
@@ -159,6 +159,36 @@ function GeneralSettings() {
               <RotateCcw className="w-4 h-4 mr-2" />
               Reset All
             </Button>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Text size</label>
+            <p className="text-sm text-muted-foreground">
+              Scales the whole interface, not just the text, so nothing gets
+              cramped. Applies immediately.
+            </p>
+            <div className="flex flex-wrap items-end gap-2 pt-1">
+              {FONT_SCALE_ORDER.map((scale) => {
+                const active = scale === fontScale;
+                return (
+                  <button
+                    key={scale}
+                    type="button"
+                    onClick={() => { setFontScaleState(scale); setFontScale(scale); }}
+                    aria-pressed={active}
+                    className={`flex flex-col items-center gap-1 rounded-lg border-2 px-4 py-2 transition-colors ${
+                      active
+                        ? "border-primary bg-primary-light/50"
+                        : "border-border hover:border-muted-foreground/40"
+                    }`}
+                  >
+                    {/* Rendered at the size it sets, so the control shows what it does. */}
+                    <span style={{ fontSize: `${FONT_SCALE_PX[scale]}px`, lineHeight: 1.2 }}>Aa</span>
+                    <span className="text-xs text-muted-foreground">{FONT_SCALE_LABELS[scale]}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <Toggle
@@ -260,7 +290,86 @@ function GeneralSettings() {
           </div>
         </CardContent>
       </Card>
+
+      <DayRoutineSettings />
     </div>
+  );
+}
+
+// Options as minutes-past-midnight in 30-min steps, inclusive.
+function timeOptions(fromMinutes: number, toMinutes: number) {
+  const options: { value: string; label: string }[] = [];
+  for (let m = fromMinutes; m <= toMinutes; m += 30) {
+    options.push({ value: String(m), label: m === 0 ? "Midnight" : formatMinutesAsTime(m) });
+  }
+  return options;
+}
+
+function DayRoutineSettings() {
+  const { userSettings } = useData();
+  const toast = useToast();
+  const updateDaySettings = useUpdateDaySettings();
+
+  const turnover = userSettings?.dayTurnoverMinutes ?? 0;
+  const spawn = userSettings?.routineSpawnMinutes ?? 0;
+
+  const apply = async (nextTurnover: number, nextSpawn: number) => {
+    // Keep the spawn instant inside the logical day: spawning before the
+    // turnover would land in the previous day's dedup window and double-spawn.
+    const clampedSpawn = Math.max(nextSpawn, nextTurnover);
+    try {
+      await updateDaySettings({
+        dayTurnoverMinutes: nextTurnover,
+        routineSpawnMinutes: clampedSpawn,
+      });
+      toast.success("Day settings updated");
+    } catch (e) {
+      reportError("mutation", e, { action: "updateDaySettings" });
+      toast.error("Failed to update day settings");
+    }
+  };
+
+  return (
+    <Card>
+      <CardContent className="p-6 space-y-6">
+        <div className="space-y-1">
+          <h2 className="text-xl font-semibold">Day &amp; Routines</h2>
+          <p className="text-sm text-muted-foreground">
+            When your day rolls over and when routines appear. Changing these
+            reschedules all routines immediately.
+          </p>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">End of day</label>
+          <p className="text-sm text-muted-foreground">
+            When "today" becomes tomorrow. With 3:00 AM, work at 1 AM still counts
+            toward the previous day - deferred steps arrive and due-today
+            prioritization runs at this time.
+          </p>
+          <Select
+            className="max-w-xs"
+            value={String(turnover)}
+            onValueChange={(v) => apply(Number(v), spawn)}
+            options={timeOptions(0, 360)}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">Start of day (routines spawn)</label>
+          <p className="text-sm text-muted-foreground">
+            The time your routines materialize on their scheduled day. Can't be
+            earlier than the end-of-day rollover.
+          </p>
+          <Select
+            className="max-w-xs"
+            value={String(Math.max(spawn, turnover))}
+            onValueChange={(v) => apply(turnover, Number(v))}
+            options={timeOptions(turnover, 720)}
+          />
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -383,116 +492,17 @@ const FEEDBACK_TYPES = [
   { value: "bug", label: "Bug report" },
   { value: "feature", label: "Feature request" },
 ];
+const FEEDBACK_EMAIL = "hello@devvoid.org";
 const FEEDBACK_SUBJECTS: Record<string, string> = {
   general: "Feedback",
   bug: "Bug report",
   feature: "Feature request",
 };
 
-function BackupCard() {
-  const toast = useToast();
-  const canSync = useCan("sync");
-  const status = useQuery(api.backups.backupStatus, {});
-  const [busy, setBusy] = useState(false);
-  const [restoreOpen, setRestoreOpen] = useState(false);
-  const [restoring, setRestoring] = useState(false);
-
-  const counts = (status?.counts ?? null) as Record<string, number> | null;
-  const itemCount = counts ? Object.values(counts).reduce((a, b) => a + (Number(b) || 0), 0) : 0;
-
-  const backupNow = async () => {
-    setBusy(true);
-    try {
-      await maybeBackup(true);
-      toast.success("Backed up");
-    } catch {
-      toast.error("Backup failed, try again");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const restore = async () => {
-    setRestoring(true);
-    try {
-      const ok = await restoreFromCloud();
-      // Data pages read Dexie via live queries, so the UI updates on its own.
-      if (ok) toast.success("Data restored from your backup");
-      else toast.error("No backup found to restore");
-      setRestoreOpen(false);
-    } catch {
-      toast.error("Restore failed, try again");
-    } finally {
-      setRestoring(false);
-    }
-  };
-
-  return (
-    <>
-      <Card>
-        <CardContent className="p-6 space-y-4">
-          <div>
-            <h2 className="text-xl font-semibold">Backup</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              {canSync
-                ? "Your data syncs live across your devices, and we keep a daily cloud snapshot you can fall back to."
-                : "On Free, your data lives on this device. We keep a daily cloud snapshot so a browser-clear or a new device won't lose it - a point-in-time backup, not live sync. Upgrade to Pro for real-time sync across devices."}
-            </p>
-          </div>
-
-          <p className="text-sm text-muted-foreground">
-            {status === undefined
-              ? "Checking backup…"
-              : status
-                ? `Last backup ${formatRelativePast(status.updatedAt)}${itemCount ? ` · ${itemCount} item${itemCount === 1 ? "" : "s"}` : ""}.`
-                : "No backup yet - it'll save automatically in a moment."}
-          </p>
-
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={backupNow} disabled={busy}>
-              {busy ? "Backing up…" : "Back up now"}
-            </Button>
-            {status && (
-              <Button variant="outline" size="sm" onClick={() => setRestoreOpen(true)}>
-                Restore from backup
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Dialog open={restoreOpen} onOpenChange={(o) => { if (!restoring) setRestoreOpen(o); }}>
-        <DialogContent size="md" className="w-[28rem] max-w-[calc(100vw-2rem)]">
-          <DialogHeader>
-            <DialogTitle>Restore from backup</DialogTitle>
-            <DialogDescription>
-              This replaces {canSync ? "your data on this device and every synced device" : "the data on this device"} with your cloud backup
-              {status ? ` from ${formatRelativePast(status.updatedAt)} (${itemCount} item${itemCount === 1 ? "" : "s"})` : ""}.
-              Anything newer {canSync ? "is permanently replaced everywhere" : "here will be replaced"}.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRestoreOpen(false)} disabled={restoring}>
-              Cancel
-            </Button>
-            <Button onClick={restore} disabled={restoring}>
-              {restoring ? "Restoring…" : "Restore"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-}
-
 function FeedbackSettings() {
   const toast = useToast();
-  const { user } = useUser();
-  const submitFeedback = useMutation(api.feedback.submitFeedback);
-  const history = useQuery(api.feedback.myFeedback, {});
   const [type, setType] = useState<"general" | "bug" | "feature">("general");
   const [message, setMessage] = useState("");
-  const [sending, setSending] = useState(false);
 
   const handleSend = async () => {
     const trimmed = message.trim();
@@ -500,33 +510,26 @@ function FeedbackSettings() {
       toast.error("Write a message first");
       return;
     }
-    setSending(true);
-    try {
-      // Bug reports carry a sanitized env snapshot (counts/flags only, no content).
-      const diagnostics = type === "bug" ? await collectDiagnostics() : undefined;
-      await submitFeedback({
-        type,
-        message: trimmed,
-        email: user?.primaryEmailAddress?.emailAddress,
-        diagnostics,
-      });
-      setMessage("");
-      toast.success(`${FEEDBACK_SUBJECTS[type]} sent - thank you!`);
-    } catch {
-      toast.error("Couldn't send feedback. Try again.");
-    } finally {
-      setSending(false);
-    }
+    // Bug reports carry a sanitized env snapshot (counts/flags only, no content).
+    const diagnostics = type === "bug" ? await collectDiagnostics() : undefined;
+    const body = diagnostics
+      ? `${trimmed}\n\n---\n${JSON.stringify(diagnostics, null, 2)}`
+      : trimmed;
+    const href = `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent(
+      `VoidSteps: ${FEEDBACK_SUBJECTS[type]}`
+    )}&body=${encodeURIComponent(body)}`;
+    await openExternal(href);
+    setMessage("");
   };
 
   return (
-    <div className="space-y-4">
     <Card>
       <CardContent className="p-6 space-y-4">
         <div>
           <h2 className="text-xl font-semibold">Feedback</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Found a bug or have an idea? Send it our way.
+            Found a bug or have an idea? This opens a draft in your mail app.
+            Nothing is sent from VoidSteps itself.
           </p>
         </div>
 
@@ -550,41 +553,12 @@ function FeedbackSettings() {
         </div>
 
         <div className="flex justify-end">
-          <Button onClick={handleSend} disabled={!message.trim() || sending}>
-            {sending ? "Sending…" : "Send"}
+          <Button onClick={handleSend} disabled={!message.trim()}>
+            Compose email
           </Button>
         </div>
       </CardContent>
     </Card>
-
-      {history && history.length > 0 && (
-        <Card>
-          <CardContent className="p-6 space-y-3">
-            <h3 className="text-lg font-semibold">Your feedback</h3>
-            <div className="space-y-2">
-              {history.map((f) => (
-                <div key={f._id} className="rounded-lg border border-border p-3 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary" size="sm">{FEEDBACK_SUBJECTS[f.type] ?? f.type}</Badge>
-                    <Badge variant={f.status === "open" ? "warning" : "success"} size="sm">
-                      {f.status === "open" ? "Open" : "Resolved"}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">{formatRelativePast(f.createdAt)}</span>
-                  </div>
-                  <p className="text-sm whitespace-pre-wrap">{f.message}</p>
-                  {f.adminReply && (
-                    <div className="rounded-md bg-primary-light/50 p-2.5 text-sm">
-                      <span className="text-xs font-medium text-primary">Reply from the team</span>
-                      <p className="whitespace-pre-wrap mt-0.5">{f.adminReply}</p>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
   );
 }
 
@@ -600,17 +574,11 @@ export default function Settings() {
     deleteSavedTheme,
   } = useTheme();
   const toast = useToast();
-  const { user } = useUser();
-  const { syncNow } = useOffline();
-  const plan = usePlan();
-  const canCustomTheme = useCan("themes.custom");
-  const canSeed = isSeedAdmin(user?.primaryEmailAddress?.emailAddress);
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState("");
   const [promptCopied, setPromptCopied] = useState(false);
   const [saveName, setSaveName] = useState("");
   const [seeding, setSeeding] = useState(false);
-  const [seedSync, setSeedSync] = useState(false);
   const [seedStatus, setSeedStatus] = useState<string>("");
   const [seedArmed, setSeedArmed] = useState(false);
   const armRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -694,11 +662,7 @@ export default function Settings() {
     if (seeding) return;
     if (!seedArmed) {
       setSeedArmed(true);
-      setSeedStatus(
-        seedSync
-          ? "Click again to confirm - this wipes ALL data, then seeds and syncs."
-          : "Click again to confirm - this wipes ALL current data, then seeds.",
-      );
+      setSeedStatus("Click again to confirm - this wipes ALL current data, then seeds.");
       if (armRef.current) clearTimeout(armRef.current);
       armRef.current = setTimeout(() => { setSeedArmed(false); setSeedStatus(""); }, 5000);
       return;
@@ -712,18 +676,10 @@ export default function Settings() {
     setSeeding(true);
     setSeedStatus("Seeding…");
     try {
-      // Write local data first - this is what shows up in the UI immediately.
-      const r = await seedDemoData({ sync: seedSync });
+      const r = await seedDemoData();
       const summary = `Seeded ${r.paths} paths, ${r.steps} steps, ${r.routines} routines, ${r.reminders} reminders, ${r.notebooks} notebooks, ${r.notes} notes.`;
       toast.success(summary);
       setSeedStatus(summary);
-      // Push in the background so the button never blocks on the network.
-      if (seedSync) {
-        setSeedStatus(summary + " Syncing…");
-        syncNow()
-          .then(() => setSeedStatus(summary + " Synced ✓"))
-          .catch((e) => { console.error(e); setSeedStatus(summary + " Sync failed (see console)"); toast.error("Sync failed."); });
-      }
     } catch (e) {
       console.error(e);
       const msg = e instanceof Error ? e.message : String(e);
@@ -777,45 +733,32 @@ export default function Settings() {
         <CardContent className="p-6 space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">Preset Themes</h2>
-            {canCustomTheme && (
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={generateRandomTheme}>
-                  <Dices className="w-4 h-4 mr-2" />
-                  Random Colors
-                </Button>
-                <Button variant="outline" size="sm" onClick={applyRandomPreset}>
-                  <Shuffle className="w-4 h-4 mr-2" />
-                  Shuffle
-                </Button>
-              </div>
-            )}
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={generateRandomTheme}>
+                <Dices className="w-4 h-4 mr-2" />
+                Random Colors
+              </Button>
+              <Button variant="outline" size="sm" onClick={applyRandomPreset}>
+                <Shuffle className="w-4 h-4 mr-2" />
+                Shuffle
+              </Button>
+            </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
             {presetNames.map((presetName) => {
               const preset = PRESET_THEMES[presetName];
               const isActive = presetName === activePresetName;
-              const locked = !canUseTheme(plan, presetName);
               return (
                 <button
                   key={presetName}
-                  onClick={() =>
-                    locked
-                      ? window.open("https://voidsteps.com/#pricing", "_blank", "noopener")
-                      : applyPreset(presetName)
-                  }
-                  title={locked ? "Pro theme, upgrade to unlock" : undefined}
+                  onClick={() => applyPreset(presetName)}
                   className={`group relative rounded-lg border-2 p-3 text-left transition-all hover:scale-[1.02] ${
                     isActive
                       ? "border-primary ring-2 ring-primary/30"
                       : "border-border hover:border-muted-foreground/40"
-                  } ${locked ? "opacity-60" : ""}`}
+                  }`}
                   style={{ backgroundColor: `hsl(${preset.background})` }}
                 >
-                  {locked && (
-                    <span className="absolute right-1.5 top-1.5 z-10 rounded-full bg-background/80 p-1">
-                      <Lock className="h-3 w-3 text-muted-foreground" />
-                    </span>
-                  )}
                   {/* 4 brand swatches: primary, accent + their lights */}
                   <div className="flex gap-1 mb-2">
                     {(["primary", "accent", "primaryLight", "accentLight"] as const).map((token) => (
@@ -850,8 +793,6 @@ export default function Settings() {
         </CardContent>
       </Card>
 
-      {canCustomTheme ? (
-      <>
       {/* Custom Colors - Tab-grouped */}
       <Card>
         <CardContent className="p-6 space-y-6">
@@ -1006,48 +947,15 @@ export default function Settings() {
           </div>
         </CardContent>
       </Card>
-      </>
-      ) : (
-        <Card>
-          <CardContent className="flex flex-col items-center p-8 text-center">
-            <span className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-light">
-              <Lock className="h-5 w-5 text-primary" />
-            </span>
-            <h2 className="text-xl font-semibold">Custom themes are a Pro feature</h2>
-            <p className="mt-2 max-w-md text-sm text-muted-foreground">
-              Free includes the two starter themes above. Upgrade to Pro to unlock
-              all presets, the custom color editor, saved themes, and AI theme design.
-            </p>
-            <a
-              href="https://voidsteps.com/#pricing"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-5 inline-flex items-center rounded-lg bg-primary px-5 py-2.5 font-medium text-primary-foreground transition-opacity hover:opacity-90"
-            >
-              Upgrade to Pro
-            </a>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Demo data - owner only, for screenshots */}
-      {canSeed && (
+      {/* Demo data - dev builds only, for screenshots */}
+      {import.meta.env.DEV && (
         <Card>
           <CardContent className="p-6 space-y-6">
             <h2 className="text-xl font-semibold">Demo data</h2>
             <p className="text-sm text-muted-foreground">
-              Wipes everything, then populates this account with a polished set of paths, steps,
+              Wipes everything, then populates the app with a polished set of paths, steps,
               routines, and notes (with 30 days of history for analytics) for screenshots.
             </p>
-            <Toggle
-              checked={seedSync}
-              onChange={(e) => setSeedSync(e.target.checked)}
-              size="sm"
-              label="Sync seeded data to the server"
-              description={seedSync
-                ? "On: pushed via batch sync (syncs across devices)."
-                : "Off: local-only (faster, best for screenshots)."}
-            />
             <Button
               variant={seedArmed ? "destructive" : "outline"}
               onClick={handleSeed}

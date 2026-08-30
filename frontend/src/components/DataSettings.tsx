@@ -11,7 +11,6 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Toggle } from "@/components/ui/Toggle";
 import { Card, CardContent } from "@/components/ui/Card";
-import { useOffline } from "@/contexts/OfflineContext";
 import { useToast } from "@/contexts/ToastContext";
 import { reportError } from "@/lib/error-store";
 import {
@@ -38,7 +37,6 @@ const ZERO: Counts = {
 
 export default function DataSettings() {
   const toast = useToast();
-  const { syncNow } = useOffline();
   const [counts, setCounts] = useState<Counts>(ZERO);
   const [cascadeImpact, setCascadeImpact] = useState({ steps: 0 });
   const [action, setAction] = useState<WipeAction | null>(null);
@@ -84,7 +82,7 @@ export default function DataSettings() {
   })();
 
   const isPaths = action?.kind === "type" && action.entity === "paths";
-  // Always require typing DELETE. Every action here is destructive + syncs.
+  // Always require typing DELETE. Every action here is destructive.
   const requiredText = "DELETE";
   const confirmReady =
     !!resolved && resolved.count > 0 && confirmText.trim() === requiredText && !busy;
@@ -97,11 +95,6 @@ export default function DataSettings() {
       toast.success("Data deleted");
       setAction(null);
       await refresh();
-      // Push deletes to the server in the background.
-      syncNow().catch((e) => {
-        reportError("sync", e, { action: "wipeData" });
-        toast.error("Deleted locally, but sync failed, will retry");
-      });
     } catch (e) {
       reportError("mutation", e, { action: "wipeData" });
       toast.error("Failed to delete data");
@@ -127,7 +120,7 @@ export default function DataSettings() {
       <div>
         <h2 className="text-xl font-semibold">Data</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Permanently delete your data. These actions sync to the server and apply to every device, and can't be undone.
+          Permanently delete your data. This applies to this device and can't be undone.
         </p>
       </div>
 

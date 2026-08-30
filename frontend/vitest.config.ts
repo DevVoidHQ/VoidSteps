@@ -7,16 +7,8 @@ export default mergeConfig(
     test: {
       globals: true,
       environment: 'jsdom',
-      include: ['src/**/*.test.{ts,tsx}', 'convex/**/*.test.ts'],
+      include: ['src/**/*.test.{ts,tsx}'],
       setupFiles: ['./src/test/setup.ts'],
-      environmentMatchGlobs: [
-        ['convex/**', 'edge-runtime'],
-      ],
-      server: {
-        deps: {
-          inline: ['convex-test'],
-        },
-      },
     },
   })
 )

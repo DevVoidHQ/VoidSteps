@@ -15,14 +15,11 @@ const badgeVariants = cva(
         secondary: "bg-primary-light text-primary",
         destructive: "bg-destructive text-destructive-foreground",
         outline: "border border-input text-foreground",
-        success: "bg-primary-light text-primary border border-primary/20",
         warning: "bg-accent-light text-accent border border-accent/20",
-        info: "bg-primary-light text-primary border border-primary/20",
       },
       size: {
         sm: "px-2 py-0.5 text-[10px]",
         md: "px-2.5 py-0.5 text-xs",
-        lg: "px-3 py-1 text-sm",
       },
     },
     defaultVariants: {

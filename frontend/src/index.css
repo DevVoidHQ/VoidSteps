@@ -36,6 +36,24 @@
   --primary-foreground: 0 0% 100%;
   --accent-foreground: 0 0% 100%;
   --radius: 0.5rem;
+
+  /* State colours the six-colour system cannot express: destructive folds
+     into accent, so "done" and "failed" would otherwise be identical, and
+     routines and reminders need their own identity on the calendar. Themes
+     may override these; nothing should hardcode a Tailwind palette colour. */
+  --success: 152 55% 38%;
+  --warning: 38 92% 50%;
+  --info: 217 85% 55%;
+  --routine: 262 60% 58%;
+
+  /* Base type scale, driven by Settings > Appearance > Text size. The whole
+     app is rem-based, so this scales type and spacing together rather than
+     leaving text large inside boxes sized for smaller text. */
+  --app-font-size: 16px;
+}
+
+html {
+  font-size: var(--app-font-size);
 }
 
 html, body {
@@ -57,11 +75,12 @@ html, body {
   }
 }
 
-/* Slightly smaller base on phones so rem-based type and spacing read more
-   compact across the whole app. */
+/* Slightly smaller base on narrow windows so rem-based type and spacing read
+   more compact. Relative to the chosen size, so it never overrides the
+   setting. */
 @media (max-width: 640px) {
   html {
-    font-size: 15px;
+    font-size: calc(var(--app-font-size) - 1px);
   }
 }
 

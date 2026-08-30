@@ -69,11 +69,11 @@ function formatDateTitle(d: Date): string {
 
 export default function Notes() {
   const notebooks = useLiveQuery(
-    () => db.notebooks.filter((n) => !n._deleted).toArray(),
+    () => db.notebooks.toArray(),
     []
   );
   const notes = useLiveQuery(
-    () => db.notes.filter((n) => !n._deleted).toArray(),
+    () => db.notes.toArray(),
     []
   );
 
@@ -358,7 +358,7 @@ function NotesTreePane({
           {search && (
             <button
               onClick={() => onSearch("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -581,7 +581,7 @@ function NoteTreeRow({
   return (
     <button
       onClick={onSelect}
-      className={`group w-full flex items-start gap-2 px-2 py-1.5 rounded-md text-left transition-colors ${
+      className={`group w-full flex items-start gap-2 px-2 py-1.5 rounded-md text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
         active ? "bg-primary-light text-primary" : "hover:bg-muted"
       }`}
     >
