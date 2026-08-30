@@ -35,7 +35,7 @@ export function DevVoidMark({ className }: { className?: string }) {
 /** "a DevVoid product" sub-lockup used under the product wordmark. */
 export function DevVoidProduct({ className }: { className?: string }) {
   return (
-    <span className={cn("text-[11px] font-medium text-foreground/45", className)}>
+    <span className={cn("text-[11px] font-medium text-foreground/55", className)}>
       a <DevVoidMark /> product
     </span>
   );
