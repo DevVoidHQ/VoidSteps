@@ -6,6 +6,7 @@ import { AppLifecycleProvider } from '@/contexts/AppLifecycleContext';
 import { DataProvider } from '@/contexts/DataContext';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import Layout from '@/components/Layout';
+import { useEscapeFullscreenGuard } from '@/hooks/useEscapeFullscreenGuard';
 import LoadingScreen from '@/components/LoadingScreen';
 import Steps from '@/pages/Steps';
 import Paths from '@/pages/Paths';
@@ -19,6 +20,7 @@ import Settings from '@/pages/Settings';
 const Notes = lazy(() => import('@/pages/Notes'));
 
 function AppRoutes() {
+  useEscapeFullscreenGuard();
   const location = useLocation();
 
   return (
