@@ -6,6 +6,8 @@ import { useToast } from "@/contexts/ToastContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { MONTH_LABELS as MONTH_NAMES, formatDateForInput, parseStartDateInput } from "@/lib/date-utils";
+import { DatePicker } from "@/components/ui/DatePicker";
 import {
   Dialog,
   DialogContent,
@@ -14,29 +16,12 @@ import {
   DialogFooter,
 } from "@/components/ui/Dialog";
 
-const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const RECURRENCE_OPTIONS = [
   { value: "yearly", label: "Every year" },
   { value: "once", label: "One time" },
   { value: "monthly", label: "Every month" },
 ];
 const MONTH_OPTIONS = MONTH_NAMES.map((m, i) => ({ value: String(i + 1), label: m }));
-
-function startOfDayMs(input: string): number {
-  const [y, m, d] = input.split("-").map(Number);
-  const date = new Date(y, (m || 1) - 1, d || 1);
-  date.setHours(0, 0, 0, 0);
-  return date.getTime();
-}
-
-function toDateInput(ms?: number): string {
-  if (!ms) return "";
-  const d = new Date(ms);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
 
 export default function QuickCreateReminderDialog({
   open,
@@ -64,7 +49,7 @@ export default function QuickCreateReminderDialog({
       setTitle(reminder.title);
       setNote(reminder.note ?? "");
       setRecurrence(reminder.recurrence);
-      setDateStr(toDateInput(reminder.date));
+      setDateStr(formatDateForInput(reminder.date));
       setMonth(reminder.month ?? 1);
       setDay(reminder.day ?? 1);
     } else {
@@ -83,7 +68,7 @@ export default function QuickCreateReminderDialog({
       toast.error("Give the reminder a title");
       return;
     }
-    const date = recurrence === "once" ? (dateStr ? startOfDayMs(dateStr) : undefined) : undefined;
+    const date = recurrence === "once" ? (dateStr ? parseStartDateInput(dateStr) : undefined) : undefined;
     if (recurrence === "once" && !date) {
       toast.error("Pick a date");
       return;
@@ -131,7 +116,7 @@ export default function QuickCreateReminderDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[28rem] max-w-[calc(100vw-2rem)]">
         <DialogHeader>
-          <DialogTitle>{reminder ? "Edit Reminder" : "New Reminder"}</DialogTitle>
+          <DialogTitle>{reminder ? "Edit reminder" : "New reminder"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3" onKeyDown={handleKeyDown}>
           <Input
@@ -152,10 +137,7 @@ export default function QuickCreateReminderDialog({
           </div>
 
           {recurrence === "once" && (
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Date</label>
-              <Input type="date" value={dateStr} onChange={(e) => setDateStr(e.target.value)} />
-            </div>
+            <DatePicker label="Date" value={dateStr} onChange={setDateStr} />
           )}
 
           {recurrence === "yearly" && (
