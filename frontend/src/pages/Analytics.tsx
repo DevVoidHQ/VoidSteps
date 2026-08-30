@@ -264,7 +264,7 @@ export default function Analytics() {
       )}
 
       {/* Section 2: Completion Trends */}
-      <Section title="Completion Trends">
+      <Section title="Completion trends">
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={completionTrendData}>
@@ -284,7 +284,7 @@ export default function Analytics() {
       </Section>
 
       {/* Section 2b: Daily Time Spent */}
-      <Section title="Daily Time Spent" subtitle="Hours spent per day across all paths">
+      <Section title="Daily time spent" subtitle="Hours spent per day across all paths">
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={dailyTimeData}>
@@ -309,7 +309,7 @@ export default function Analytics() {
       {(timeByPathData.length > 0 || pathBreakdown.length > 0) && (
         <div className="grid items-start gap-8 md:grid-cols-2">
           {timeByPathData.length > 0 && (
-            <Section title="Time Tracking by Path" subtitle="Steps without tracked time counted as 15 min">
+            <Section title="Time tracking by path" subtitle="Steps without tracked time counted as 15 min">
               <div className="space-y-2">
                 {timeByPathData.map((row, i) => (
                   <div key={row.name} className="space-y-1">
@@ -334,7 +334,7 @@ export default function Analytics() {
           )}
 
           {pathBreakdown.length > 0 && (
-            <Section title="Path Breakdown">
+            <Section title="Path breakdown">
               <div className="space-y-3">
                 {pathBreakdown.map((row) => (
                   <div key={row.name} className="space-y-1">
@@ -361,7 +361,7 @@ export default function Analytics() {
 
       {/* Section: Time Log */}
       {timeLogData.length > 0 && (
-        <Section title="Time Log" subtitle="Individual completed tasks, most recent first">
+        <Section title="Time log" subtitle="Individual completed tasks, most recent first">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -446,7 +446,7 @@ function toMs(value: string | number | undefined): number {
 function stepPathName(step: Step): string {
   if (step.path) return step.path.title;
   if (step.pathId) return 'Unknown Path';
-  return 'No Path';
+  return 'No path';
 }
 
 function rateColor(rate: number): string {

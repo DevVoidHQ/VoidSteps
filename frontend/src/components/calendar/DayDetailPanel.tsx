@@ -76,7 +76,7 @@ function EventSection({
               key={event.id}
               className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-border bg-muted/30"
             >
-              <Bell className="w-4 h-4 text-amber-500 shrink-0" />
+              <Bell className="w-4 h-4 text-warning shrink-0" />
               <div className="flex-1 min-w-0">
                 <span className="text-sm font-medium truncate block">{event.title}</span>
                 {event.reminder?.note && (
@@ -92,7 +92,7 @@ function EventSection({
               key={event.id}
               className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-border bg-muted/30"
             >
-              <RefreshCw className="w-4 h-4 text-violet-500 shrink-0" />
+              <RefreshCw className="w-4 h-4 text-routine shrink-0" />
               <div className="flex-1 min-w-0">
                 <span className="text-sm font-medium truncate block">{event.title}</span>
                 {event.pathTitle && (

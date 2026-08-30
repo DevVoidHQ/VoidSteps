@@ -4,7 +4,7 @@ import type { LocalStep, LocalActivityEvent, ActivityField } from './db';
 // a whitelist: sortOrder (drag-reorder would spam dozens of events), timer
 // fields (sessions are first-class timeEntries rows, not events), updatedAt and
 // the derived *At stamps are all deliberately excluded.
-export const TRACKED_FIELDS: readonly ActivityField[] = [
+const TRACKED_FIELDS: readonly ActivityField[] = [
   'title',
   'description',
   'dueDate',

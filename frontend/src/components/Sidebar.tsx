@@ -34,7 +34,7 @@ function SidebarItem({ icon: Icon, label, isCollapsed, active, showActiveIndicat
   const hideLabel = isCollapsed || iconOnly;
   const baseClass = `relative w-full flex items-center ${
     hideLabel ? 'justify-center px-2 py-3' : 'gap-3 px-4 py-3 text-left'
-  } rounded-lg transition-colors ${
+  } rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
     active
       ? 'text-primary-foreground font-medium'
       : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -52,11 +52,11 @@ function SidebarItem({ icon: Icon, label, isCollapsed, active, showActiveIndicat
       <Icon className="relative z-10 w-5 h-5 shrink-0" />
       {/* Collapsed: dot on the icon corner. Expanded: dot is rendered inline after the label. */}
       {dot && hideLabel && (
-        <span className="absolute top-1.5 right-1.5 z-10 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-card" title="Reminder today" />
+        <span className="absolute top-1.5 right-1.5 z-10 h-2 w-2 rounded-full bg-warning ring-2 ring-card" title="Reminder today" />
       )}
       {!hideLabel && <span className="relative z-10 flex-1">{label}</span>}
       {!hideLabel && dot && (
-        <span className="relative z-10 h-2 w-2 rounded-full bg-amber-500 shrink-0" title="Reminder today" />
+        <span className="relative z-10 h-2 w-2 rounded-full bg-warning shrink-0" title="Reminder today" />
       )}
       {locked && hideLabel && (
         <span className="absolute top-1.5 right-1.5 z-10 rounded-full bg-card p-0.5" title="Pro feature">
@@ -166,7 +166,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
           ${isCollapsed ? 'w-64 md:w-16' : 'w-64'} h-screen bg-card border-r border-border flex flex-col overflow-hidden
           shadow-2xl md:shadow-none
           z-50
-          transition-all duration-300 ease-in-out
+          transition-all duration-200 ease-in-out
           ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}
         style={{ opacity: 1 }}
@@ -188,7 +188,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
                 {/* Close button for mobile */}
                 <button
                   onClick={onClose}
-                  className="md:hidden p-2 hover:bg-muted rounded-lg"
+                  className="md:hidden p-2 hover:bg-muted rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -211,8 +211,8 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
             title="Search & commands"
             className={
               isCollapsed
-                ? 'w-full flex items-center justify-center rounded-lg py-3 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors'
-                : 'w-full flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors'
+                ? 'w-full flex items-center justify-center rounded-lg py-3 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background'
+                : 'w-full flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background'
             }
           >
             <Search className="w-4 h-4 shrink-0" />

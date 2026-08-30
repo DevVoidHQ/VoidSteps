@@ -37,6 +37,15 @@
   --accent-foreground: 0 0% 100%;
   --radius: 0.5rem;
 
+  /* State colours the six-colour system cannot express: destructive folds
+     into accent, so "done" and "failed" would otherwise be identical, and
+     routines and reminders need their own identity on the calendar. Themes
+     may override these; nothing should hardcode a Tailwind palette colour. */
+  --success: 152 55% 38%;
+  --warning: 38 92% 50%;
+  --info: 217 85% 55%;
+  --routine: 262 60% 58%;
+
   /* Base type scale, driven by Settings > Appearance > Text size. The whole
      app is rem-based, so this scales type and spacing together rather than
      leaving text large inside boxes sized for smaller text. */

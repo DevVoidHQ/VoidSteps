@@ -37,12 +37,12 @@ export const DEFAULT_KEYBINDS: KeybindMap = {
 };
 
 export const KEYBIND_LABELS: Record<keyof KeybindMap, string> = {
-  quickCreate: "New Step",
-  quickCreateRoutine: "New Routine",
-  quickCreatePath: "New Path",
-  quickCreateReminder: "New Reminder",
-  toggleSidebar: "Toggle Sidebar",
-  openCommandBar: "Open Command Bar",
+  quickCreate: "New step",
+  quickCreateRoutine: "New routine",
+  quickCreatePath: "New path",
+  quickCreateReminder: "New reminder",
+  toggleSidebar: "Toggle sidebar",
+  openCommandBar: "Open command bar",
   navToday: "Go to Today",
   navSteps: "Go to Steps",
   navPaths: "Go to Paths",

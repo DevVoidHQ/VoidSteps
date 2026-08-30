@@ -87,7 +87,7 @@ const SortableStepItem = memo(function SortableStepItem({
         <button
           {...attributes}
           {...listeners}
-          className="flex-shrink-0 cursor-grab active:cursor-grabbing p-2 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+          className="flex-shrink-0 cursor-grab active:cursor-grabbing p-2 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           <GripVertical className="w-4 h-4" />
         </button>

@@ -122,14 +122,14 @@ export function StepDialog({ step, paths, open, initialTab = "details", onOpenCh
                 paths={paths || []}
                 selectedPathId={editForm.pathId || null}
                 onChange={(id) => handleFormChange({ pathId: id || "" })}
-                placeholder="No Path"
+                placeholder="No path"
                 allowEmpty={true}
               />
               {(dueEnabled || step.dueDate || deferEnabled || step.startDate) && (
                 <div className="flex gap-2">
                   {(dueEnabled || step.dueDate) && (
                     <DatePicker
-                      label="Due Date"
+                      label="Due date"
                       value={editForm.dueDate}
                       onChange={(val) => handleFormChange({ dueDate: val })}
                       className="flex-1"

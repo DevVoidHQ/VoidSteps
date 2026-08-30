@@ -337,12 +337,12 @@ function StepCardComponent({
                         onClick={(e) => { e.stopPropagation(); e.preventDefault(); setShowTimeEdit(true); }}
                         className="cursor-pointer hover:opacity-80 transition-opacity"
                       >
-                        <Badge variant={isTimerActive ? "info" : "secondary"} size="sm" icon={<Timer className="w-3 h-3" />}>
+                        <Badge variant="secondary" size="sm" icon={<Timer className="w-3 h-3" />}>
                           {isTimerActive ? elapsedTime : formatDuration(step.totalTimeSpentMs || 0)}
                         </Badge>
                       </button>
                     ) : (
-                      <Badge variant={isTimerActive ? "info" : "secondary"} size="sm" icon={<Timer className="w-3 h-3" />}>
+                      <Badge variant="secondary" size="sm" icon={<Timer className="w-3 h-3" />}>
                         {isTimerActive ? elapsedTime : formatDuration(step.totalTimeSpentMs || 0)}
                       </Badge>
                     )
@@ -460,7 +460,7 @@ function StepCardComponent({
       <ConfirmDialog
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
-        title="Delete Step"
+        title="Delete step"
         description={`Are you sure you want to delete "${step.title}"? This action cannot be undone.`}
         confirmLabel="Delete"
         cancelLabel="Cancel"

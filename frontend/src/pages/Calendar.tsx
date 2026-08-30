@@ -251,12 +251,12 @@ export default function Calendar() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold tracking-tight">
-          {currentView === "today" ? "Today's Focus" : currentView === "daylog" ? "Day Log" : "Calendar"}
+          {currentView === "today" ? "Today's focus" : currentView === "daylog" ? "Day log" : "Calendar"}
         </h1>
         <Tabs defaultValue="today" value={currentView} onValueChange={(v) => setView(v as CalendarView)}>
           <TabsList>
             <TabsTrigger value="today">Today</TabsTrigger>
-            <TabsTrigger value="daylog">Day Log</TabsTrigger>
+            <TabsTrigger value="daylog">Day log</TabsTrigger>
             <TabsTrigger value="month">Month</TabsTrigger>
           </TabsList>
         </Tabs>
@@ -292,7 +292,7 @@ export default function Calendar() {
             paths={activePaths ?? []}
             selectedPathId={selectedPathFilter || null}
             onChange={(id) => setSelectedPathFilter(id || "")}
-            placeholder="All Paths"
+            placeholder="All paths"
             allowEmpty
             className="lg:w-56"
           />

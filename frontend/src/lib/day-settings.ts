@@ -12,7 +12,7 @@ export interface DaySettings {
   routineSpawnMinutes: number;
 }
 
-export const DEFAULT_DAY_SETTINGS: DaySettings = {
+const DEFAULT_DAY_SETTINGS: DaySettings = {
   dayTurnoverMinutes: 0,
   routineSpawnMinutes: 0,
 };

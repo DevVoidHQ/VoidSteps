@@ -3,10 +3,8 @@ import { applyTheme } from '@/lib/apply-theme';
 import { themePresets } from '@/lib/theme-presets';
 import type { ThemeTokens } from '@/lib/theme-types';
 
-// Re-export types and presets for backwards compatibility
 export type ThemeColors = ThemeTokens;
-export const DEFAULT_THEME = themePresets.devvoid;
-export const DEFAULT_DARK_THEME = themePresets.dark;
+const DEFAULT_THEME = themePresets.devvoid;
 export const PRESET_THEMES = themePresets;
 
 const SAVED_THEMES_KEY = "savedThemes";
