@@ -537,24 +537,6 @@ export function useUpdatePath() {
     await db.paths.update(id, patchData);
   }, []);
 }
-
-export function useDeletePath() {
-  return useCallback(async (args: { id: string }) => {
-    // Orphan children
-    const children = await db.paths
-      .where('parentId')
-      .equals(args.id)
-      .toArray();
-
-    const now = Date.now();
-    for (const child of children) {
-      await db.paths.update(child._id, { parentId: undefined, updatedAt: now });
-    }
-
-    await db.paths.delete(args.id);
-  }, []);
-}
-
 export function useArchivePath() {
   return useCallback(async (args: { id: string }) => {
     const now = Date.now();
@@ -883,24 +865,6 @@ export function useUpdateDaySettings() {
     });
   }, []);
 }
-
-export function useUpdateUserSettings() {
-  return useCallback(async (args: { theme: Record<string, string> }) => {
-    const now = Date.now();
-
-    const existing = await db.userSettings.toCollection().first();
-    if (existing) {
-      await db.userSettings.update(existing._id, { theme: args.theme, updatedAt: now });
-    } else {
-      await db.userSettings.add({ _id: generateLocalId(), theme: args.theme, updatedAt: now });
-    }
-  }, []);
-}
-
-// ============================================================
-// NOTEBOOKS
-// ============================================================
-
 export function useCreateNotebook() {
   return useCallback(async (args: { title: string; description?: string }) => {
     validateTitle(args.title);

@@ -2,13 +2,13 @@ import { useEffect, useState } from "react";
 
 // Local UI preferences (per-device). Reactive via a window event so a change in
 // Settings updates open dialogs/cards without a reload.
-export const DEFER_DATES_KEY = "voidsteps-defer-dates";
-export const DUE_DATES_KEY = "voidsteps-due-dates";
-export const PRIORITIZE_DEFAULT_KEY = "voidsteps-prioritize-default";
-export const STEP_ACTIONS_KEY = "voidsteps-step-actions";
-export const OPEN_FOCUS_ON_PLAY_KEY = "voidsteps-open-focus-on-play";
-export const SHOW_STEP_DATES_KEY = "voidsteps-show-step-dates";
-export const FONT_SCALE_KEY = "voidsteps-font-scale";
+const DEFER_DATES_KEY = "voidsteps-defer-dates";
+const DUE_DATES_KEY = "voidsteps-due-dates";
+const PRIORITIZE_DEFAULT_KEY = "voidsteps-prioritize-default";
+const STEP_ACTIONS_KEY = "voidsteps-step-actions";
+const OPEN_FOCUS_ON_PLAY_KEY = "voidsteps-open-focus-on-play";
+const SHOW_STEP_DATES_KEY = "voidsteps-show-step-dates";
+const FONT_SCALE_KEY = "voidsteps-font-scale";
 const PREFS_EVENT = "voidsteps-prefs-changed";
 
 // Per-action placement on a step: "open" = its own inline icon, "compact" =
@@ -75,8 +75,8 @@ export function useStepActions(): StepActionsConfig {
 // What clicking a step row does, configurable per page. Steps page defaults to
 // toggling priority; Today defaults to starting/stopping the timer.
 export type StepClickAction = "prioritize" | "play" | "complete" | "open" | "none";
-export const STEPS_CLICK_ACTION_KEY = "voidsteps-steps-click-action";
-export const TODAY_CLICK_ACTION_KEY = "voidsteps-today-click-action";
+const STEPS_CLICK_ACTION_KEY = "voidsteps-steps-click-action";
+const TODAY_CLICK_ACTION_KEY = "voidsteps-today-click-action";
 
 function readClickAction(key: string, fallback: StepClickAction): StepClickAction {
   try {

@@ -16,7 +16,7 @@ export function HierarchicalPathSelector({
   paths,
   selectedPathId,
   onChange,
-  placeholder = "All Paths",
+  placeholder = "All paths",
   allowEmpty = true,
   excludeIds = [],
   className = "",
@@ -236,7 +236,7 @@ export function HierarchicalPathSelector({
               <button
                 type="button"
                 onClick={handleBack}
-                className="p-1 rounded hover:bg-muted shrink-0"
+                className="p-1 rounded hover:bg-muted shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 title="Back"
               >
                 <ChevronLeft className="w-4 h-4" />

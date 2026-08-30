@@ -267,7 +267,7 @@ function IntervalRow({ interval, color, onOpen }: { interval: DayInterval; color
       type="button"
       onClick={onOpen}
       disabled={interval.deletedStep}
-      className="flex w-full items-center gap-3 border-b border-border/50 px-4 py-2.5 text-left last:border-b-0 enabled:hover:bg-muted/30 transition-colors"
+      className="flex w-full items-center gap-3 border-b border-border/50 px-4 py-2.5 text-left last:border-b-0 enabled:hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
       <span className="w-14 shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
         {interval.clippedStart ? "0:00" : formatClock(interval.start)}

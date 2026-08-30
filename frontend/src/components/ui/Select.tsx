@@ -14,7 +14,6 @@ export interface SelectProps {
   options: SelectOption[];
   placeholder?: string;
   label?: string;
-  error?: string;
   disabled?: boolean;
   id?: string;
   className?: string;
@@ -32,7 +31,6 @@ function Select({
   options,
   placeholder = "Select…",
   label,
-  error,
   disabled,
   id,
   className,
@@ -40,7 +38,6 @@ function Select({
 }: SelectProps) {
   const generatedId = React.useId();
   const selectId = id || generatedId;
-  const errorId = error ? `${selectId}-error` : undefined;
 
   const [open, setOpen] = React.useState(false);
   const rootRef = React.useRef<HTMLDivElement>(null);
@@ -83,15 +80,12 @@ function Select({
           disabled={disabled}
           aria-haspopup="listbox"
           aria-expanded={open}
-          aria-invalid={error ? "true" : undefined}
-          aria-describedby={errorId}
           onClick={() => setOpen((o) => !o)}
           className={cn(
             "flex h-11 w-full items-center justify-between gap-2 rounded-md border bg-background px-3 py-2 text-sm",
             "border-input text-left transition-colors duration-150",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             "disabled:cursor-not-allowed disabled:opacity-50",
-            error && "border-destructive focus-visible:ring-destructive",
             triggerClassName
           )}
         >
@@ -111,7 +105,7 @@ function Select({
             role="listbox"
             className={cn(
               "absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border border-border bg-background p-1 shadow-lg",
-              "animate-in fade-in-0 zoom-in-95 duration-100"
+              "animate-in fade-in-0 zoom-in-95 duration-200"
             )}
           >
             {options.map((option) => {
@@ -145,12 +139,6 @@ function Select({
           </ul>
         )}
       </div>
-
-      {error && (
-        <p id={errorId} className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
     </div>
   );
 }

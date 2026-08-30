@@ -5,7 +5,7 @@ export interface ToggleProps
   extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "type" | "size"> {
   label?: string;
   description?: string;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md";
 }
 
 // NOTE: the `translate` values must be full literal class names (including the

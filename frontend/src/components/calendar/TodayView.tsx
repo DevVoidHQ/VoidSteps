@@ -26,6 +26,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { StepCard } from "@/components/StepCard";
+import { filterSteps as applyStepFilters } from "@/lib/step-filters";
 import { DraggableStepList } from "@/components/DraggableStepList";
 import { HierarchicalPathSelector } from "@/components/HierarchicalPathSelector";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -79,20 +80,11 @@ export default function TodayView() {
     [selectedPathFilterToday, memoizedPaths]
   );
 
-  const filterSteps = useCallback((
-    steps: Step[],
-    searchQuery: string,
-    pathFilter: string
-  ): Step[] => {
-    return steps.filter((step: Step) => {
-      const matchesSearch = !searchQuery ||
-        step.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (step.description || "").toLowerCase().includes(searchQuery.toLowerCase());
-      const stepPathId = step.path?._id || (typeof step.pathId === 'string' ? step.pathId : null);
-      const matchesPath = !pathFilter || (stepPathId ? descendantPathIds.has(stepPathId) : false);
-      return matchesSearch && matchesPath;
-    });
-  }, [descendantPathIds]);
+  const filterSteps = useCallback(
+    (steps: Step[], searchQuery: string, pathFilter: string) =>
+      applyStepFilters(steps, searchQuery, pathFilter, descendantPathIds),
+    [descendantPathIds]
+  );
 
   const unfilteredDuePrioritySteps = useMemo(
     () => activeSteps?.filter((s: Step) => s.prioritizedToday && s.dueDate !== undefined).sort((a, b) => {
@@ -209,7 +201,7 @@ export default function TodayView() {
           paths={activePaths || []}
           selectedPathId={selectedPathFilterToday || null}
           onChange={(id) => setSelectedPathFilterToday(id || "")}
-          placeholder="All Paths"
+          placeholder="All paths"
           allowEmpty={true}
           className="sm:w-48"
         />

@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { PathDeleteDialog } from "@/components/PathDeleteDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
-import QuickCreatePathDialog from "@/components/QuickCreatePathDialog";
+import QuickCapture from "@/components/QuickCapture";
 import { getKeybinds, formatKeybindDisplay } from "@/lib/keybind-config";
 
 // Graph imports
@@ -396,7 +396,7 @@ export default function Paths() {
         <aside className="w-full flex-1 min-h-0 md:w-80 md:flex-none flex flex-col border-t border-border pt-3 md:border-t-0 md:border-l md:pt-0 md:pl-4">
           <div className="flex items-center justify-between mb-3 shrink-0">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              {showArchived ? "Archived Paths" : "All Paths"}
+              {showArchived ? "Archived Paths" : "All paths"}
             </h2>
             {archivedCount > 0 && (
               <button
@@ -485,7 +485,7 @@ export default function Paths() {
         />
       )}
 
-      <QuickCreatePathDialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} />
+      <QuickCapture kind="path" open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} />
     </div>
   );
 }

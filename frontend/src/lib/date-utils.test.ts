@@ -7,6 +7,8 @@ import {
   isOverdue,
   isUpcoming,
   getStartOfToday,
+  formatDateDisplay,
+  parseLooseDate,
 } from './date-utils'
 
 // Pin "now" to 2025-06-15 12:00:00 local time for all tests
@@ -208,5 +210,65 @@ describe('getStartOfToday', () => {
     expect(date.getMinutes()).toBe(0)
     expect(date.getSeconds()).toBe(0)
     expect(date.getMilliseconds()).toBe(0)
+  })
+})
+
+// ── formatDateDisplay ───────────────────────────────────────────────
+
+describe('formatDateDisplay', () => {
+  it('drops the year for the current year', () => {
+    const label = formatDateDisplay('2025-08-30')
+    expect(label).toContain('30')
+    expect(label).toContain('Aug')
+    expect(label).not.toContain('2025')
+  })
+
+  it('keeps the year for any other year', () => {
+    expect(formatDateDisplay('2026-08-30')).toContain('2026')
+  })
+
+  it('returns empty for an empty value', () => {
+    expect(formatDateDisplay('')).toBe('')
+  })
+})
+
+// ── parseLooseDate ──────────────────────────────────────────────────
+
+describe('parseLooseDate', () => {
+  it('accepts the ISO value it produces', () => {
+    expect(parseLooseDate('2026-08-30')).toBe('2026-08-30')
+  })
+
+  it('reads numeric dates day first', () => {
+    expect(parseLooseDate('3/4/2026')).toBe('2026-04-03')
+    expect(parseLooseDate('30-8-2026')).toBe('2026-08-30')
+  })
+
+  it('fills in the current year when it is left out', () => {
+    expect(parseLooseDate('30/8')).toBe('2025-08-30')
+  })
+
+  it('expands two-digit years', () => {
+    expect(parseLooseDate('30/8/26')).toBe('2026-08-30')
+  })
+
+  it('reads month names in either order', () => {
+    expect(parseLooseDate('30 Aug 2026')).toBe('2026-08-30')
+    expect(parseLooseDate('Aug 30, 2026')).toBe('2026-08-30')
+    expect(parseLooseDate('30august')).toBe('2025-08-30')
+  })
+
+  it('understands today, tomorrow and yesterday', () => {
+    expect(parseLooseDate('today')).toBe('2025-06-15')
+    expect(parseLooseDate('Tomorrow')).toBe('2025-06-16')
+    expect(parseLooseDate('yesterday')).toBe('2025-06-14')
+  })
+
+  it('rejects impossible and unreadable dates', () => {
+    expect(parseLooseDate('31/2/2026')).toBeUndefined()
+    expect(parseLooseDate('13/13/2026')).toBeUndefined()
+    expect(parseLooseDate('ma 3')).toBeUndefined() // march or may
+    expect(parseLooseDate('next fortnight')).toBeUndefined()
+    expect(parseLooseDate('')).toBeUndefined()
   })
 })

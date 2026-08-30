@@ -102,7 +102,7 @@ export function TimeEditDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="sm">
         <DialogHeader className="flex items-center justify-between">
-          <DialogTitle>Time Tracked</DialogTitle>
+          <DialogTitle>Time tracked</DialogTitle>
           <IconButton
             icon={<X className="w-4 h-4" />}
             aria-label="Close"
@@ -217,7 +217,7 @@ export function TimeEditDialog({
             className="mr-auto"
           >
             <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
-            {showResetConfirm ? "Confirm Reset" : "Reset"}
+            {showResetConfirm ? "Confirm reset" : "Reset"}
           </Button>
           <Button
             onClick={handleApply}

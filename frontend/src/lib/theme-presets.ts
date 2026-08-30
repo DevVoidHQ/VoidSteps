@@ -6,7 +6,7 @@ import type { ThemeTokens } from "./theme-types";
  */
 
 // DevVoid brand - default
-export const devVoidTheme: ThemeTokens = {
+const devVoidTheme: ThemeTokens = {
   background: "44 10% 97%",
   foreground: "43 8% 10%",
   primary: "222 90% 30%",      // #083291
@@ -16,7 +16,7 @@ export const devVoidTheme: ThemeTokens = {
 };
 
 // Minimal dark - pure black/white + brand
-export const darkTheme: ThemeTokens = {
+const darkTheme: ThemeTokens = {
   background: "0 0% 4%",
   foreground: "0 0% 96%",
   primary: "222 80% 65%",
@@ -25,7 +25,7 @@ export const darkTheme: ThemeTokens = {
   accentLight: "348 40% 14%",
 };
 
-export const oceanTheme: ThemeTokens = {
+const oceanTheme: ThemeTokens = {
   background: "200 30% 5%",
   foreground: "180 20% 95%",
   primary: "190 80% 55%",
@@ -34,7 +34,7 @@ export const oceanTheme: ThemeTokens = {
   accentLight: "170 35% 14%",
 };
 
-export const forestTheme: ThemeTokens = {
+const forestTheme: ThemeTokens = {
   background: "140 30% 5%",
   foreground: "120 20% 95%",
   primary: "150 60% 50%",
@@ -43,7 +43,7 @@ export const forestTheme: ThemeTokens = {
   accentLight: "80 30% 14%",
 };
 
-export const sunsetTheme: ThemeTokens = {
+const sunsetTheme: ThemeTokens = {
   background: "20 30% 5%",
   foreground: "30 20% 95%",
   primary: "25 90% 60%",
@@ -52,7 +52,7 @@ export const sunsetTheme: ThemeTokens = {
   accentLight: "340 45% 14%",
 };
 
-export const midnightPurpleTheme: ThemeTokens = {
+const midnightPurpleTheme: ThemeTokens = {
   background: "250 40% 8%",
   foreground: "250 20% 95%",
   primary: "270 80% 70%",
@@ -61,7 +61,7 @@ export const midnightPurpleTheme: ThemeTokens = {
   accentLight: "310 40% 16%",
 };
 
-export const cyberpunkTheme: ThemeTokens = {
+const cyberpunkTheme: ThemeTokens = {
   background: "300 15% 8%",
   foreground: "180 100% 90%",
   primary: "320 100% 65%",
@@ -70,7 +70,7 @@ export const cyberpunkTheme: ThemeTokens = {
   accentLight: "180 50% 14%",
 };
 
-export const nordTheme: ThemeTokens = {
+const nordTheme: ThemeTokens = {
   background: "220 16% 22%",
   foreground: "218 27% 94%",
   primary: "193 43% 67%",
@@ -79,7 +79,7 @@ export const nordTheme: ThemeTokens = {
   accentLight: "179 20% 28%",
 };
 
-export const draculaTheme: ThemeTokens = {
+const draculaTheme: ThemeTokens = {
   background: "231 15% 18%",
   foreground: "60 30% 96%",
   primary: "326 100% 74%",
@@ -88,7 +88,7 @@ export const draculaTheme: ThemeTokens = {
   accentLight: "191 40% 25%",
 };
 
-export const monokaiTheme: ThemeTokens = {
+const monokaiTheme: ThemeTokens = {
   background: "70 8% 15%",
   foreground: "60 36% 96%",
   primary: "186 100% 69%",
@@ -97,7 +97,7 @@ export const monokaiTheme: ThemeTokens = {
   accentLight: "340 40% 22%",
 };
 
-export const gruvboxTheme: ThemeTokens = {
+const gruvboxTheme: ThemeTokens = {
   background: "34 25% 20%",
   foreground: "43 19% 88%",
   primary: "39 67% 69%",
@@ -106,7 +106,7 @@ export const gruvboxTheme: ThemeTokens = {
   accentLight: "24 35% 28%",
 };
 
-export const tokyoNightTheme: ThemeTokens = {
+const tokyoNightTheme: ThemeTokens = {
   background: "235 18% 12%",
   foreground: "224 13% 87%",
   primary: "217 92% 76%",
@@ -115,7 +115,7 @@ export const tokyoNightTheme: ThemeTokens = {
   accentLight: "267 35% 20%",
 };
 
-export const rosePineTheme: ThemeTokens = {
+const rosePineTheme: ThemeTokens = {
   background: "249 22% 12%",
   foreground: "245 50% 91%",
   primary: "2 55% 83%",
@@ -124,7 +124,7 @@ export const rosePineTheme: ThemeTokens = {
   accentLight: "35 35% 22%",
 };
 
-export const solarizedDarkTheme: ThemeTokens = {
+const solarizedDarkTheme: ThemeTokens = {
   background: "192 100% 3%",
   foreground: "44 87% 94%",
   primary: "175 59% 45%",
@@ -133,7 +133,7 @@ export const solarizedDarkTheme: ThemeTokens = {
   accentLight: "205 30% 14%",
 };
 
-export const catppuccinMochaTheme: ThemeTokens = {
+const catppuccinMochaTheme: ThemeTokens = {
   background: "240 21% 12%",
   foreground: "226 64% 88%",
   primary: "267 84% 81%",
@@ -142,7 +142,7 @@ export const catppuccinMochaTheme: ThemeTokens = {
   accentLight: "316 35% 22%",
 };
 
-export const oneDarkTheme: ThemeTokens = {
+const oneDarkTheme: ThemeTokens = {
   background: "220 13% 18%",
   foreground: "219 14% 76%",
   primary: "207 82% 66%",
@@ -151,7 +151,7 @@ export const oneDarkTheme: ThemeTokens = {
   accentLight: "286 30% 26%",
 };
 
-export const ayuDarkTheme: ThemeTokens = {
+const ayuDarkTheme: ThemeTokens = {
   background: "220 27% 10%",
   foreground: "40 14% 80%",
   primary: "35 100% 67%",
@@ -160,7 +160,7 @@ export const ayuDarkTheme: ThemeTokens = {
   accentLight: "200 30% 18%",
 };
 
-export const kanagawaTheme: ThemeTokens = {
+const kanagawaTheme: ThemeTokens = {
   background: "225 17% 14%",
   foreground: "39 14% 80%",
   primary: "252 56% 72%",
@@ -169,7 +169,7 @@ export const kanagawaTheme: ThemeTokens = {
   accentLight: "35 35% 22%",
 };
 
-export const evergreenTheme: ThemeTokens = {
+const evergreenTheme: ThemeTokens = {
   background: "150 12% 10%",
   foreground: "44 27% 85%",
   primary: "142 40% 58%",
@@ -178,7 +178,7 @@ export const evergreenTheme: ThemeTokens = {
   accentLight: "30 30% 18%",
 };
 
-export const synthwaveTheme: ThemeTokens = {
+const synthwaveTheme: ThemeTokens = {
   background: "270 40% 8%",
   foreground: "300 30% 92%",
   primary: "300 100% 72%",

@@ -15,28 +15,43 @@
   font-style: normal;
   font-display: swap;
 }
+/* Display face: rounded, heavy, set very tight. Carries the whole personality. */
+@font-face {
+  font-family: "Fredoka";
+  src: url("/fonts/Fredoka-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+/* Handwriting, used only for margin notes beside the real copy. */
+@font-face {
+  font-family: "Caveat";
+  src: url("/fonts/Caveat-SemiBold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
 
 /*
- * DevVoid theme model: 6 colors only.
- * Source of truth: --background, --foreground, --primary, --accent,
- *                  --primary-light, --accent-light.
+ * One light theme, flat and saturated. Cream page, brand navy and rose as
+ * big fields of colour, near-black type. Nothing here is dark mode.
  */
 :root {
-  --background: 44 10% 97%;
-  --foreground: 43 8% 10%;
-  --primary: 222 90% 30%;            /* #083291 */
-  --accent: 348 42% 58%;             /* #c26579 */
-  --primary-light: 221 83% 95%;      /* #e8effc */
-  --accent-light: 348 83% 95%;       /* #fce8ed */
+  --background: 42 60% 96%;          /* warm cream */
+  --surface: 42 46% 92%;             /* a shade down, for stacked panels */
+  --foreground: 30 12% 8%;           /* near-black, warm */
+  --primary: 222 90% 30%;            /* #083291 brand navy */
+  --accent: 344 62% 58%;             /* brand rose, pushed for saturation */
+  --primary-light: 221 70% 62%;
+  --accent-light: 344 82% 88%;
 
-  --primary-foreground: 0 0% 100%;
-  --accent-foreground: 0 0% 100%;
-  --radius: 0.625rem;
+  --primary-foreground: 42 60% 96%;
+  --accent-foreground: 30 12% 8%;
+  --radius: 1.25rem;
 }
 
 html {
   scroll-behavior: smooth;
-  /* offset anchor targets below the sticky navbar */
   scroll-padding-top: 5rem;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -44,54 +59,32 @@ html {
 
 html, body {
   font-family: "Satoshi", system-ui, sans-serif;
-}
-
-body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
 }
 
+/* Separation is colour and shape, never a rule. */
 * {
-  border-color: hsl(var(--foreground) / 0.1);
+  border-color: transparent;
 }
 
-/* Tighter, calmer headline tracking */
-h1, h2, h3 {
-  letter-spacing: -0.02em;
+.font-display {
+  font-family: "Fredoka", "Satoshi", system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.03em;
 }
 
-/* Custom scrollbar */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: hsl(var(--primary) / 0.25) transparent;
-}
-*::-webkit-scrollbar { width: 7px; height: 7px; }
-*::-webkit-scrollbar-track { background: transparent; }
-*::-webkit-scrollbar-thumb {
-  background: hsl(var(--primary) / 0.25);
-  border-radius: 4px;
-}
-*::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary) / 0.4); }
-
-/* Single, subtle reveal-on-scroll. JS adds .is-visible via IntersectionObserver. */
-.reveal {
-  opacity: 0;
-  transform: translateY(16px);
-  transition: opacity 0.6s ease, transform 0.6s ease;
-  will-change: opacity, transform;
-}
-.reveal.is-visible {
-  opacity: 1;
-  transform: none;
-}
-
-/* Faint dot texture for section accents (used sparingly) */
-.dot-grid {
-  background-image: radial-gradient(circle, hsl(var(--foreground) / 0.07) 1px, transparent 1px);
-  background-size: 22px 22px;
+.font-hand {
+  font-family: "Caveat", "Satoshi", cursive;
+  font-weight: 700;
 }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .reveal { opacity: 1; transform: none; transition: none; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
+

@@ -48,6 +48,11 @@ module.exports = {
           DEFAULT: "hsl(var(--primary-light))",
           foreground: "hsl(var(--primary))",
         },
+        // State colours, see the note beside their definitions in index.css.
+        success: "hsl(var(--success))",
+        warning: "hsl(var(--warning))",
+        info: "hsl(var(--info))",
+        routine: "hsl(var(--routine))",
         border: "hsl(var(--foreground) / 0.1)",
         input: "hsl(var(--foreground) / 0.15)",
         ring: "hsl(var(--primary))",

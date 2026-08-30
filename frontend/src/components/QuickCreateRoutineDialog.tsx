@@ -12,10 +12,9 @@ import { useData } from "@/contexts/DataContext";
 import { useToast } from "@/contexts/ToastContext";
 import { reportError } from "@/lib/error-store";
 import type { Routine } from "@/types";
+import { DAY_LABELS, MONTH_LABELS } from "@/lib/date-utils";
 import { Plus, Check } from "lucide-react";
 
-const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 interface QuickCreateRoutineDialogProps {
   open: boolean;
@@ -122,12 +121,12 @@ export default function QuickCreateRoutineDialog({ open, onOpenChange, routine }
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) resetForm(); onOpenChange(o); }}>
       <DialogContent size="md">
-        <DialogHeader><DialogTitle>{isEditing ? "Edit Routine" : "New Routine"}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{isEditing ? "Edit routine" : "New routine"}</DialogTitle></DialogHeader>
         <div className="space-y-3" onKeyDown={handleKeyDown}>
           <Input ref={titleRef} placeholder="Routine title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={MAX_TITLE_LENGTH} />
           <textarea placeholder="Description (optional)" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} maxLength={MAX_DESCRIPTION_LENGTH}
             className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none" />
-          <HierarchicalPathSelector paths={activePaths || []} selectedPathId={pathId || null} onChange={(id) => setPathId(id || "")} placeholder="Select Path" allowEmpty />
+          <HierarchicalPathSelector paths={activePaths || []} selectedPathId={pathId || null} onChange={(id) => setPathId(id || "")} placeholder="Select path" allowEmpty />
 
           {/* Frequency */}
           <div className="space-y-2">

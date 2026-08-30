@@ -197,3 +197,108 @@ export function getStartOfToday(): number {
   now.setHours(0, 0, 0, 0);
   return now.getTime();
 }
+
+/** Short labels, shared by every calendar-ish surface. */
+export const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** Short weekday labels, Sunday first, matching getMonthGrid. */
+export const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+const MONTH_NAMES = [
+  'january', 'february', 'march', 'april', 'may', 'june',
+  'july', 'august', 'september', 'october', 'november', 'december',
+]
+
+/** Days in a given month, month is 0-indexed. */
+function daysInMonth(year: number, month: number): number {
+  return new Date(year, month + 1, 0).getDate()
+}
+
+/** Builds a YYYY-MM-DD string if the parts are a real calendar date. */
+function toInputValue(year: number, month: number, day: number): string | undefined {
+  if (month < 0 || month > 11) return undefined
+  if (day < 1 || day > daysInMonth(year, month)) return undefined
+  return formatDateForInput(new Date(year, month, day).getTime())
+}
+
+/** Two-digit years read as 2000s, matching what people mean when they type "25". */
+function expandYear(year: number): number {
+  return year < 100 ? 2000 + year : year
+}
+
+/**
+ * Human-readable label for a YYYY-MM-DD value, e.g. "Sat, 30 Aug".
+ * The year is shown only when it isn't the current one.
+ */
+export function formatDateDisplay(value: string): string {
+  const timestamp = parseStartDateInput(value)
+  if (timestamp === undefined) return ''
+  const date = new Date(timestamp)
+  const showYear = date.getFullYear() !== new Date().getFullYear()
+  return date.toLocaleDateString(undefined, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    ...(showYear ? { year: 'numeric' } : {}),
+  })
+}
+
+/**
+ * Parses what someone actually types into a date field and returns YYYY-MM-DD,
+ * or undefined if it isn't a date. Numeric forms are read day-first ("3/4" is
+ * 3 April), which is what the rest of the app displays.
+ *
+ * Accepts: today/tomorrow/yesterday, 2026-08-30, 30/8/2026, 30-8-26, 30/8,
+ * 30 Aug 2026, Aug 30, 30aug.
+ */
+export function parseLooseDate(input: string): string | undefined {
+  const text = input.trim().toLowerCase()
+  if (!text) return undefined
+
+  const today = new Date()
+  if (text === 'today') return formatDateForInput(today.getTime())
+  if (text === 'tomorrow') return formatDateForInput(addDaysTo(today, 1))
+  if (text === 'yesterday') return formatDateForInput(addDaysTo(today, -1))
+
+  const iso = text.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/)
+  if (iso) return toInputValue(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]))
+
+  const numeric = text.match(/^(\d{1,2})[-/.](\d{1,2})(?:[-/.](\d{2,4}))?$/)
+  if (numeric) {
+    const year = numeric[3] ? expandYear(Number(numeric[3])) : today.getFullYear()
+    return toInputValue(year, Number(numeric[2]) - 1, Number(numeric[1]))
+  }
+
+  // "30 Aug 2026" / "30 august" / "30aug"
+  const dayFirst = text.match(/^(\d{1,2})\s*([a-z]{3,})\.?(?:\s+(\d{2,4}))?$/)
+  if (dayFirst) {
+    const month = matchMonth(dayFirst[2])
+    if (month === undefined) return undefined
+    const year = dayFirst[3] ? expandYear(Number(dayFirst[3])) : today.getFullYear()
+    return toInputValue(year, month, Number(dayFirst[1]))
+  }
+
+  // "Aug 30 2026" / "august 30"
+  const monthFirst = text.match(/^([a-z]{3,})\.?\s*(\d{1,2})(?:,?\s+(\d{2,4}))?$/)
+  if (monthFirst) {
+    const month = matchMonth(monthFirst[1])
+    if (month === undefined) return undefined
+    const year = monthFirst[3] ? expandYear(Number(monthFirst[3])) : today.getFullYear()
+    return toInputValue(year, month, Number(monthFirst[2]))
+  }
+
+  return undefined
+}
+
+/** Month index from a full or abbreviated name, undefined when ambiguous or unknown. */
+function matchMonth(name: string): number | undefined {
+  const matches = MONTH_NAMES.filter((m) => m.startsWith(name))
+  return matches.length === 1 ? MONTH_NAMES.indexOf(matches[0]) : undefined
+}
+
+/** Local-time day arithmetic returning a timestamp. */
+function addDaysTo(date: Date, days: number): number {
+  const d = new Date(date)
+  d.setDate(d.getDate() + days)
+  return d.getTime()
+}

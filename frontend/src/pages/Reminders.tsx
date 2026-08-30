@@ -9,11 +9,11 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { IconButton } from "@/components/ui/IconButton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import QuickCreateReminderDialog from "@/components/QuickCreateReminderDialog";
+import { MONTH_LABELS as MONTH_NAMES } from "@/lib/date-utils";
 import TodayRemindersBanner from "@/components/TodayRemindersBanner";
 import { Plus, Bell, Pencil, Trash2, Calendar } from "lucide-react";
 import { getKeybinds, formatKeybindDisplay } from "@/lib/keybind-config";
 
-const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function ordinal(n: number): string {
   const s = ["th", "st", "nd", "rd"];
@@ -99,7 +99,7 @@ export default function Reminders() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <Bell className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                      <Bell className="w-4 h-4 text-warning flex-shrink-0" />
                       <h3 className="font-medium truncate">{r.title}</h3>
                     </div>
                     {r.note && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{r.note}</p>}

@@ -38,15 +38,15 @@ export default function PathNode({ data }: { data: PathNodeData }) {
           {/* Step Statistics */}
           <div className="flex items-center gap-3 mt-2 text-xs">
             <div className="flex items-center gap-1" title="Completed">
-              <CheckCircle2 className="w-3 h-3 text-green-600" />
+              <CheckCircle2 className="w-3 h-3 text-success" />
               <span className="text-foreground">{data.completedCount}</span>
             </div>
-            <div className="flex items-center gap-1" title="In Progress">
-              <Circle className="w-3 h-3 text-blue-600" />
+            <div className="flex items-center gap-1" title="In progress">
+              <Circle className="w-3 h-3 text-info" />
               <span className="text-foreground">{data.inProgressCount}</span>
             </div>
             <div className="flex items-center gap-1" title="Failed">
-              <XCircle className="w-3 h-3 text-red-600" />
+              <XCircle className="w-3 h-3 text-destructive" />
               <span className="text-foreground">{data.failedCount}</span>
             </div>
           </div>
