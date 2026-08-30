@@ -20,7 +20,7 @@ const icons = {
 };
 
 const styles = {
-  success: "border-green-500/30 bg-green-500/10",
+  success: "border-success/30 bg-success/10",
   error: "border-destructive/30 bg-destructive/10",
   info: "border-primary/30 bg-primary/10",
 };

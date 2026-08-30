@@ -57,15 +57,13 @@ function Dialog({ open, onOpenChange, children }: DialogProps) {
 export interface DialogContentProps {
   children: React.ReactNode;
   className?: string;
-  size?: "sm" | "md" | "lg" | "xl" | "full";
+  size?: "sm" | "md" | "lg";
 }
 
 const sizeClasses = {
   sm: "max-w-sm",
   md: "max-w-md",
   lg: "max-w-lg",
-  xl: "max-w-xl",
-  full: "max-w-4xl",
 };
 
 function DialogContent({
