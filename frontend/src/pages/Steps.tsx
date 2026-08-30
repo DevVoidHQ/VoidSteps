@@ -29,9 +29,10 @@ import {
   Clock,
   CheckCircle2,
 } from "lucide-react";
-import QuickCreateDialog from "@/components/QuickCreateDialog";
+import QuickCapture from "@/components/QuickCapture";
 import { getKeybinds, formatKeybindDisplay } from "@/lib/keybind-config";
 import { StepCard } from "@/components/StepCard";
+import { filterSteps as applyStepFilters } from "@/lib/step-filters";
 import { DraggableStepList } from "@/components/DraggableStepList";
 import { HierarchicalPathSelector } from "@/components/HierarchicalPathSelector";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -113,23 +114,11 @@ export default function Steps() {
     [selectedPathFilterSteps, memoizedPaths]
   );
 
-  // Stable filter function
-  const filterSteps = useCallback((
-    steps: Step[],
-    searchQuery: string,
-    pathFilter: string
-  ): Step[] => {
-    return steps.filter((step: Step) => {
-      const matchesSearch = !searchQuery ||
-        step.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (step.description || "").toLowerCase().includes(searchQuery.toLowerCase());
-
-      const stepPathId = step.path?._id || (typeof step.pathId === 'string' ? step.pathId : null);
-      const matchesPath = !pathFilter || (stepPathId ? descendantPathIds.has(stepPathId) : false);
-
-      return matchesSearch && matchesPath;
-    });
-  }, [descendantPathIds]);
+  const filterSteps = useCallback(
+    (steps: Step[], searchQuery: string, pathFilter: string) =>
+      applyStepFilters(steps, searchQuery, pathFilter, descendantPathIds),
+    [descendantPathIds]
+  );
 
   // Memoized filtered arrays
   // Separate steps with due dates from active steps (shown at top)
@@ -276,7 +265,7 @@ export default function Steps() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">All Steps</h1>
+        <h1 className="text-2xl font-bold tracking-tight">All steps</h1>
         <Button onClick={() => setIsCreateOpen(true)} size="sm">
           <Plus className="w-4 h-4 mr-2" />
           New Step
@@ -302,7 +291,7 @@ export default function Steps() {
           paths={activePaths || []}
           selectedPathId={selectedPathFilterSteps || null}
           onChange={(id) => setSelectedPathFilterSteps(id || "")}
-          placeholder="All Paths"
+          placeholder="All paths"
           allowEmpty={true}
           className="sm:w-48"
         />
@@ -365,7 +354,7 @@ export default function Steps() {
       {/* Regular Steps */}
       {regularSteps.length > 0 && (
         <div className="space-y-3">
-          <h2 className="text-lg font-semibold">All Steps</h2>
+          <h2 className="text-lg font-semibold">All steps</h2>
           <DraggableStepList
             steps={regularSteps}
             paths={memoizedPaths}
@@ -513,7 +502,7 @@ export default function Steps() {
         </div>
       )}
 
-      <QuickCreateDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
+      <QuickCapture open={isCreateOpen} onOpenChange={setIsCreateOpen} />
     </div>
   );
 }
