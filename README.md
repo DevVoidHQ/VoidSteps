@@ -60,6 +60,13 @@ became a local-only desktop app. Accounts, the server and the sync engine were
 removed rather than disabled. Multi-device sync is expected to return later as a
 separate, paid feature, rebuilt rather than resumed; the app itself stays free.
 
+## Contributing
+
+[CONTRIBUTING.md](CONTRIBUTING.md) covers running it, where code goes, and the
+rules that will bite you (Dexie migrations, the no-network constraint, the asset
+licence rule). Also: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) and, for anything
+security-shaped, [SECURITY.md](SECURITY.md) rather than a public issue.
+
 ## Licence
 
 **Code is licensed under GPL-3.0-or-later.** See [LICENSE](LICENSE). You may use,
