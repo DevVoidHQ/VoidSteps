@@ -1,19 +1,35 @@
 /**
  * Backgrounds for the fullscreen focus view.
  *
- * The default library is GENERATED, not shipped. Every preset is a CSS
- * background composed from the six theme variables, so it costs zero bytes,
- * carries no licence, and stays correct when someone switches theme preset. A
- * bundled image can only ever be right for one theme and wrong for the other
- * nineteen.
+ * The library is GENERATED, not shipped. Every preset is a CSS background
+ * composed from the six theme variables, so it costs zero bytes, carries no
+ * licence, and stays correct when someone switches theme preset. A bundled
+ * image can only ever be right for one theme and wrong for the other nineteen.
  *
- * Hard rule, enforced by a test: no preset may name a colour. Only
- * `var(--background|--foreground|--primary|--accent|--primary-light|--accent-light)`,
- * composed with alpha. Hardcoding a grey or a hex here is the bug class that
- * makes a component ignore the active theme.
+ * Two hard rules, both enforced by tests:
+ *
+ * 1. **No preset may name a colour.** Only the theme variables, composed with
+ *    alpha. Hardcoding a grey or a hex is the bug class that makes a component
+ *    ignore the active theme.
+ *
+ * 2. **No preset may use an absolute length.** Every size and position is a
+ *    percentage or an angle, so a preset renders identically in a 48px swatch
+ *    and a fullscreen view. Orbit originally used `circle 38rem` and looked
+ *    like a different preset in the settings grid than it did in the preview,
+ *    because a 608px circle floods a small tile and merely tints a large one.
  */
 
-export type FocusBackgroundId = "plain" | "aurora" | "dusk" | "orbit" | "mesh";
+export type FocusBackgroundId =
+  | "plain"
+  | "aurora"
+  | "dusk"
+  | "orbit"
+  | "mesh"
+  | "halo"
+  | "vignette"
+  | "tide"
+  | "bands"
+  | "prism";
 
 export interface FocusBackground {
   id: FocusBackgroundId;
@@ -49,8 +65,8 @@ export const FOCUS_BACKGROUNDS: FocusBackground[] = [
     id: "orbit",
     label: "Orbit",
     css: [
-      "radial-gradient(circle 38rem at 78% 18%, hsl(var(--accent) / 0.26), transparent 70%)",
-      "radial-gradient(circle 30rem at 22% 82%, hsl(var(--primary) / 0.22), transparent 70%)",
+      "radial-gradient(ellipse 55% 65% at 78% 18%, hsl(var(--accent) / 0.28), transparent 70%)",
+      "radial-gradient(ellipse 45% 55% at 22% 82%, hsl(var(--primary) / 0.24), transparent 70%)",
     ].join(", "),
   },
   {
@@ -62,6 +78,44 @@ export const FOCUS_BACKGROUNDS: FocusBackground[] = [
       "radial-gradient(circle at 65% 85%, hsl(var(--primary-light) / 0.20), transparent 45%)",
       "radial-gradient(circle at 10% 75%, hsl(var(--accent-light) / 0.18), transparent 45%)",
     ].join(", "),
+  },
+  {
+    id: "halo",
+    label: "Halo",
+    css: [
+      "radial-gradient(ellipse 55% 50% at 50% 45%, hsl(var(--accent) / 0.30), transparent 72%)",
+      "radial-gradient(ellipse 90% 80% at 50% 45%, hsl(var(--primary) / 0.14), transparent 75%)",
+    ].join(", "),
+  },
+  {
+    id: "vignette",
+    label: "Vignette",
+    css: "radial-gradient(ellipse 95% 95% at 50% 50%, transparent 35%, hsl(var(--primary) / 0.26) 100%)",
+  },
+  {
+    id: "tide",
+    label: "Tide",
+    css: [
+      "linear-gradient(160deg, hsl(var(--accent) / 0.26) 0%, transparent 48%)",
+      "linear-gradient(20deg, hsl(var(--primary) / 0.24) 0%, transparent 52%)",
+    ].join(", "),
+  },
+  {
+    id: "bands",
+    label: "Bands",
+    css: "repeating-linear-gradient(135deg, hsl(var(--primary) / 0.11) 0%, hsl(var(--primary) / 0.11) 3%, transparent 3%, transparent 7%)",
+  },
+  {
+    id: "prism",
+    label: "Prism",
+    css: [
+      "conic-gradient(from 210deg at 50% 50%,",
+      "hsl(var(--primary) / 0.22),",
+      "hsl(var(--accent) / 0.24),",
+      "hsl(var(--primary-light) / 0.20),",
+      "hsl(var(--accent-light) / 0.22),",
+      "hsl(var(--primary) / 0.22))",
+    ].join(" "),
   },
 ];
 

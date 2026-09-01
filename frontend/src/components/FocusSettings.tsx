@@ -138,7 +138,7 @@ export default function FocusSettings() {
 
       <div className="space-y-2">
         <label className="text-sm font-medium">Background</label>
-        <div className="grid max-w-2xl grid-cols-3 gap-2 sm:grid-cols-6">
+        <div className="grid max-w-2xl grid-cols-3 gap-2 sm:grid-cols-5">
           {FOCUS_BACKGROUNDS.map((bg) => (
             <button
               key={bg.id}

@@ -39,6 +39,27 @@ describe("focus backgrounds", () => {
     for (const v of used) expect(THEME_VARS).toContain(v);
   });
 
+  it("never uses an absolute length", () => {
+    // The scale-invariance rule. A preset must render the same in a 48px
+    // settings swatch and a fullscreen view, so every size and position is a
+    // percentage or an angle. Orbit shipped with `circle 38rem` and looked
+    // like a different preset in the grid than in the preview, because a
+    // 608px circle floods a small tile and merely tints a large one.
+    const ABSOLUTE = /\b\d*\.?\d+(px|rem|em|pt|cm|mm|in|vh|vw|vmin|vmax|ch|ex)\b/;
+    for (const bg of FOCUS_BACKGROUNDS) {
+      expect(bg.css, `${bg.id} uses an absolute length`).not.toMatch(ABSOLUTE);
+    }
+  });
+
+  it("offers enough variety to be worth a picker", () => {
+    expect(FOCUS_BACKGROUNDS.length).toBeGreaterThanOrEqual(8);
+    // Distinct css, or two entries are the same preset under two names.
+    const css = FOCUS_BACKGROUNDS.map((b) => b.css);
+    expect(new Set(css).size).toBe(css.length);
+    const labels = FOCUS_BACKGROUNDS.map((b) => b.label);
+    expect(new Set(labels).size).toBe(labels.length);
+  });
+
   it("keeps a flat option that adds nothing", () => {
     expect(FOCUS_BACKGROUNDS.find((b) => b.id === "plain")?.css).toBe("none");
   });
