@@ -35,3 +35,23 @@ export async function openExternal(url: string): Promise<void> {
   }
   await invoke('plugin:opener|open_url', { url });
 }
+
+interface TauriMetadata {
+  currentWebview?: { label?: string };
+}
+
+/**
+ * Native webview page zoom, the same mechanism the browser's own zoom uses, so
+ * it scales everything: the notes editor, the path canvas, icons and images,
+ * not only the rem-based type that `applyFontScale` reaches.
+ *
+ * A no-op in the browser build, where the browser already handles Cmd +/- itself.
+ */
+export async function setWebviewZoom(factor: number): Promise<void> {
+  const invoke = internals()?.invoke;
+  if (!invoke) return;
+  const metadata = (globalThis as { __TAURI_INTERNALS__?: { metadata?: TauriMetadata } })
+    .__TAURI_INTERNALS__?.metadata;
+  const label = metadata?.currentWebview?.label ?? 'main';
+  await invoke('plugin:webview|set_webview_zoom', { label, value: factor });
+}
