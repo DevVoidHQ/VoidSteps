@@ -2,13 +2,67 @@ name: Release
 
 # Desktop builds ride version tags, never a branch push. The lander deploys on
 # its own schedule (lander.yml) so a marketing copy fix can't ship a binary.
+#
+# workflow_dispatch builds but does not publish: it exists to prove the pipeline
+# still works without burning a version number.
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
 
 jobs:
+  # Nothing gets built until the tag is honest and the tests are green. A
+  # release is the one artifact nobody re-runs, so the gate belongs here rather
+  # than only on pull requests.
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      # Three files carry the version and the bundler reads tauri.conf.json,
+      # not the tag. Without this check, tagging v0.2.0 ships a dmg named
+      # 0.1.0 and the release page lies about its own contents.
+      - name: Version agrees with the tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          conf=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          crate=$(grep -m1 '^version = ' src-tauri/Cargo.toml | cut -d'"' -f2)
+          pkg=$(node -p "require('./package.json').version")
+          echo "tag=$tag tauri.conf.json=$conf Cargo.toml=$crate package.json=$pkg"
+          mismatch=0
+          for pair in "tauri.conf.json:$conf" "Cargo.toml:$crate" "package.json:$pkg"; do
+            if [ "${pair#*:}" != "$tag" ]; then
+              echo "::error::${pair%%:*} is ${pair#*:}, but the tag says $tag"
+              mismatch=1
+            fi
+          done
+          exit $mismatch
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm exec tsc --noEmit
+
+      - name: Run tests
+        run: pnpm test
+
   build:
+    needs: verify
     strategy:
       fail-fast: false
       matrix:
@@ -47,21 +101,89 @@ jobs:
       - run: pnpm install --frozen-lockfile
         working-directory: frontend
 
+      # APPLE_API_KEY is the key ID, not the key material, and the bundler wants
+      # a real .p8 on disk (tauri-bundler src/bundle/macos/sign.rs). So the
+      # secret carries base64 of the file and we write it out here.
+      - name: Write the App Store Connect key
+        if: runner.os == 'macOS'
+        env:
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+        run: |
+          if [ -z "$APPLE_API_KEY_BASE64" ]; then
+            echo "::warning::No App Store Connect key. This build will not be notarized."
+            exit 0
+          fi
+          mkdir -p "$HOME/private_keys"
+          printf '%s' "$APPLE_API_KEY_BASE64" | base64 --decode > "$HOME/private_keys/AuthKey.p8"
+          chmod 600 "$HOME/private_keys/AuthKey.p8"
+          echo "APPLE_API_KEY_PATH=$HOME/private_keys/AuthKey.p8" >> "$GITHUB_ENV"
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Unset until the Developer ID cert lands. Without these the dmg is
-          # unsigned and macOS quarantines it on download.
+          # Developer ID Application certificate, exported as a .p12 that
+          # includes the private key. Without the key the build looks green and
+          # signs nothing.
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Notarization. APPLE_API_KEY_PATH is set by the step above.
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         with:
           projectPath: frontend
-          tagName: ${{ github.ref_name }}
-          releaseName: VoidSteps ${{ github.ref_name }}
+          # Empty on workflow_dispatch, which stops tauri-action creating a
+          # release named after the branch.
+          tagName: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
+          releaseName: ${{ startsWith(github.ref, 'refs/tags/v') && format('VoidSteps {0}', github.ref_name) || '' }}
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+      # Tauri notarizes the .app but never the .dmg: tauri-bundler's
+      # bundle/macos/dmg.rs has no notarize call, only app.rs does. Gatekeeper
+      # rejects an unnotarized dmg before the user ever reaches the app inside,
+      # so without this step a green build still ships an unopenable download.
+      - name: Notarize and staple the dmg
+        if: runner.os == 'macOS' && env.APPLE_API_KEY_PATH != ''
+        working-directory: frontend
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+          dmg=$(find src-tauri/target -path "*/bundle/dmg/*.dmg" | head -1)
+          if [ -z "$dmg" ]; then
+            echo "::error::no dmg found to notarize"
+            exit 1
+          fi
+          echo "notarizing $dmg"
+          xcrun notarytool submit "$dmg" \
+            --key "$APPLE_API_KEY_PATH" \
+            --key-id "$APPLE_API_KEY" \
+            --issuer "$APPLE_API_ISSUER" \
+            --wait
+          xcrun stapler staple "$dmg"
+          # Prove it rather than trusting the exit codes above.
+          xcrun stapler validate "$dmg"
+          spctl -a -vvv -t open --context context:primary-signature "$dmg"
+          echo "DMG_PATH=frontend/$dmg" >> "$GITHUB_ENV"
+
+      # tauri-action uploaded the dmg before it was stapled, so the asset on the
+      # release is the unopenable one until it is replaced.
+      - name: Replace the release asset with the stapled dmg
+        if: runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/v') && env.DMG_PATH != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.ref_name }}" "$DMG_PATH" --clobber
+
+      # A dispatch build publishes nothing, so keep the bundles reachable.
+      - name: Upload bundles
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: voidsteps-${{ matrix.platform }}
+          path: |
+            frontend/src-tauri/target/**/release/bundle/dmg/*.dmg
+            frontend/src-tauri/target/**/release/bundle/nsis/*.exe
+          if-no-files-found: error
