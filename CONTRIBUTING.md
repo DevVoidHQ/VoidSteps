@@ -81,7 +81,19 @@ No em dashes or en dashes anywhere: prose, code, comments or commit messages.
 Bugs and features go in [issues](../../issues). Security reports do not: see
 [SECURITY.md](SECURITY.md).
 
-## Licence
+## Licence and the CLA
 
-Code contributions are under [GPL-3.0-or-later](LICENSE). By contributing you
-agree your work ships under that licence.
+Code contributions are under [GPL-3.0-or-later](LICENSE).
+
+**First-time contributors: paste this as a comment on your pull request.**
+
+> I have read the CLA document and I hereby sign the CLA.
+
+That is the whole process, once per person, covering everything you contribute
+from then on. It is checked by hand before merging.
+
+[CLA.md](CLA.md) is the agreement and explains why it exists. The short version:
+**you keep your copyright.** It is a licence grant, not an assignment, and the
+part that matters is permission to relicense the project later. Without it, one
+merged contribution makes the licence permanent, and this project has already
+changed licence once.

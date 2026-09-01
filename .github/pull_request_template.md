@@ -14,6 +14,12 @@
 - [ ] `pnpm test` green
 - [ ] Checked in the desktop shell (`pnpm desktop:dev`), not only the browser
 
+**First pull request here?**
+
+Paste this as a comment on this PR (once per person, ever). See [CLA.md](../CLA.md).
+
+> I have read the CLA document and I hereby sign the CLA.
+
 **If it applies**
 
 - [ ] New Dexie migration adds a **new** version block; no old block was edited
