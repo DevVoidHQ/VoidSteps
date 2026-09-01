@@ -14,6 +14,7 @@ import {
   XCircle,
   Clock,
   Calendar,
+  CalendarClock,
   History,
   Play,
   Pause,
@@ -22,6 +23,7 @@ import {
   Repeat,
   MoreHorizontal,
 } from "lucide-react";
+import { resolvePostponeDate } from "@/lib/postpone";
 import { useElapsedTime, formatDuration } from "@/hooks/useTimer";
 import { TimeEditDialog } from "@/components/TimeEditDialog";
 import { StepDialog, type StepDialogTab } from "@/components/StepDialog";
@@ -184,6 +186,20 @@ function StepCardComponent({
         />
       ),
       onClick: () => onTogglePriority(step._id, step.prioritizedToday),
+    },
+    {
+      // The card offers the common case only. The full set of targets
+      // (weekend, in a week) lives in the command bar.
+      key: "postpone",
+      available: !step.completed,
+      label: "Postpone to tomorrow",
+      icon: <CalendarClock className="w-4 h-4" />,
+      onClick: () => {
+        const dueDate = resolvePostponeDate("tomorrow");
+        if (dueDate === undefined) return;
+        onSaveEdit(step._id, { dueDate });
+        success("Postponed to tomorrow");
+      },
     },
     {
       key: "time",

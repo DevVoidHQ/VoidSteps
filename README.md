@@ -1,82 +1,85 @@
 # VoidSteps
 
-Personal task tracker with offline-first architecture, real-time sync, and customizable themes.
+A local-only desktop task tracker. Paths, steps, routines and reminders, with a
+focus timer, notes, analytics and a graph view.
 
-## Tech Stack
+Everything lives on your machine. There is no account, no server, and no network
+call. A backup file is the only way your data leaves the device, and you make it
+yourself.
 
-- **Frontend:** React 19 + TypeScript + Vite + Tailwind CSS v4
-- **Auth:** Clerk
-- **Backend:** Convex (serverless functions + real-time database)
-- **Local DB:** Dexie (IndexedDB) for offline-first storage
-- **Error Tracking:** Sentry (optional via `VITE_SENTRY_DSN`)
+Free, and complete. Nothing is gated, greyed out, or waiting behind an upgrade
+prompt.
 
-## Project Structure
+## Install
+
+macOS `.dmg` and Windows `.exe`. Builds are not public yet.
+
+## Repository layout
 
 ```
-├── frontend/          # React SPA
-│   ├── src/
-│   │   ├── components/  # UI components
-│   │   ├── contexts/    # React contexts (Theme, Toast, Offline, Data)
-│   │   ├── hooks/       # Custom hooks
-│   │   ├── lib/         # Core logic (db, sync engine, mutations)
-│   │   ├── pages/       # Page components
-│   │   └── types/       # TypeScript types
-│   └── convex/          # Convex backend functions + schema
-├── lander/              # Astro landing page
-└── README.md
+frontend/          the app: React 19 + Vite + Tailwind, Tauri shell
+  src/lib/db.ts            Dexie schema; version blocks are a migration
+                           history, add a new one, never edit an old one
+  src/lib/local-mutations.ts   every write goes through here
+  src/lib/snapshot.ts      the one backup and restore format
+  src-tauri/               the desktop shell
+lander/            Astro landing page
 ```
 
-## Quick Start
+See [`frontend/README.md`](frontend/README.md) for running, building and testing.
 
-### Prerequisites
-
-- Node.js v18+
-- pnpm
-
-### Setup
+## Development
 
 ```bash
 cd frontend
 pnpm install
+pnpm desktop:dev     # Tauri window, hot reloads the UI
+pnpm test            # pure logic tests
 ```
 
-Create `frontend/.env`:
+`pnpm dev` runs the UI alone in a browser, which is faster for pure UI work but
+does not exercise the desktop shell.
 
-```env
-VITE_CLERK_PUBLISHABLE_KEY=pk_...
-VITE_CONVEX_URL=https://your-project.convex.cloud
-VITE_SENTRY_DSN=              # Optional — app works without it
-```
+## Storage and privacy
 
-### Development
+Data sits in IndexedDB via Dexie, inside the desktop app's own storage. It is
+never uploaded, because there is nowhere to upload it to.
 
-```bash
-# Terminal 1: Convex dev server
-cd frontend && pnpm convex:dev
+Two consequences worth knowing:
 
-# Terminal 2: Vite dev server
-cd frontend && pnpm dev
-```
+- **Storage is origin-scoped.** The old browser build and the desktop app are
+  different origins with different storage backends, so nothing transfers
+  between them by itself. Move data with a backup file.
+- **A backup file is your only recovery path.** Settings has backup and restore,
+  and both use the same format described in `src/lib/snapshot.ts`.
 
-## Architecture
+## History
 
-VoidSteps uses an **offline-first** approach:
+VoidSteps was a web app with accounts and server sync until August 2026, when it
+became a local-only desktop app. Accounts, the server and the sync engine were
+removed rather than disabled. Multi-device sync is expected to return later as a
+separate, paid feature, rebuilt rather than resumed; the app itself stays free.
 
-1. All mutations write to local IndexedDB (Dexie) first
-2. Changes are queued in a sync queue and pushed to Convex when online
-3. Pull sync periodically fetches server state and merges with local data
-4. ID remapping handles local→server ID transitions after push
+## Contributing
 
-The sync engine runs on intervals (push every 5s, pull every 60s) and triggers immediately when the app comes back online.
+[CONTRIBUTING.md](CONTRIBUTING.md) covers running it, where code goes, and the
+rules that will bite you (Dexie migrations, the no-network constraint, the asset
+licence rule). Also: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) and, for anything
+security-shaped, [SECURITY.md](SECURITY.md) rather than a public issue.
 
-## Error Handling
+First-time contributors agree to the [CLA](CLA.md) in their pull request. You keep
+your copyright; it is a licence grant, not an assignment.
 
-- **ErrorBoundary** wraps the app at two levels to prevent white screens
-- All mutation catch blocks surface errors via toast notifications
-- Errors are logged to an IndexedDB `errorLog` table (last 200 entries)
-- Optional Sentry integration reports errors to your dashboard
-- Settings > Sync & Errors shows sync status and recent error log
+## Licence
 
-## License
+**Code is licensed under GPL-3.0-or-later.** See [LICENSE](LICENSE). You may use,
+modify and redistribute it, including commercially. If you distribute a modified
+build, you must ship its source under the same licence.
 
-Private project for personal use.
+**Bundled assets are not GPL.** The five focus-mode tracks are CC0 1.0 Universal by
+[HoliznaCC0](https://freemusicarchive.org/music/holiznacc0/public-domain-lofi). They
+carry their own terms and are not covered by the code licence. Every bundled asset,
+its source and its licence are listed in [CREDITS.md](CREDITS.md).
+
+**VoidSteps and the Void mark are trademarks**, and the licence does not grant
+rights to them. A fork is welcome; a fork trading under this name is not.

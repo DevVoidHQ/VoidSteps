@@ -85,6 +85,8 @@ export default function CommandBar({
 }) {
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const activeRef = useRef<HTMLLIElement>(null);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   // The step being acted on, once you drill into one.
@@ -183,6 +185,29 @@ export default function CommandBar({
     setArmedConfirm(null);
   }, [drilled]);
 
+  // Keep the highlighted row visible. The list scrolls (max-h-80) but the
+  // highlight is pure state, so without this you navigate a selection you
+  // cannot see and Enter runs whatever it landed on.
+  //
+  // "nearest" rather than "center": it scrolls only when the row is actually
+  // out of view, so the list does not lurch on every keypress.
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex]);
+
+  // A new query is a new list, so the first result is selected. This also
+  // keeps the scroll honest: the effect above then pulls the top row into
+  // view, rather than leaving the container scrolled past a stale selection.
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [query]);
+
+  // Drilling resets activeIndex to 0 too, but it may already BE 0, in which
+  // case the effect above never fires and a scrolled list stays scrolled.
+  useEffect(() => {
+    listRef.current?.scrollTo({ top: 0 });
+  }, [drilled]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -255,7 +280,7 @@ export default function CommandBar({
           />
         </div>
 
-        <ul role="listbox" className="max-h-80 overflow-y-auto p-2">
+        <ul ref={listRef} role="listbox" className="max-h-80 overflow-y-auto p-2">
           {results.length === 0 ? (
             <li className="px-3 py-6 text-center text-sm text-muted-foreground">No results</li>
           ) : (
@@ -266,7 +291,7 @@ export default function CommandBar({
               const showHeader = item.group !== lastGroup;
               lastGroup = item.group;
               return (
-                <li key={item.id}>
+                <li key={item.id} ref={active ? activeRef : undefined}>
                   {showHeader && (
                     <div className="px-3 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
                       {item.group}

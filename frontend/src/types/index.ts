@@ -1,4 +1,3 @@
-// Compatible with both MongoDB and Convex backends
 export interface Path {
   _id: string;
   title: string;
@@ -19,7 +18,7 @@ export interface Step {
   failed?: boolean;
   failedAt?: string | number;
   pathId?: Path | string | null;
-  path?: Path | null; // Populated path from Convex
+  path?: Path | null; // Joined in by the read layer, not stored on the row
   routineId?: string; // If this step was spawned from a routine
   prioritizedToday: boolean;
   dueDate?: number;
@@ -39,7 +38,7 @@ export interface Routine {
   title: string;
   description?: string;
   pathId?: string | null;
-  path?: Path | null; // Populated path from Convex
+  path?: Path | null; // Joined in by the read layer, not stored on the row
   frequency: 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'yearly';
   daysOfWeek?: number[]; // For weekly: 0=Sun, 1=Mon, ..., 6=Sat
   dayOfMonth?: number; // For monthly: 1-31

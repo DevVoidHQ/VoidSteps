@@ -4,7 +4,10 @@
     "useDefineForClassFields": true,
     "module": "ESNext",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["vite/client", "vitest/globals"],
+    // "node" is for test files that read the repo (see focus-tracks.test.ts,
+    // which enforces that every shipped asset is credited). App code must not
+    // import node builtins; the app runs in a webview.
+    "types": ["vite/client", "vitest/globals", "node"],
     "skipLibCheck": true,
     "jsx": "react-jsx",
 

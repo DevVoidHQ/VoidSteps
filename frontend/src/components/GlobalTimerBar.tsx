@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Timer, Pause, Play, Square, CheckCircle2, Maximize2, X, Minus } from "lucide-react";
+import { Timer, Pause, Play, Square, CheckCircle2, Maximize2, X, Minus, Volume2, VolumeX } from "lucide-react";
 import { useData } from "@/contexts/DataContext";
 import {
   useStartTimer,
@@ -11,7 +11,18 @@ import {
 import { reportError } from "@/lib/error-store";
 import { useToast } from "@/contexts/ToastContext";
 import { useElapsedTime } from "@/hooks/useTimer";
-import { getOpenFocusOnPlay } from "@/lib/preferences";
+import {
+  getOpenFocusOnPlay,
+  getFocusVolume,
+  setFocusVolume,
+  useFocusAudioOn,
+  setFocusAudioOn,
+  useFocusBackground,
+  useFocusTrack,
+} from "@/lib/preferences";
+import { FOCUS_IMAGE_SCRIM, focusBackgroundCss } from "@/lib/focus-background";
+import { useFocusMedia } from "@/lib/focus-media";
+import { CUSTOM_TRACK_ID, TRACK_ARTIST, findBundledTrack } from "@/lib/focus-tracks";
 import { IconButton } from "@/components/ui/IconButton";
 import type { Step } from "@/types/index";
 
@@ -250,22 +261,96 @@ function FocusMode({
   const clock = now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
   const date = now.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
 
+  const backgroundId = useFocusBackground();
+  const { url: wallpaperUrl } = useFocusMedia("wallpaper");
+  const { url: customAudioUrl } = useFocusMedia("audio");
+  const trackId = useFocusTrack();
+  const bundled = findBundledTrack(trackId);
+  // A bundled track plays from public/; "custom" plays the user's own file.
+  const audioUrl = trackId === CUSTOM_TRACK_ID ? customAudioUrl : bundled?.src ?? null;
+  const nowPlaying = trackId === CUSTOM_TRACK_ID ? null : bundled?.title ?? null;
+  const audioOn = useFocusAudioOn();
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [volume, setVolumeState] = useState(getFocusVolume);
+
+  // A picked image wins over a generated background; the scrim keeps the timer
+  // readable over a bright photo without assuming the theme is dark.
+  const useImage = backgroundId === "custom" && wallpaperUrl;
+  const backgroundImage = useImage
+    ? `${FOCUS_IMAGE_SCRIM}, url("${wallpaperUrl}")`
+    : focusBackgroundCss(backgroundId);
+
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el) return;
+    el.volume = volume;
+    if (audioOn && audioUrl) {
+      // Autoplay can still be refused; the user has interacted to get here,
+      // but never let a rejected promise surface as an unhandled rejection.
+      el.play().catch(() => {});
+    } else {
+      el.pause();
+    }
+  }, [audioOn, audioUrl, volume]);
+
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background">
+    <div
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background bg-cover bg-center"
+      style={{ backgroundImage }}
+    >
+      {audioUrl && <audio ref={audioRef} src={audioUrl} loop />}
       {/* Top bar: wall clock + exit */}
       <div className="absolute inset-x-0 top-0 flex items-center justify-between px-6 py-5">
         <div className="text-sm text-muted-foreground">
           <span className="font-mono text-foreground">{clock}</span>
           <span className="mx-2">·</span>
           <span>{date}</span>
+          {audioOn && nowPlaying && (
+            <>
+              <span className="mx-2">·</span>
+              {/* CC0 asks for nothing. Crediting him costs a line. */}
+              <span>
+                {nowPlaying} <span className="opacity-70">by {TRACK_ARTIST}</span>
+              </span>
+            </>
+          )}
         </div>
-        <IconButton
-          icon={<X className="w-5 h-5" />}
-          aria-label="Exit focus mode"
-          variant="ghost"
-          size="icon-sm"
-          onClick={onExit}
-        />
+        <div className="flex items-center gap-2">
+          {audioUrl && (
+            <>
+              <IconButton
+                icon={audioOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                aria-label={audioOn ? "Mute audio" : "Play audio"}
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setFocusAudioOn(!audioOn)}
+              />
+              {audioOn && (
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={volume}
+                  aria-label="Volume"
+                  className="w-20 accent-primary"
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    setVolumeState(v);
+                    setFocusVolume(v);
+                  }}
+                />
+              )}
+            </>
+          )}
+          <IconButton
+            icon={<X className="w-5 h-5" />}
+            aria-label="Exit focus mode"
+            variant="ghost"
+            size="icon-sm"
+            onClick={onExit}
+          />
+        </div>
       </div>
 
       {/* Center: step + big timer */}

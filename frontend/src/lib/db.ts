@@ -162,6 +162,18 @@ export interface ErrorLogEntry {
 
 // --- Database class ---
 
+/**
+ * A wallpaper or audio track the user picked for focus mode. Exactly one row
+ * of each kind: the choice is app-wide, not per path or per step.
+ */
+export interface LocalFocusMedia {
+  _id: 'wallpaper' | 'audio';
+  blob: Blob;
+  /** Original filename, shown in Settings so the choice is recognisable. */
+  name: string;
+  updatedAt: number;
+}
+
 class VoidStepsDB extends Dexie {
   steps!: EntityTable<LocalStep, '_id'>;
   paths!: EntityTable<LocalPath, '_id'>;
@@ -173,6 +185,7 @@ class VoidStepsDB extends Dexie {
   timeEntries!: EntityTable<LocalTimeEntry, '_id'>;
   activityEvents!: EntityTable<LocalActivityEvent, '_id'>;
   errorLog!: EntityTable<ErrorLogEntry, 'id'>;
+  focusMedia!: EntityTable<LocalFocusMedia, '_id'>;
 
   constructor() {
     super('voidsteps');
@@ -293,6 +306,14 @@ class VoidStepsDB extends Dexie {
           }
         }
       });
+
+    // v11: focus mode media. Wallpapers and audio the user picks, held as
+    // Blobs. Deliberately NOT in SNAPSHOT_TABLES: these are cosmetic and
+    // re-pickable, and base64ing them into the JSON backup would add tens of
+    // megabytes to every export. Moving machines means re-picking them.
+    this.version(11).stores({
+      focusMedia: '_id',
+    });
   }
 }
 

@@ -10,17 +10,19 @@ import { Input } from "@/components/ui/Input";
 import { Toggle } from "@/components/ui/Toggle";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
-import { getDeferDatesMode, setDeferDatesMode, getDueDatesMode, setDueDatesMode, getPrioritizeDefault, setPrioritizeDefault, getOpenFocusOnPlay, setOpenFocusOnPlay, getShowStepDates, setShowStepDates, getFontScale, setFontScale, FONT_SCALE_PX, FONT_SCALE_LABELS, FONT_SCALE_ORDER, type FontScale, getStepActions, setStepActionMode, STEP_ACTION_ORDER, STEP_ACTION_LABELS, getStepsClickAction, setStepsClickAction, getTodayClickAction, setTodayClickAction, resetGeneralPreferences, type DeferDatesMode, type StepActionsConfig, type StepClickAction } from "@/lib/preferences";
+import { getDeferDatesMode, setDeferDatesMode, getDueDatesMode, setDueDatesMode, getPrioritizeDefault, setPrioritizeDefault, getShowStepDates, setShowStepDates, getFontScale, setFontScale, FONT_SCALE_PX, FONT_SCALE_LABELS, FONT_SCALE_ORDER, type FontScale, getStepActions, setStepActionMode, STEP_ACTION_ORDER, STEP_ACTION_LABELS, getStepsClickAction, setStepsClickAction, getTodayClickAction, setTodayClickAction, resetGeneralPreferences, type DeferDatesMode, type StepActionsConfig, type StepClickAction } from "@/lib/preferences";
 import { useData } from "@/contexts/DataContext";
 import { useUpdateDaySettings } from "@/lib/local-mutations";
 import { formatMinutesAsTime } from "@/lib/day-settings";
 import { reportError } from "@/lib/error-store";
 import { openExternal } from "@/lib/platform";
+import { getZoom, setZoom, stepZoom, resetZoom, formatZoom, zoomSupported, ZOOM_LEVELS, DEFAULT_ZOOM } from "@/lib/zoom";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
 import DataSettings from "@/components/DataSettings";
 import BackupCard from "@/components/BackupCard";
-import { Copy, Sparkles, Save, RotateCcw, Shuffle, Dices, Check, Trash2 } from "lucide-react";
+import FocusSettings from "@/components/FocusSettings";
+import { Copy, Sparkles, Save, RotateCcw, Shuffle, Dices, Check, Trash2, Minus, Plus } from "lucide-react";
 import {
   getKeybinds,
   setKeybind,
@@ -119,9 +121,10 @@ function GeneralSettings() {
   const [deferMode, setDeferMode] = useState<DeferDatesMode>(getDeferDatesMode());
   const [dueMode, setDueMode] = useState<DeferDatesMode>(getDueDatesMode());
   const [prioritizeDefault, setPrioritizeDefaultState] = useState(getPrioritizeDefault());
-  const [openFocusOnPlay, setOpenFocusOnPlayState] = useState(getOpenFocusOnPlay());
   const [showStepDates, setShowStepDatesState] = useState(getShowStepDates());
   const [fontScale, setFontScaleState] = useState<FontScale>(getFontScale());
+  const [zoom, setZoomState] = useState<number>(getZoom());
+  const canZoom = zoomSupported();
   const [stepActions, setStepActions] = useState<StepActionsConfig>(getStepActions());
   const [stepsClick, setStepsClick] = useState<StepClickAction>(getStepsClickAction());
   const [todayClick, setTodayClick] = useState<StepClickAction>(getTodayClickAction());
@@ -142,9 +145,9 @@ function GeneralSettings() {
     setDeferMode(getDeferDatesMode());
     setDueMode(getDueDatesMode());
     setPrioritizeDefaultState(getPrioritizeDefault());
-    setOpenFocusOnPlayState(getOpenFocusOnPlay());
     setShowStepDatesState(getShowStepDates());
     setFontScaleState(getFontScale());
+    setZoomState(resetZoom());
     setStepActions(getStepActions());
     setStepsClick(getStepsClickAction());
     setTodayClick(getTodayClickAction());
@@ -164,8 +167,8 @@ function GeneralSettings() {
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Text size</label>
             <p className="text-sm text-muted-foreground">
-              Scales the whole interface, not just the text, so nothing gets
-              cramped. Applies immediately.
+              The base type size, which scales layout with it so nothing gets
+              cramped. Independent of zoom. Applies immediately.
             </p>
             <div className="flex flex-wrap items-end gap-2 pt-1">
               {FONT_SCALE_ORDER.map((scale) => {
@@ -191,20 +194,55 @@ function GeneralSettings() {
             </div>
           </div>
 
+          {/* Desktop only: in a browser, Cmd +/- is the browser's own zoom. */}
+          {canZoom && (
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Zoom</label>
+              <p className="text-sm text-muted-foreground">
+                Scales the entire app the way browser zoom does, notes and path
+                canvas included. Use ⌘ + and ⌘ - to change it, ⌘ 0 to reset, or
+                hold ⌘ while scrolling.
+              </p>
+              <div className="flex items-center gap-2 pt-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  aria-label="Zoom out"
+                  disabled={zoom <= ZOOM_LEVELS[0]}
+                  onClick={() => setZoomState(stepZoom(-1))}
+                >
+                  <Minus className="w-4 h-4" />
+                </Button>
+                <span className="min-w-16 text-center text-sm tabular-nums font-medium">
+                  {formatZoom(zoom)}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  aria-label="Zoom in"
+                  disabled={zoom >= ZOOM_LEVELS[ZOOM_LEVELS.length - 1]}
+                  onClick={() => setZoomState(stepZoom(1))}
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={zoom === DEFAULT_ZOOM}
+                  onClick={() => setZoomState(setZoom(DEFAULT_ZOOM))}
+                >
+                  Reset
+                </Button>
+              </div>
+            </div>
+          )}
+
           <Toggle
             size="sm"
             checked={prioritizeDefault}
             onChange={(e) => { setPrioritizeDefaultState(e.target.checked); setPrioritizeDefault(e.target.checked); }}
             label="Prioritize new steps for today by default"
             description="Pre-checks 'Prioritize for today' when creating a step. Off by default."
-          />
-
-          <Toggle
-            size="sm"
-            checked={openFocusOnPlay}
-            onChange={(e) => { setOpenFocusOnPlayState(e.target.checked); setOpenFocusOnPlay(e.target.checked); }}
-            label="Open focus view when starting a timer"
-            description="Starting a step's timer opens the fullscreen focus view. On by default."
           />
 
           <Toggle
@@ -698,6 +736,7 @@ export default function Settings() {
         <TabsList className="mb-4">
           <TabsTrigger value="theme">Theme</TabsTrigger>
           <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="focus">Focus</TabsTrigger>
           <TabsTrigger value="keybinds">Keybinds</TabsTrigger>
           <TabsTrigger value="data">Data</TabsTrigger>
           <TabsTrigger value="feedback">Feedback</TabsTrigger>
@@ -708,6 +747,14 @@ export default function Settings() {
             {/* Install card removed for now; PWA plumbing kept in vite.config. */}
             <GeneralSettings />
           </div>
+        </TabsContent>
+
+        <TabsContent value="focus">
+          <Card>
+            <CardContent className="p-6">
+              <FocusSettings />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="keybinds">
