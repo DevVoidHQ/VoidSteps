@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/Input";
 import { Toggle } from "@/components/ui/Toggle";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
-import { getDeferDatesMode, setDeferDatesMode, getDueDatesMode, setDueDatesMode, getPrioritizeDefault, setPrioritizeDefault, getOpenFocusOnPlay, setOpenFocusOnPlay, getShowStepDates, setShowStepDates, getFontScale, setFontScale, FONT_SCALE_PX, FONT_SCALE_LABELS, FONT_SCALE_ORDER, type FontScale, getStepActions, setStepActionMode, STEP_ACTION_ORDER, STEP_ACTION_LABELS, getStepsClickAction, setStepsClickAction, getTodayClickAction, setTodayClickAction, resetGeneralPreferences, type DeferDatesMode, type StepActionsConfig, type StepClickAction } from "@/lib/preferences";
+import { getDeferDatesMode, setDeferDatesMode, getDueDatesMode, setDueDatesMode, getPrioritizeDefault, setPrioritizeDefault, getShowStepDates, setShowStepDates, getFontScale, setFontScale, FONT_SCALE_PX, FONT_SCALE_LABELS, FONT_SCALE_ORDER, type FontScale, getStepActions, setStepActionMode, STEP_ACTION_ORDER, STEP_ACTION_LABELS, getStepsClickAction, setStepsClickAction, getTodayClickAction, setTodayClickAction, resetGeneralPreferences, type DeferDatesMode, type StepActionsConfig, type StepClickAction } from "@/lib/preferences";
 import { useData } from "@/contexts/DataContext";
 import { useUpdateDaySettings } from "@/lib/local-mutations";
 import { formatMinutesAsTime } from "@/lib/day-settings";
@@ -121,7 +121,6 @@ function GeneralSettings() {
   const [deferMode, setDeferMode] = useState<DeferDatesMode>(getDeferDatesMode());
   const [dueMode, setDueMode] = useState<DeferDatesMode>(getDueDatesMode());
   const [prioritizeDefault, setPrioritizeDefaultState] = useState(getPrioritizeDefault());
-  const [openFocusOnPlay, setOpenFocusOnPlayState] = useState(getOpenFocusOnPlay());
   const [showStepDates, setShowStepDatesState] = useState(getShowStepDates());
   const [fontScale, setFontScaleState] = useState<FontScale>(getFontScale());
   const [zoom, setZoomState] = useState<number>(getZoom());
@@ -146,7 +145,6 @@ function GeneralSettings() {
     setDeferMode(getDeferDatesMode());
     setDueMode(getDueDatesMode());
     setPrioritizeDefaultState(getPrioritizeDefault());
-    setOpenFocusOnPlayState(getOpenFocusOnPlay());
     setShowStepDatesState(getShowStepDates());
     setFontScaleState(getFontScale());
     setZoomState(resetZoom());
@@ -246,16 +244,6 @@ function GeneralSettings() {
             label="Prioritize new steps for today by default"
             description="Pre-checks 'Prioritize for today' when creating a step. Off by default."
           />
-
-          <Toggle
-            size="sm"
-            checked={openFocusOnPlay}
-            onChange={(e) => { setOpenFocusOnPlayState(e.target.checked); setOpenFocusOnPlay(e.target.checked); }}
-            label="Open focus view when starting a timer"
-            description="Starting a step's timer opens the fullscreen focus view. On by default."
-          />
-
-          <FocusSettings />
 
           <Toggle
             size="sm"
@@ -748,6 +736,7 @@ export default function Settings() {
         <TabsList className="mb-4">
           <TabsTrigger value="theme">Theme</TabsTrigger>
           <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="focus">Focus</TabsTrigger>
           <TabsTrigger value="keybinds">Keybinds</TabsTrigger>
           <TabsTrigger value="data">Data</TabsTrigger>
           <TabsTrigger value="feedback">Feedback</TabsTrigger>
@@ -758,6 +747,14 @@ export default function Settings() {
             {/* Install card removed for now; PWA plumbing kept in vite.config. */}
             <GeneralSettings />
           </div>
+        </TabsContent>
+
+        <TabsContent value="focus">
+          <Card>
+            <CardContent className="p-6">
+              <FocusSettings />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="keybinds">
