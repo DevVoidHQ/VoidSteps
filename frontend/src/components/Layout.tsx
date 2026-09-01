@@ -7,7 +7,8 @@ import GlobalTimerBar from "./GlobalTimerBar";
 import TimerReconcileGuard from "./TimerReconcileGuard";
 import CommandBar from "./CommandBar";
 import { Button } from "@/components/ui/Button";
-import { Check, Clock, History, Menu, Pencil, Play, Star, Trash2, XCircle } from "lucide-react";
+import { CalendarClock, Check, Clock, History, Menu, Pencil, Play, Star, Trash2, XCircle } from "lucide-react";
+import { POSTPONE_TARGETS, resolvePostponeDate } from "@/lib/postpone";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { StepDialog, type StepDialogTab } from "./StepDialog";
 import { TimeEditDialog } from "./TimeEditDialog";
@@ -97,6 +98,21 @@ export default function Layout({
             run("togglePriority", () => updateStep({ id: step._id, prioritizedToday: !step.prioritizedToday }),
               step.prioritizedToday ? "Removed from today" : "Prioritized for today"),
         },
+        // One entry per target rather than a nested date picker: the palette
+        // filters on label, so typing "postpone" surfaces all of them and
+        // typing "postpone tom" goes straight to one.
+        ...(step.completed
+          ? []
+          : POSTPONE_TARGETS.map(({ token, label }) => ({
+              id: `postpone-${token}`,
+              label: `Postpone to ${label.toLowerCase()}`,
+              icon: CalendarClock,
+              run: () => {
+                const dueDate = resolvePostponeDate(token);
+                if (dueDate === undefined) return;
+                run("postponeStep", () => updateStep({ id: step._id, dueDate }), `Postponed to ${label.toLowerCase()}`);
+              },
+            }))),
         {
           id: "timer",
           label: timerRunning ? "Stop timer" : "Start timer",
