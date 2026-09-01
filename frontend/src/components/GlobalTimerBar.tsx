@@ -18,9 +18,11 @@ import {
   useFocusAudioOn,
   setFocusAudioOn,
   useFocusBackground,
+  useFocusTrack,
 } from "@/lib/preferences";
 import { FOCUS_IMAGE_SCRIM, focusBackgroundCss } from "@/lib/focus-background";
 import { useFocusMedia } from "@/lib/focus-media";
+import { CUSTOM_TRACK_ID, TRACK_ARTIST, findBundledTrack } from "@/lib/focus-tracks";
 import { IconButton } from "@/components/ui/IconButton";
 import type { Step } from "@/types/index";
 
@@ -261,7 +263,12 @@ function FocusMode({
 
   const backgroundId = useFocusBackground();
   const { url: wallpaperUrl } = useFocusMedia("wallpaper");
-  const { url: audioUrl } = useFocusMedia("audio");
+  const { url: customAudioUrl } = useFocusMedia("audio");
+  const trackId = useFocusTrack();
+  const bundled = findBundledTrack(trackId);
+  // A bundled track plays from public/; "custom" plays the user's own file.
+  const audioUrl = trackId === CUSTOM_TRACK_ID ? customAudioUrl : bundled?.src ?? null;
+  const nowPlaying = trackId === CUSTOM_TRACK_ID ? null : bundled?.title ?? null;
   const audioOn = useFocusAudioOn();
   const audioRef = useRef<HTMLAudioElement>(null);
   const [volume, setVolumeState] = useState(getFocusVolume);
@@ -298,6 +305,15 @@ function FocusMode({
           <span className="font-mono text-foreground">{clock}</span>
           <span className="mx-2">·</span>
           <span>{date}</span>
+          {audioOn && nowPlaying && (
+            <>
+              <span className="mx-2">·</span>
+              {/* CC0 asks for nothing. Crediting him costs a line. */}
+              <span>
+                {nowPlaying} <span className="opacity-70">by {TRACK_ARTIST}</span>
+              </span>
+            </>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {audioUrl && (

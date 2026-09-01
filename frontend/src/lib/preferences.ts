@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { DEFAULT_FOCUS_BACKGROUND } from "./focus-background";
+import { BUNDLED_TRACKS } from "./focus-tracks";
 
 // Local UI preferences (per-device). Reactive via a window event so a change in
 // Settings updates open dialogs/cards without a reload.
@@ -13,6 +14,7 @@ const FONT_SCALE_KEY = "voidsteps-font-scale";
 const FOCUS_BACKGROUND_KEY = "voidsteps-focus-background";
 const FOCUS_AUDIO_KEY = "voidsteps-focus-audio";
 const FOCUS_VOLUME_KEY = "voidsteps-focus-volume";
+const FOCUS_TRACK_KEY = "voidsteps-focus-track";
 const PREFS_EVENT = "voidsteps-prefs-changed";
 
 // Per-action placement on a step: "open" = its own inline icon, "compact" =
@@ -466,4 +468,38 @@ export function setFocusVolume(v: number): void {
     /* ignore */
   }
   window.dispatchEvent(new Event(PREFS_EVENT));
+}
+
+/** Which track focus mode plays: a bundled track id, or "custom" for the file
+ * the user picked. Defaults to the first bundled track so a fresh install has
+ * sound available without picking anything. */
+export function getFocusTrack(): string {
+  try {
+    return localStorage.getItem(FOCUS_TRACK_KEY) ?? BUNDLED_TRACKS[0].id;
+  } catch {
+    return BUNDLED_TRACKS[0].id;
+  }
+}
+
+export function setFocusTrack(id: string): void {
+  try {
+    localStorage.setItem(FOCUS_TRACK_KEY, id);
+  } catch {
+    /* ignore */
+  }
+  window.dispatchEvent(new Event(PREFS_EVENT));
+}
+
+export function useFocusTrack(): string {
+  const [value, setValue] = useState(getFocusTrack);
+  useEffect(() => {
+    const handler = () => setValue(getFocusTrack());
+    window.addEventListener(PREFS_EVENT, handler);
+    window.addEventListener("storage", handler);
+    return () => {
+      window.removeEventListener(PREFS_EVENT, handler);
+      window.removeEventListener("storage", handler);
+    };
+  }, []);
+  return value;
 }

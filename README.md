@@ -66,9 +66,10 @@ separate, paid feature, rebuilt rather than resumed; the app itself stays free.
 modify and redistribute it, including commercially. If you distribute a modified
 build, you must ship its source under the same licence.
 
-**Bundled assets are not GPL.** Wallpapers, audio and other media shipped with the
-app are CC0 (public domain), each recorded with its source. They carry their own
-terms and are not covered by the code licence.
+**Bundled assets are not GPL.** The five focus-mode tracks are CC0 1.0 Universal by
+[HoliznaCC0](https://freemusicarchive.org/music/holiznacc0/public-domain-lofi). They
+carry their own terms and are not covered by the code licence. Every bundled asset,
+its source and its licence are listed in [CREDITS.md](CREDITS.md).
 
 **VoidSteps and the Void mark are trademarks**, and the licence does not grant
 rights to them. A fork is welcome; a fork trading under this name is not.

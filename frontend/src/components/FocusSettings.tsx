@@ -3,7 +3,15 @@ import { Image, Music, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { FOCUS_BACKGROUNDS, focusBackgroundCss } from "@/lib/focus-background";
 import { clearFocusMedia, setFocusMedia, useFocusMedia } from "@/lib/focus-media";
-import { setFocusBackground, useFocusBackground } from "@/lib/preferences";
+import { setFocusBackground, setFocusTrack, useFocusBackground, useFocusTrack } from "@/lib/preferences";
+import {
+  BUNDLED_TRACKS,
+  CUSTOM_TRACK_ID,
+  TRACK_ARTIST,
+  TRACK_LICENCE,
+  TRACK_SOURCE_URL,
+} from "@/lib/focus-tracks";
+import { openExternal } from "@/lib/platform";
 import { useToast } from "@/contexts/ToastContext";
 
 /**
@@ -21,6 +29,7 @@ export default function FocusSettings() {
   const backgroundId = useFocusBackground();
   const { url: wallpaperUrl, name: wallpaperName } = useFocusMedia("wallpaper");
   const { name: audioName } = useFocusMedia("audio");
+  const trackId = useFocusTrack();
 
   const imageInput = useRef<HTMLInputElement>(null);
   const audioInput = useRef<HTMLInputElement>(null);
@@ -30,6 +39,7 @@ export default function FocusSettings() {
     try {
       await setFocusMedia(kind, file);
       if (kind === "wallpaper") setFocusBackground("custom");
+      if (kind === "audio") setFocusTrack(CUSTOM_TRACK_ID);
       toast.success(kind === "wallpaper" ? "Wallpaper set" : "Track set");
     } catch {
       toast.error("Could not read that file");
@@ -40,6 +50,9 @@ export default function FocusSettings() {
     await clearFocusMedia(kind);
     if (kind === "wallpaper" && backgroundId === "custom") {
       setFocusBackground(FOCUS_BACKGROUNDS[0].id);
+    }
+    if (kind === "audio" && trackId === CUSTOM_TRACK_ID) {
+      setFocusTrack(BUNDLED_TRACKS[0].id);
     }
   };
 
@@ -114,9 +127,52 @@ export default function FocusSettings() {
       <div className="space-y-1.5">
         <label className="text-sm font-medium">Focus sound</label>
         <p className="text-sm text-muted-foreground">
-          An audio file from your machine, looped while focus mode is open. Play and volume live
-          in the focus view. Nothing streams and nothing is fetched, and it is not included in
-          backups, so pick it again on a new machine.
+          Looped while focus mode is open. Play and volume live in the focus view. The tracks
+          ship with the app, so nothing streams and nothing is fetched.
+        </p>
+
+        <div className="flex flex-wrap gap-1.5 pt-1">
+          {BUNDLED_TRACKS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              aria-pressed={trackId === t.id}
+              onClick={() => setFocusTrack(t.id)}
+              className={`rounded-md px-2.5 py-1 text-sm transition ${
+                trackId === t.id
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {t.title}
+            </button>
+          ))}
+          {audioName && (
+            <button
+              type="button"
+              aria-pressed={trackId === CUSTOM_TRACK_ID}
+              onClick={() => setFocusTrack(CUSTOM_TRACK_ID)}
+              className={`rounded-md px-2.5 py-1 text-sm transition ${
+                trackId === CUSTOM_TRACK_ID
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              Yours
+            </button>
+          )}
+        </div>
+
+        <p className="text-sm text-muted-foreground">
+          Music by{" "}
+          <button
+            type="button"
+            className="underline underline-offset-2 hover:text-foreground"
+            onClick={() => openExternal(TRACK_SOURCE_URL)}
+          >
+            {TRACK_ARTIST}
+          </button>
+          , released under {TRACK_LICENCE}. No attribution is required; we credit him anyway.
         </p>
 
         <div className="flex flex-wrap items-center gap-2 pt-1">
