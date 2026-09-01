@@ -67,6 +67,9 @@ rules that will bite you (Dexie migrations, the no-network constraint, the asset
 licence rule). Also: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) and, for anything
 security-shaped, [SECURITY.md](SECURITY.md) rather than a public issue.
 
+First-time contributors agree to the [CLA](CLA.md) in their pull request. You keep
+your copyright; it is a licence grant, not an assignment.
+
 ## Licence
 
 **Code is licensed under GPL-3.0-or-later.** See [LICENSE](LICENSE). You may use,
