@@ -53,10 +53,9 @@ async function spawnDueRoutines() {
 
     for (const routine of routines) {
       // De-duplicate: skip if a step with same routineId was already created today.
-      // NOTE: There is a race condition between this client-side spawner and the
-      // server-side Convex cron. Both may check at roughly the same time and create
-      // duplicate steps. The pull sync will eventually reconcile, but brief duplicates
-      // are possible. A server-side dedup check in the cron mutation would fully fix this.
+      // This spawner runs on mount and on visibilitychange, so the same logical
+      // day is checked many times per day and across restarts. `isRunning` guards
+      // overlapping runs within one session; this check guards everything else.
       const existingToday = await db.steps
         .filter(s =>
           s.routineId === routine._id &&

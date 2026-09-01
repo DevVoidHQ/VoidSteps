@@ -13,7 +13,7 @@
 
 export interface DayBoundaryOpts {
   /** User's UTC offset in minutes (east positive, e.g. IST = 330). Defaults to
-   * the runtime's current offset - browser-local on clients, 0 on Convex. */
+   * the runtime's current offset. */
   utcOffsetMinutes?: number;
   /** "Start of day": minutes past local midnight when routine occurrences
    * land (e.g. 360 = routines spawn at 6:00). Default 0 = midnight. */
