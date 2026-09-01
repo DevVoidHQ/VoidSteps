@@ -90,7 +90,11 @@ Code contributions are under [GPL-3.0-or-later](LICENSE).
 > I have read the CLA document and I hereby sign the CLA.
 
 That is the whole process, once per person, covering everything you contribute
-from then on. It is checked by hand before merging.
+from then on.
+
+A maintainer records it in [.cla-signatures.md](.cla-signatures.md) and commits
+that before merging, so the record lives in the repository rather than in a
+comment its author can edit or delete.
 
 [CLA.md](CLA.md) is the agreement and explains why it exists. The short version:
 **you keep your copyright.** It is a licence grant, not an assignment, and the
