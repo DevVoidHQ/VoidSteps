@@ -20,6 +20,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
 import DataSettings from "@/components/DataSettings";
 import BackupCard from "@/components/BackupCard";
+import FocusSettings from "@/components/FocusSettings";
 import { Copy, Sparkles, Save, RotateCcw, Shuffle, Dices, Check, Trash2 } from "lucide-react";
 import {
   getKeybinds,
@@ -206,6 +207,8 @@ function GeneralSettings() {
             label="Open focus view when starting a timer"
             description="Starting a step's timer opens the fullscreen focus view. On by default."
           />
+
+          <FocusSettings />
 
           <Toggle
             size="sm"

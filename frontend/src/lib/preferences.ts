@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { DEFAULT_FOCUS_BACKGROUND } from "./focus-background";
 
 // Local UI preferences (per-device). Reactive via a window event so a change in
 // Settings updates open dialogs/cards without a reload.
@@ -9,6 +10,9 @@ const STEP_ACTIONS_KEY = "voidsteps-step-actions";
 const OPEN_FOCUS_ON_PLAY_KEY = "voidsteps-open-focus-on-play";
 const SHOW_STEP_DATES_KEY = "voidsteps-show-step-dates";
 const FONT_SCALE_KEY = "voidsteps-font-scale";
+const FOCUS_BACKGROUND_KEY = "voidsteps-focus-background";
+const FOCUS_AUDIO_KEY = "voidsteps-focus-audio";
+const FOCUS_VOLUME_KEY = "voidsteps-focus-volume";
 const PREFS_EVENT = "voidsteps-prefs-changed";
 
 // Per-action placement on a step: "open" = its own inline icon, "compact" =
@@ -372,5 +376,92 @@ export function resetGeneralPreferences(): void {
     /* ignore */
   }
   applyFontScale();
+  window.dispatchEvent(new Event(PREFS_EVENT));
+}
+
+// ── focus mode ──────────────────────────────────────────────────────
+// Which generated background the focus view uses, or "custom" for the image
+// the user picked. Stored by id, never as CSS, so a preset can be retuned
+// without migrating anyone's setting.
+
+export function getFocusBackground(): string {
+  try {
+    return localStorage.getItem(FOCUS_BACKGROUND_KEY) ?? DEFAULT_FOCUS_BACKGROUND;
+  } catch {
+    return DEFAULT_FOCUS_BACKGROUND;
+  }
+}
+
+export function setFocusBackground(id: string): void {
+  try {
+    localStorage.setItem(FOCUS_BACKGROUND_KEY, id);
+  } catch {
+    /* ignore */
+  }
+  window.dispatchEvent(new Event(PREFS_EVENT));
+}
+
+export function useFocusBackground(): string {
+  const [value, setValue] = useState(getFocusBackground);
+  useEffect(() => {
+    const handler = () => setValue(getFocusBackground());
+    window.addEventListener(PREFS_EVENT, handler);
+    window.addEventListener("storage", handler);
+    return () => {
+      window.removeEventListener(PREFS_EVENT, handler);
+      window.removeEventListener("storage", handler);
+    };
+  }, []);
+  return value;
+}
+
+/** Whether the picked audio track loops while focus mode is open. Default off:
+ * sound should never start playing because someone hit play on a timer. */
+export function getFocusAudioOn(): boolean {
+  try {
+    return localStorage.getItem(FOCUS_AUDIO_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function setFocusAudioOn(on: boolean): void {
+  try {
+    localStorage.setItem(FOCUS_AUDIO_KEY, String(on));
+  } catch {
+    /* ignore */
+  }
+  window.dispatchEvent(new Event(PREFS_EVENT));
+}
+
+export function useFocusAudioOn(): boolean {
+  const [value, setValue] = useState(getFocusAudioOn);
+  useEffect(() => {
+    const handler = () => setValue(getFocusAudioOn());
+    window.addEventListener(PREFS_EVENT, handler);
+    window.addEventListener("storage", handler);
+    return () => {
+      window.removeEventListener(PREFS_EVENT, handler);
+      window.removeEventListener("storage", handler);
+    };
+  }, []);
+  return value;
+}
+
+export function getFocusVolume(): number {
+  try {
+    const raw = Number(localStorage.getItem(FOCUS_VOLUME_KEY));
+    return Number.isFinite(raw) && raw >= 0 && raw <= 1 ? raw : 0.5;
+  } catch {
+    return 0.5;
+  }
+}
+
+export function setFocusVolume(v: number): void {
+  try {
+    localStorage.setItem(FOCUS_VOLUME_KEY, String(v));
+  } catch {
+    /* ignore */
+  }
   window.dispatchEvent(new Event(PREFS_EVENT));
 }
