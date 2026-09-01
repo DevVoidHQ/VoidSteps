@@ -24,6 +24,11 @@ The first time you open a pull request, paste this into a comment on it:
 That covers every contribution you make to this project, then and later. You only
 do it once.
 
+A maintainer then records it in [.cla-signatures.md](.cla-signatures.md) and
+commits it before merging. **That file is the record of agreement**, not the
+comment: a comment can be edited or deleted by its author, while a committed row
+is timestamped by someone else and travels with the code.
+
 ---
 
 ## Agreement
