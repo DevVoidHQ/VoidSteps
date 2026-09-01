@@ -8,7 +8,6 @@ import {
   BUNDLED_TRACKS,
   CUSTOM_TRACK_ID,
   TRACK_ARTIST,
-  TRACK_LICENCE,
   TRACK_SOURCE_URL,
   findBundledTrack,
 } from "@/lib/focus-tracks";
@@ -206,6 +205,7 @@ export default function FocusSettings() {
               key={t.id}
               title={t.title}
               subtitle={TRACK_ARTIST}
+              subtitleHref={TRACK_SOURCE_URL}
               selected={trackId === t.id}
               playing={auditioning === t.id}
               onSelect={() => setFocusTrack(t.id)}
@@ -242,17 +242,6 @@ export default function FocusSettings() {
           </Button>
         </div>
 
-        <p className="pt-1 text-sm text-muted-foreground">
-          Music by{" "}
-          <button
-            type="button"
-            className="underline underline-offset-2 hover:text-foreground"
-            onClick={() => openExternal(TRACK_SOURCE_URL)}
-          >
-            {TRACK_ARTIST}
-          </button>
-          , released under {TRACK_LICENCE}. No attribution is required; we credit him anyway.
-        </p>
       </div>
 
       <div className="space-y-2 border-t border-border pt-6">
@@ -280,9 +269,12 @@ function TrackRow({
   onSelect,
   onAudition,
   onRemove,
+  subtitleHref,
 }: {
   title: string;
   subtitle: string;
+  /** Makes the subtitle a link, used to credit the artist once per row. */
+  subtitleHref?: string;
   selected: boolean;
   playing: boolean;
   onSelect: () => void;
@@ -309,8 +301,19 @@ function TrackRow({
         <span className={`block truncate text-sm ${selected ? "text-foreground" : "text-muted-foreground"}`}>
           {title}
         </span>
-        <span className="block truncate text-xs text-muted-foreground/70">{subtitle}</span>
       </button>
+
+      {subtitleHref ? (
+        <button
+          type="button"
+          onClick={() => openExternal(subtitleHref)}
+          className="shrink-0 text-xs text-muted-foreground/70 underline-offset-2 hover:text-foreground hover:underline"
+        >
+          {subtitle}
+        </button>
+      ) : (
+        <span className="shrink-0 text-xs text-muted-foreground/70">{subtitle}</span>
+      )}
 
       {selected && <span className="shrink-0 text-xs text-primary">Selected</span>}
 
