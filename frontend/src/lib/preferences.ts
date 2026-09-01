@@ -17,7 +17,7 @@ const PREFS_EVENT = "voidsteps-prefs-changed";
 
 // Per-action placement on a step: "open" = its own inline icon, "compact" =
 // tucked into the step's "more" menu.
-export type StepActionKey = "failed" | "timer" | "priority" | "time" | "open" | "edit" | "delete";
+export type StepActionKey = "failed" | "timer" | "priority" | "postpone" | "time" | "open" | "edit" | "delete";
 export type StepActionMode = "open" | "compact";
 export type StepActionsConfig = Record<StepActionKey, StepActionMode>;
 
@@ -25,17 +25,19 @@ export const STEP_ACTION_LABELS: Record<StepActionKey, string> = {
   failed: "Mark failed",
   timer: "Timer",
   priority: "Prioritize",
+  postpone: "Postpone to tomorrow",
   time: "Edit time",
   open: "Activity",
   edit: "Edit",
   delete: "Delete",
 };
-export const STEP_ACTION_ORDER: StepActionKey[] = ["timer", "priority", "failed", "time", "open", "edit", "delete"];
+export const STEP_ACTION_ORDER: StepActionKey[] = ["timer", "priority", "postpone", "failed", "time", "open", "edit", "delete"];
 
 const DEFAULT_STEP_ACTIONS: StepActionsConfig = {
   failed: "open",
   timer: "open",
   priority: "open",
+  postpone: "compact",
   time: "compact",
   open: "compact",
   edit: "compact",
