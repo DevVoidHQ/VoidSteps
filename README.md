@@ -23,7 +23,6 @@ frontend/          the app: React 19 + Vite + Tailwind, Tauri shell
   src/lib/local-mutations.ts   every write goes through here
   src/lib/snapshot.ts      the one backup and restore format
   src-tauri/               the desktop shell
-lander/            Astro landing page
 ```
 
 See [`frontend/README.md`](frontend/README.md) for running, building and testing.
