@@ -8,27 +8,59 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
 
     steps:
       - uses: actions/checkout@v4
 
+      # No version pin here on purpose. package.json's packageManager field is
+      # the single source of truth, and action-setup errors out if both are set.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
       - run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Format check
+        run: pnpm format:check
 
       - name: Type check
         run: pnpm exec tsc --noEmit
 
       - name: Run tests
         run: pnpm test
+
+  # Nothing else in CI ever invokes cargo, so without this job the Tauri shell
+  # is compiled for the first time on a release tag: the one build nobody
+  # wants to discover is broken the moment it has to ship.
+  #
+  # Runs on macOS because that is the only platform we ship. On ubuntu this
+  # would compile the Linux WebKitGTK backend, which is code we do not
+  # distribute and which can fail for reasons that say nothing about the
+  # released app, and it would need seven apt packages to do it. Add a Linux or
+  # Windows leg here when there is a Linux or Windows release to protect.
+  rust:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop
+
+      - name: Clippy
+        run: cargo clippy --manifest-path desktop/Cargo.toml --all-targets -- -D warnings
+
+      - name: Cargo check
+        run: cargo check --manifest-path desktop/Cargo.toml

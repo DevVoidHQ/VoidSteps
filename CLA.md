@@ -94,7 +94,7 @@ any original Contribution, clearly identified, with the complete details of its
 source and of any licence or other restriction attached to it.
 
 **Assets are held to a higher bar than code.** Anything under
-`frontend/public/` that you did not create must be public domain or under a
+`public/` that you did not create must be public domain or under a
 licence permitting redistribution, and must be listed in
 [CREDITS.md](CREDITS.md) with its source and licence before it is committed. An
 asset whose licence has not been verified does not go in.

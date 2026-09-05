@@ -6,13 +6,15 @@ no server, no network calls. That constraint decides most of what follows.
 ## Running it
 
 ```bash
-cd frontend
 pnpm install
 pnpm desktop:dev     # Tauri window, hot reloads the UI
 pnpm test            # logic tests
+pnpm lint            # eslint
+pnpm format          # prettier
 ```
 
-You need Node, pnpm and a Rust toolchain (the desktop shell is Tauri).
+Everything runs from the repository root. You need Node 22 (see `.nvmrc`),
+pnpm 11 and a Rust toolchain (the desktop shell is Tauri).
 
 `pnpm dev` runs the UI alone in a browser. It is faster for pure UI work but does
 not exercise the desktop shell, so anything touching the shell must be checked
@@ -23,16 +25,16 @@ vitest is more forgiving than `tsc`. Run the build before opening a PR.
 
 ## Where code goes
 
-- **`src/lib/`** is pure logic, and it is the only layer with tests. Date maths,
+- **`app/lib/`** is pure logic, and it is the only layer with tests. Date maths,
   recurrence, snapshot validation, quick-capture parsing. If a behaviour can be
   expressed without a component, put it here and test it.
-- **`src/components/`, `src/pages/`** are UI. There is no component or
+- **`app/components/`, `app/pages/`** are UI. There is no component or
   end-to-end test layer yet, so this code is verified by hand. Keep logic out of
   it so it can be tested.
-- **`src/lib/local-mutations.ts`** is the only write path. Never write to Dexie
+- **`app/lib/local-mutations.ts`** is the only write path. Never write to Dexie
   directly from a component: the activity log hangs off these mutations, so
   bypassing them silently loses history.
-- **`src-tauri/`** is the desktop shell. App code must not import Node builtins;
+- **`desktop/`** is the desktop shell. App code must not import Node builtins;
   it runs in a webview.
 
 ## Rules that will bite you
@@ -43,7 +45,7 @@ changing an old block corrupts their data. Old blocks may still name tables that
 no longer exist; that is deliberate, leave them.
 
 **Bundled assets need a licence entry before they are committed.** Anything under
-`frontend/public/` that was not created for this project goes in
+`public/` that was not created for this project goes in
 [CREDITS.md](CREDITS.md) with its source URL and licence. A test enforces this
 for audio, and it fails the suite rather than shipping something uncredited. If
 you have not verified an asset's licence, it does not go in.
@@ -101,3 +103,10 @@ comment its author can edit or delete.
 part that matters is permission to relicense the project later. Without it, one
 merged contribution makes the licence permanent, and this project has already
 changed licence once.
+
+### No per-file licence headers
+
+This is a deliberate decision, not an oversight: source files do not carry SPDX
+or copyright headers. The repository-level [LICENSE](LICENSE) plus the
+copyright line in the README's Licence section already cover every file, and in
+a single-owner codebase per-file headers are noise. Do not add them.
