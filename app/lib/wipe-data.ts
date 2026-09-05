@@ -13,13 +13,7 @@
  */
 import { db } from "./db";
 
-export type WipeEntity =
-  | "steps"
-  | "paths"
-  | "routines"
-  | "reminders"
-  | "notebooks"
-  | "notes";
+export type WipeEntity = "steps" | "paths" | "routines" | "reminders" | "notebooks" | "notes";
 
 /** Order used for the per-type rows in the UI. */
 export const WIPE_ENTITIES: WipeEntity[] = [
@@ -71,7 +65,10 @@ export async function getPathCascadeImpact(): Promise<{ steps: number }> {
 }
 
 /** Delete every row of `name` matching `predicate`. Returns the ids removed. */
-async function deleteMatching(name: WipeEntity, predicate: (r: Row) => boolean = () => true): Promise<string[]> {
+async function deleteMatching(
+  name: WipeEntity,
+  predicate: (r: Row) => boolean = () => true
+): Promise<string[]> {
   const rows = (await tableFor(name).toArray()).filter(predicate);
   await tableFor(name).bulkDelete(rows.map((r) => r._id));
   return rows.map((r) => r._id);
@@ -93,13 +90,25 @@ async function cleanupStepChildren(stepIds: Set<string>): Promise<void> {
  * Runs in a single transaction so a failure mid-way doesn't leave a partial,
  * inconsistent state.
  */
-export async function wipeData(names: WipeEntity[], opts: { cascade?: boolean } = {}): Promise<void> {
+export async function wipeData(
+  names: WipeEntity[],
+  opts: { cascade?: boolean } = {}
+): Promise<void> {
   const set = new Set(names);
   const cascade = !!opts.cascade;
 
   await db.transaction(
     "rw",
-    [db.steps, db.paths, db.routines, db.reminders, db.notebooks, db.notes, db.timeEntries, db.activityEvents],
+    [
+      db.steps,
+      db.paths,
+      db.routines,
+      db.reminders,
+      db.notebooks,
+      db.notes,
+      db.timeEntries,
+      db.activityEvents,
+    ],
     async () => {
       const removedStepIds = new Set<string>();
       // Forced: notebooks take all their notes.
@@ -108,7 +117,8 @@ export async function wipeData(names: WipeEntity[], opts: { cascade?: boolean } 
       }
       // Optional: paths take the steps that reference a path.
       if (set.has("paths") && cascade) {
-        for (const id of await deleteMatching("steps", (s) => s.pathId != null)) removedStepIds.add(id);
+        for (const id of await deleteMatching("steps", (s) => s.pathId != null))
+          removedStepIds.add(id);
       }
       // Primary per-type deletes.
       for (const name of set) {

@@ -1,9 +1,15 @@
-import { useMemo } from 'react';
-import type { Step, Routine, Reminder } from '@/types';
-import { getStartOfDay, projectRoutineOccurrences, projectReminderOccurrences } from '@/lib/calendar-utils';
-import { isOverdue } from '@/lib/date-utils';
+import { useMemo } from "react";
+import { useLiveQuery } from "dexie-react-hooks";
+import type { Step, Routine, Reminder } from "@/types";
+import {
+  getStartOfDay,
+  projectRoutineOccurrences,
+  projectReminderOccurrences,
+} from "@/lib/calendar-utils";
+import { isOverdue } from "@/lib/date-utils";
+import { getDaySettings, toDayBoundaryOpts } from "@/lib/day-settings";
 
-export type CalendarEventType = 'due' | 'start' | 'completed' | 'failed' | 'routine' | 'reminder';
+export type CalendarEventType = "due" | "start" | "completed" | "failed" | "routine" | "reminder";
 
 export interface CalendarEvent {
   id: string;
@@ -28,7 +34,7 @@ export interface CalendarDay {
 
 function toNumber(v: string | number | undefined): number | undefined {
   if (v === undefined) return undefined;
-  return typeof v === 'string' ? Number(v) : v;
+  return typeof v === "string" ? Number(v) : v;
 }
 
 export function useCalendarEvents(
@@ -39,6 +45,16 @@ export function useCalendarEvents(
   rangeEnd: number,
   currentMonth?: number // 0-indexed, for isCurrentMonth calculation
 ): Map<number, CalendarDay> {
+  // Same day-boundary settings the routine spawner uses, so the calendar's
+  // idea of which day an occurrence lands on matches the spawner's. undefined
+  // while the settings row hasn't loaded yet, which falls back to the old
+  // midnight-turnover/no-spawn-offset behavior.
+  const daySettings = useLiveQuery(() => getDaySettings(), []);
+  const dayOpts = useMemo(
+    () => (daySettings ? toDayBoundaryOpts(daySettings) : undefined),
+    [daySettings]
+  );
+
   return useMemo(() => {
     const map = new Map<number, CalendarDay>();
     const today = new Date();
@@ -74,26 +90,26 @@ export function useCalendarEvents(
         timestamp: ts,
         step,
         pathTitle: step.path?.title,
-        isOverdue: type === 'due' ? isOverdue(step.dueDate) : undefined,
+        isOverdue: type === "due" ? isOverdue(step.dueDate) : undefined,
       });
     }
 
     // Process steps
     for (const step of allSteps) {
-      if (step.dueDate) addEvent(step.dueDate, 'due', step);
-      if (step.startDate) addEvent(step.startDate, 'start', step);
-      if (step.completedAt) addEvent(toNumber(step.completedAt), 'completed', step);
-      if (step.failedAt) addEvent(toNumber(step.failedAt), 'failed', step);
+      if (step.dueDate) addEvent(step.dueDate, "due", step);
+      if (step.startDate) addEvent(step.startDate, "start", step);
+      if (step.completedAt) addEvent(toNumber(step.completedAt), "completed", step);
+      if (step.failedAt) addEvent(toNumber(step.failedAt), "failed", step);
     }
 
     // Project routine occurrences
     for (const routine of routines) {
-      const occurrences = projectRoutineOccurrences(routine, rangeStart, rangeEnd);
+      const occurrences = projectRoutineOccurrences(routine, rangeStart, rangeEnd, dayOpts);
       for (const ts of occurrences) {
         const day = getOrCreateDay(ts);
         day.events.push({
           id: `routine-${routine._id}-${ts}`,
-          type: 'routine',
+          type: "routine",
           title: routine.title,
           timestamp: ts,
           routine,
@@ -109,7 +125,7 @@ export function useCalendarEvents(
         const day = getOrCreateDay(ts);
         day.events.push({
           id: `reminder-${reminder._id}-${ts}`,
-          type: 'reminder',
+          type: "reminder",
           title: reminder.title,
           timestamp: ts,
           reminder,
@@ -131,5 +147,5 @@ export function useCalendarEvents(
     }
 
     return map;
-  }, [allSteps, routines, reminders, rangeStart, rangeEnd, currentMonth]);
+  }, [allSteps, routines, reminders, rangeStart, rangeEnd, currentMonth, dayOpts]);
 }

@@ -2,7 +2,7 @@ export interface Path {
   _id: string;
   title: string;
   description?: string;
-  parentId?: string | null;           // Self-ref for hierarchy
+  parentId?: string | null; // Self-ref for hierarchy
   archived?: boolean;
   archivedAt?: number;
   createdAt: string | number;
@@ -39,7 +39,7 @@ export interface Routine {
   description?: string;
   pathId?: string | null;
   path?: Path | null; // Joined in by the read layer, not stored on the row
-  frequency: 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'yearly';
+  frequency: "daily" | "weekdays" | "weekly" | "monthly" | "yearly";
   daysOfWeek?: number[]; // For weekly: 0=Sun, 1=Mon, ..., 6=Sat
   dayOfMonth?: number; // For monthly: 1-31
   month?: number; // For yearly: 1-12
@@ -50,7 +50,7 @@ export interface Routine {
   updatedAt: string | number;
 }
 
-export type ReminderRecurrence = 'once' | 'yearly' | 'monthly';
+export type ReminderRecurrence = "once" | "yearly" | "monthly";
 
 export interface Reminder {
   _id: string;

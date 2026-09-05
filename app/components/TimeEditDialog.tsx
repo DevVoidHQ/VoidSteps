@@ -115,7 +115,10 @@ export function TimeEditDialog({
         <div className="space-y-4">
           {/* Current time display */}
           <div className="text-sm text-muted-foreground">
-            Current: <span className="font-mono font-medium text-foreground">{formatDuration(currentTimeMs)}</span>
+            Current:{" "}
+            <span className="font-mono font-medium text-foreground">
+              {formatDuration(currentTimeMs)}
+            </span>
           </div>
 
           {isTimerRunning ? (
@@ -219,10 +222,7 @@ export function TimeEditDialog({
             <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
             {showResetConfirm ? "Confirm reset" : "Reset"}
           </Button>
-          <Button
-            onClick={handleApply}
-            disabled={isApplyDisabled}
-          >
+          <Button onClick={handleApply} disabled={isApplyDisabled}>
             Apply
           </Button>
         </DialogFooter>

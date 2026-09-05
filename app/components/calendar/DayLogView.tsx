@@ -28,8 +28,26 @@ import type { Step } from "@/types";
 // Two selected modes; the dark column is the same hues re-stepped for dark
 // surfaces. Identity is never color-alone: every segment also appears in the
 // legend and timeline with its name.
-const SERIES_LIGHT = ["#2a78d6", "#1baf7a", "#eda100", "#008300", "#4a3aa7", "#e34948", "#e87ba4", "#eb6834"];
-const SERIES_DARK = ["#3987e5", "#199e70", "#c98500", "#008300", "#9085e9", "#e66767", "#d55181", "#d95926"];
+const SERIES_LIGHT = [
+  "#2a78d6",
+  "#1baf7a",
+  "#eda100",
+  "#008300",
+  "#4a3aa7",
+  "#e34948",
+  "#e87ba4",
+  "#eb6834",
+];
+const SERIES_DARK = [
+  "#3987e5",
+  "#199e70",
+  "#c98500",
+  "#008300",
+  "#9085e9",
+  "#e66767",
+  "#d55181",
+  "#d95926",
+];
 const OTHER_COLOR = "#898781"; // muted - the fold-in bucket, both modes
 
 /** Pick the palette mode from the active theme's background lightness (themes
@@ -109,20 +127,31 @@ export default function DayLogView({ viewDate, onNavigate }: DayLogViewProps) {
   );
 
   const segments = useMemo(() => (intervals ? summarizeDay(intervals) : []), [intervals]);
-  const colorSlots = useMemo(() => (intervals ? assignColorSlots(intervals) : new Map<string, number>()), [intervals]);
+  const colorSlots = useMemo(
+    () => (intervals ? assignColorSlots(intervals) : new Map<string, number>()),
+    [intervals]
+  );
   // Clamp, never cycle: a 9th+ task renders as the neutral fold-in color
   // everywhere, so no two distinct tasks can ever share a palette hue.
   const colorFor = (stepId: string, other?: boolean) => {
     const slot = colorSlots.get(stepId);
-    return other || slot === undefined || slot >= seriesColors.length ? OTHER_COLOR : seriesColors[slot];
+    return other || slot === undefined || slot >= seriesColors.length
+      ? OTHER_COLOR
+      : seriesColors[slot];
   };
 
-  const totalMs = useMemo(() => (intervals ?? []).reduce((sum, iv) => sum + iv.durationMs, 0), [intervals]);
-  const taskCount = segments.filter((s) => !s.other).length + (segments.some((s) => s.other) ? 1 : 0);
+  const totalMs = useMemo(
+    () => (intervals ?? []).reduce((sum, iv) => sum + iv.durationMs, 0),
+    [intervals]
+  );
+  const taskCount =
+    segments.filter((s) => !s.other).length + (segments.some((s) => s.other) ? 1 : 0);
 
   const [openStep, setOpenStep] = useState<{ stepId: string; tab: StepDialogTab } | null>(null);
   // Resolve the dialog's step from live data so it tracks edits/timer changes.
-  const dialogStep = openStep ? ((allSteps ?? []).find((s) => s._id === openStep.stepId) ?? null) : null;
+  const dialogStep = openStep
+    ? ((allSteps ?? []).find((s) => s._id === openStep.stepId) ?? null)
+    : null;
   const openActivity = (stepId: string) => {
     if (stepsById.has(stepId)) setOpenStep({ stepId, tab: "activity" });
   };
@@ -149,13 +178,24 @@ export default function DayLogView({ viewDate, onNavigate }: DayLogViewProps) {
       {/* Day navigation + headline */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon-sm" onClick={() => shiftDay(-1)} aria-label="Previous day">
+          <Button
+            variant="outline"
+            size="icon-sm"
+            onClick={() => shiftDay(-1)}
+            aria-label="Previous day"
+          >
             <ChevronLeft className="w-4 h-4" />
           </Button>
           <span className="min-w-[8.5rem] text-center text-sm font-semibold">
             {isToday ? `Today · ${dayLabel}` : dayLabel}
           </span>
-          <Button variant="outline" size="icon-sm" onClick={() => shiftDay(1)} aria-label="Next day" disabled={isToday}>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            onClick={() => shiftDay(1)}
+            aria-label="Next day"
+            disabled={isToday}
+          >
             <ChevronRight className="w-4 h-4" />
           </Button>
           {!isToday && (
@@ -170,7 +210,7 @@ export default function DayLogView({ viewDate, onNavigate }: DayLogViewProps) {
             {" · "}
             {taskCount} {taskCount === 1 ? "task" : "tasks"}
             {" · "}
-            {formatClock(first.start)} – {last.running ? "now" : formatClock(last.end)}
+            {formatClock(first.start)} to {last.running ? "now" : formatClock(last.end)}
           </p>
         )}
       </div>
@@ -185,7 +225,11 @@ export default function DayLogView({ viewDate, onNavigate }: DayLogViewProps) {
         <>
           {/* Proportional summary strip + legend */}
           <div className="space-y-2">
-            <div className="flex h-3 w-full gap-[2px] overflow-hidden rounded-full" role="img" aria-label="Share of tracked time by task">
+            <div
+              className="flex h-3 w-full gap-[2px] overflow-hidden rounded-full"
+              role="img"
+              aria-label="Share of tracked time by task"
+            >
               {segments.map((seg) => (
                 <div
                   key={seg.stepId}
@@ -261,7 +305,15 @@ export default function DayLogView({ viewDate, onNavigate }: DayLogViewProps) {
   );
 }
 
-function IntervalRow({ interval, color, onOpen }: { interval: DayInterval; color: string; onOpen: () => void }) {
+function IntervalRow({
+  interval,
+  color,
+  onOpen,
+}: {
+  interval: DayInterval;
+  color: string;
+  onOpen: () => void;
+}) {
   return (
     <button
       type="button"
@@ -274,14 +326,25 @@ function IntervalRow({ interval, color, onOpen }: { interval: DayInterval; color
       </span>
       {interval.running ? (
         <span className="relative flex h-2 w-2 shrink-0">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60" style={{ backgroundColor: color }} />
-          <span className="relative inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+          <span
+            className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60"
+            style={{ backgroundColor: color }}
+          />
+          <span
+            className="relative inline-flex h-2 w-2 rounded-full"
+            style={{ backgroundColor: color }}
+          />
         </span>
       ) : (
-        <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+        <span
+          className="inline-block h-2 w-2 shrink-0 rounded-full"
+          style={{ backgroundColor: color }}
+        />
       )}
       <span className="min-w-0 flex-1">
-        <span className={`block truncate text-sm font-medium ${interval.deletedStep ? "text-muted-foreground line-through" : "text-foreground"}`}>
+        <span
+          className={`block truncate text-sm font-medium ${interval.deletedStep ? "text-muted-foreground line-through" : "text-foreground"}`}
+        >
           {interval.title}
           {interval.deletedStep ? " (deleted)" : ""}
         </span>
@@ -295,8 +358,12 @@ function IntervalRow({ interval, color, onOpen }: { interval: DayInterval; color
           {interval.source === "manual" && <span className="uppercase tracking-wide">manual</span>}
         </span>
       </span>
-      <span className={`shrink-0 font-mono text-sm tabular-nums ${interval.running ? "text-primary" : "text-muted-foreground"}`}>
-        {interval.running ? `${formatDurationHM(interval.durationMs)} · running` : formatDurationHM(interval.durationMs)}
+      <span
+        className={`shrink-0 font-mono text-sm tabular-nums ${interval.running ? "text-primary" : "text-muted-foreground"}`}
+      >
+        {interval.running
+          ? `${formatDurationHM(interval.durationMs)} · running`
+          : formatDurationHM(interval.durationMs)}
       </span>
     </button>
   );

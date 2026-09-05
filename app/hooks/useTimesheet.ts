@@ -1,7 +1,7 @@
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '@/lib/db';
-import type { LocalTimeEntry, LocalActivityEvent } from '@/lib/db';
-import { DAY_MS } from '@/lib/timesheet-utils';
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@/lib/db";
+import type { LocalTimeEntry, LocalActivityEvent } from "@/lib/db";
+import { DAY_MS } from "@/lib/timesheet-utils";
 
 /** Live time entries + activity events for one step (activity tab). */
 export function useStepTimesheet(stepId: string | null): {
@@ -11,14 +11,14 @@ export function useStepTimesheet(stepId: string | null): {
   const entries = useLiveQuery(
     () =>
       stepId
-        ? db.timeEntries.where('stepId').equals(stepId).toArray()
+        ? db.timeEntries.where("stepId").equals(stepId).toArray()
         : Promise.resolve([] as LocalTimeEntry[]),
     [stepId]
   );
   const events = useLiveQuery(
     () =>
       stepId
-        ? db.activityEvents.where('stepId').equals(stepId).toArray()
+        ? db.activityEvents.where("stepId").equals(stepId).toArray()
         : Promise.resolve([] as LocalActivityEvent[]),
     [stepId]
   );
@@ -31,7 +31,7 @@ export function useDayTimeEntries(dayStart: number): LocalTimeEntry[] | undefine
   return useLiveQuery(
     () =>
       db.timeEntries
-        .where('start')
+        .where("start")
         .below(dayStart + DAY_MS)
         .filter((e) => e.end > dayStart)
         .toArray(),

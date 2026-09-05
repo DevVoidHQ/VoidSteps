@@ -40,7 +40,10 @@ interface Chip {
   text: string;
 }
 
-const KINDS: Record<CaptureKind, { label: string; icon: LucideIcon; placeholder: string; hint: string }> = {
+const KINDS: Record<
+  CaptureKind,
+  { label: string; icon: LucideIcon; placeholder: string; hint: string }
+> = {
   step: {
     label: "Step",
     icon: ListTodo,
@@ -203,7 +206,17 @@ export default function QuickCapture({ open, onOpenChange, kind = "step" }: Quic
       reportError("mutation", error, { action: `quickCapture:${kind}` });
       toast.error(`Failed to create ${KINDS[kind].label.toLowerCase()}`);
     }
-  }, [kind, preview.title, text, paths, createStep, createPath, createRoutine, createReminder, toast]);
+  }, [
+    kind,
+    preview.title,
+    text,
+    paths,
+    createStep,
+    createPath,
+    createRoutine,
+    createReminder,
+    toast,
+  ]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     const listOpen = suggestions.length > 0;
@@ -240,8 +253,14 @@ export default function QuickCapture({ open, onOpenChange, kind = "step" }: Quic
   const KindIcon = KINDS[kind].icon;
 
   return createPortal(
-    <div className="fixed inset-0 z-[110] flex items-end justify-center px-4 pb-8" onClick={() => onOpenChange(false)}>
-      <div className="absolute inset-0 bg-black/50 animate-in fade-in-0 duration-150" aria-hidden="true" />
+    <div
+      className="fixed inset-0 z-[110] flex items-end justify-center px-4 pb-8"
+      onClick={() => onOpenChange(false)}
+    >
+      <div
+        className="absolute inset-0 bg-black/50 animate-in fade-in-0 duration-150"
+        aria-hidden="true"
+      />
 
       <div
         role="dialog"
@@ -251,7 +270,10 @@ export default function QuickCapture({ open, onOpenChange, kind = "step" }: Quic
         onClick={(e) => e.stopPropagation()}
       >
         {suggestions.length > 0 && (
-          <ul role="listbox" className="mb-2 overflow-hidden rounded-xl border border-border bg-card p-1 shadow-2xl">
+          <ul
+            role="listbox"
+            className="mb-2 overflow-hidden rounded-xl border border-border bg-card p-1 shadow-2xl"
+          >
             {suggestions.map((suggestion, i) => (
               <li key={`${suggestion.insert}-${i}`}>
                 <button
@@ -262,7 +284,9 @@ export default function QuickCapture({ open, onOpenChange, kind = "step" }: Quic
                   onClick={() => applySuggestion(suggestion)}
                   className={cn(
                     "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors",
-                    i === activeIndex ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted"
+                    i === activeIndex
+                      ? "bg-primary text-primary-foreground"
+                      : "text-foreground hover:bg-muted"
                   )}
                 >
                   {token?.kind === "path" ? (
@@ -272,7 +296,12 @@ export default function QuickCapture({ open, onOpenChange, kind = "step" }: Quic
                   )}
                   <span className="flex-1 truncate">{suggestion.label}</span>
                   {suggestion.hint && (
-                    <span className={cn("text-xs", i === activeIndex ? "opacity-70" : "text-muted-foreground")}>
+                    <span
+                      className={cn(
+                        "text-xs",
+                        i === activeIndex ? "opacity-70" : "text-muted-foreground"
+                      )}
+                    >
                       {suggestion.hint}
                     </span>
                   )}
@@ -323,33 +352,47 @@ export default function QuickCapture({ open, onOpenChange, kind = "step" }: Quic
 }
 
 /** Title plus the chips describing what the tokens resolved to. */
-function buildPreview(kind: CaptureKind, text: string, paths: Parameters<typeof parseStepCapture>[1]) {
+function buildPreview(
+  kind: CaptureKind,
+  text: string,
+  paths: Parameters<typeof parseStepCapture>[1]
+) {
   const chips: Chip[] = [];
 
   if (kind === "step") {
     const parsed = parseStepCapture(text, paths);
     if (parsed.pathTitle) chips.push({ icon: Target, tone: "path", text: parsed.pathTitle });
-    if (parsed.pathQuery) chips.push({ icon: Target, tone: "unknown", text: `No path "${parsed.pathQuery}"` });
-    if (parsed.dueDate) chips.push({ icon: CalendarDays, tone: "date", text: formatDateDisplay(parsed.dueDate) });
-    if (parsed.dateQuery) chips.push({ icon: CalendarDays, tone: "unknown", text: `Not a date "${parsed.dateQuery}"` });
+    if (parsed.pathQuery)
+      chips.push({ icon: Target, tone: "unknown", text: `No path "${parsed.pathQuery}"` });
+    if (parsed.dueDate)
+      chips.push({ icon: CalendarDays, tone: "date", text: formatDateDisplay(parsed.dueDate) });
+    if (parsed.dateQuery)
+      chips.push({ icon: CalendarDays, tone: "unknown", text: `Not a date "${parsed.dateQuery}"` });
     if (parsed.prioritizedToday) chips.push({ icon: Star, tone: "star", text: "Today" });
     return { title: parsed.title, chips };
   }
 
   if (kind === "path") {
     const parsed = parsePathCapture(text, paths);
-    if (parsed.parentTitle) chips.push({ icon: Target, tone: "path", text: `Inside ${parsed.parentTitle}` });
-    if (parsed.parentQuery) chips.push({ icon: Target, tone: "unknown", text: `No path "${parsed.parentQuery}"` });
+    if (parsed.parentTitle)
+      chips.push({ icon: Target, tone: "path", text: `Inside ${parsed.parentTitle}` });
+    if (parsed.parentQuery)
+      chips.push({ icon: Target, tone: "unknown", text: `No path "${parsed.parentQuery}"` });
     return { title: parsed.title, chips };
   }
 
   if (kind === "routine") {
     const parsed = parseRoutineCapture(text, paths);
     if (parsed.pathTitle) chips.push({ icon: Target, tone: "path", text: parsed.pathTitle });
-    if (parsed.pathQuery) chips.push({ icon: Target, tone: "unknown", text: `No path "${parsed.pathQuery}"` });
+    if (parsed.pathQuery)
+      chips.push({ icon: Target, tone: "unknown", text: `No path "${parsed.pathQuery}"` });
     if (parsed.title) chips.push({ icon: Repeat, tone: "date", text: parsed.scheduleLabel });
     if (parsed.scheduleQuery) {
-      chips.push({ icon: Repeat, tone: "unknown", text: `Not a schedule "${parsed.scheduleQuery}"` });
+      chips.push({
+        icon: Repeat,
+        tone: "unknown",
+        text: `Not a schedule "${parsed.scheduleQuery}"`,
+      });
     }
     return { title: parsed.title, chips };
   }
@@ -362,7 +405,15 @@ function buildPreview(kind: CaptureKind, text: string, paths: Parameters<typeof 
   return { title: parsed.title, chips };
 }
 
-function ChipView({ icon: Icon, tone, children }: { icon: LucideIcon; tone: Chip["tone"]; children: React.ReactNode }) {
+function ChipView({
+  icon: Icon,
+  tone,
+  children,
+}: {
+  icon: LucideIcon;
+  tone: Chip["tone"];
+  children: React.ReactNode;
+}) {
   const tones = {
     path: "bg-primary-light text-primary",
     date: "bg-muted text-foreground",

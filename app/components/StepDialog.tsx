@@ -32,7 +32,14 @@ export interface StepDialogProps {
  * The step's detail surface: Details (edit form, formerly StepCard's inline
  * edit dialog) + Activity (per-session time entries and the audit timeline).
  */
-export function StepDialog({ step, paths, open, initialTab = "details", onOpenChange, onSaveEdit }: StepDialogProps) {
+export function StepDialog({
+  step,
+  paths,
+  open,
+  initialTab = "details",
+  onOpenChange,
+  onSaveEdit,
+}: StepDialogProps) {
   const deferEnabled = useDeferDatesMode() !== "off";
   const dueEnabled = useDueDatesMode() !== "off";
 
@@ -82,7 +89,10 @@ export function StepDialog({ step, paths, open, initialTab = "details", onOpenCh
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" && !(e.target as HTMLElement).matches("textarea, button, [role=listbox], [role=option]")) {
+      if (
+        e.key === "Enter" &&
+        !(e.target as HTMLElement).matches("textarea, button, [role=listbox], [role=option]")
+      ) {
         if (!editForm.title.trim()) return;
         e.preventDefault();
         handleSave();
@@ -147,8 +157,12 @@ export function StepDialog({ step, paths, open, initialTab = "details", onOpenCh
               )}
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-              <Button onClick={handleSave} disabled={!editForm.title.trim()}>Save</Button>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={!editForm.title.trim()}>
+                Save
+              </Button>
             </DialogFooter>
           </TabsContent>
 

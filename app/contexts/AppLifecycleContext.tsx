@@ -1,10 +1,10 @@
-import React, { useEffect } from 'react';
-import { db } from '@/lib/db';
-import { startRoutineSpawner } from '@/lib/routine-spawner';
-import { reportError } from '@/lib/error-store';
-import { currentUtcOffsetMinutes } from '@/lib/day-settings';
-import { ACTIVITY_RETENTION_DAYS } from '@/lib/retention';
-import { useZoomShortcuts } from '@/hooks/useZoomShortcuts';
+import React, { useEffect } from "react";
+import { db } from "@/lib/db";
+import { startRoutineSpawner } from "@/lib/routine-spawner";
+import { reportError } from "@/lib/error-store";
+import { currentUtcOffsetMinutes } from "@/lib/day-settings";
+import { ACTIVITY_RETENTION_DAYS } from "@/lib/retention";
+import { useZoomShortcuts } from "@/hooks/useZoomShortcuts";
 
 /**
  * Background housekeeping that runs for as long as the app is open: routine
@@ -26,7 +26,7 @@ export const AppLifecycleProvider: React.FC<{ children: React.ReactNode }> = ({ 
         if (row.utcOffsetMinutes === offset) return;
         await db.userSettings.update(row._id, { utcOffsetMinutes: offset, updatedAt: Date.now() });
       } catch (e) {
-        reportError('mutation', e, { phase: 'utcOffsetRefresh' });
+        reportError("mutation", e, { phase: "utcOffsetRefresh" });
       }
     })();
   }, []);
@@ -38,10 +38,10 @@ export const AppLifecycleProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const timer = setTimeout(() => {
       const cutoff = Date.now() - ACTIVITY_RETENTION_DAYS * 24 * 60 * 60 * 1000;
       db.activityEvents
-        .where('at')
+        .where("at")
         .below(cutoff)
         .delete()
-        .catch((e) => reportError('mutation', e, { phase: 'activityPrune' }));
+        .catch((e) => reportError("mutation", e, { phase: "activityPrune" }));
     }, 12_000);
     return () => clearTimeout(timer);
   }, []);

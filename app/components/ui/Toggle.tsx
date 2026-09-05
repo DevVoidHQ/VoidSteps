@@ -1,8 +1,10 @@
 import * as React from "react";
 import { cn } from "@/lib/cn";
 
-export interface ToggleProps
-  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "type" | "size"> {
+export interface ToggleProps extends Omit<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  "type" | "size"
+> {
   label?: string;
   description?: string;
   size?: "sm" | "md";
@@ -31,10 +33,7 @@ const sizeClasses = {
 };
 
 const Toggle = React.forwardRef<HTMLInputElement, ToggleProps>(
-  (
-    { className, label, description, size = "md", id, disabled, ...props },
-    ref
-  ) => {
+  ({ className, label, description, size = "md", id, disabled, ...props }, ref) => {
     const generatedId = React.useId();
     const inputId = id || generatedId;
     const descriptionId = description ? `${inputId}-description` : undefined;
@@ -82,12 +81,7 @@ const Toggle = React.forwardRef<HTMLInputElement, ToggleProps>(
         {(label || description) && (
           <div className="flex flex-col gap-0.5">
             {label && (
-              <span
-                className={cn(
-                  "text-sm font-medium leading-none",
-                  disabled && "opacity-70"
-                )}
-              >
+              <span className={cn("text-sm font-medium leading-none", disabled && "opacity-70")}>
                 {label}
               </span>
             )}

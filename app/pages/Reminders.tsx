@@ -14,7 +14,6 @@ import TodayRemindersBanner from "@/components/TodayRemindersBanner";
 import { Plus, Bell, Pencil, Trash2, Calendar } from "lucide-react";
 import { getKeybinds, formatKeybindDisplay } from "@/lib/keybind-config";
 
-
 function ordinal(n: number): string {
   const s = ["th", "st", "nd", "rd"];
   const v = n % 100;
@@ -25,7 +24,11 @@ function describeReminder(r: Reminder): string {
   switch (r.recurrence) {
     case "once":
       return r.date
-        ? new Date(r.date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+        ? new Date(r.date).toLocaleDateString(undefined, {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })
         : "No date set";
     case "yearly":
       return r.month && r.day ? `Yearly on ${MONTH_NAMES[r.month - 1]} ${r.day}` : "Yearly";
@@ -55,20 +58,23 @@ export default function Reminders() {
     setIsDialogOpen(true);
   }, []);
 
-  const handleDelete = useCallback(async (id: string) => {
-    if (confirmDelete !== id) {
-      setConfirmDelete(id);
-      setTimeout(() => setConfirmDelete((cur) => (cur === id ? null : cur)), 3000);
-      return;
-    }
-    setConfirmDelete(null);
-    try {
-      await deleteReminder({ id });
-    } catch (error) {
-      reportError("mutation", error, { action: "deleteReminder", reminderId: id });
-      toast.error("Failed to delete reminder");
-    }
-  }, [confirmDelete, deleteReminder, toast]);
+  const handleDelete = useCallback(
+    async (id: string) => {
+      if (confirmDelete !== id) {
+        setConfirmDelete(id);
+        setTimeout(() => setConfirmDelete((cur) => (cur === id ? null : cur)), 3000);
+        return;
+      }
+      setConfirmDelete(null);
+      try {
+        await deleteReminder({ id });
+      } catch (error) {
+        reportError("mutation", error, { action: "deleteReminder", reminderId: id });
+        toast.error("Failed to delete reminder");
+      }
+    },
+    [confirmDelete, deleteReminder, toast]
+  );
 
   const sorted = [...(reminders ?? [])].sort((a, b) => a.title.localeCompare(b.title));
 
@@ -102,7 +108,9 @@ export default function Reminders() {
                       <Bell className="w-4 h-4 text-warning flex-shrink-0" />
                       <h3 className="font-medium truncate">{r.title}</h3>
                     </div>
-                    {r.note && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{r.note}</p>}
+                    {r.note && (
+                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{r.note}</p>
+                    )}
                     <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                       <Calendar className="w-3 h-3" />
                       {describeReminder(r)}
@@ -118,11 +126,17 @@ export default function Reminders() {
                     />
                     <IconButton
                       icon={<Trash2 className="w-4 h-4" />}
-                      aria-label={confirmDelete === r._id ? "Click again to delete" : "Delete reminder"}
+                      aria-label={
+                        confirmDelete === r._id ? "Click again to delete" : "Delete reminder"
+                      }
                       title={confirmDelete === r._id ? "Click again to delete" : undefined}
                       variant="ghost"
                       size="icon-sm"
-                      className={confirmDelete === r._id ? "ring-1 ring-destructive text-destructive" : undefined}
+                      className={
+                        confirmDelete === r._id
+                          ? "ring-1 ring-destructive text-destructive"
+                          : undefined
+                      }
                       onClick={() => handleDelete(r._id)}
                     />
                   </div>
@@ -132,7 +146,11 @@ export default function Reminders() {
           ))}
         </div>
       ) : (
-        <EmptyState icon={Bell} message="No reminders yet" hint="Add a birthday, anniversary, or holiday" />
+        <EmptyState
+          icon={Bell}
+          message="No reminders yet"
+          hint="Add a birthday, anniversary, or holiday"
+        />
       )}
 
       <QuickCreateReminderDialog

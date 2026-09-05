@@ -2,7 +2,8 @@ import { Handle, Position } from "reactflow";
 
 // Floating edges compute their own geometry, so nodes only need invisible,
 // non-interactive source/target handles for edges to anchor to.
-const hidden = "!w-px !h-px !min-w-0 !min-h-0 !border-0 !bg-transparent opacity-0 pointer-events-none";
+const hidden =
+  "!w-px !h-px !min-w-0 !min-h-0 !border-0 !bg-transparent opacity-0 pointer-events-none";
 
 export default function HiddenHandles() {
   return (

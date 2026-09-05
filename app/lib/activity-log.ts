@@ -1,29 +1,29 @@
-import type { LocalStep, LocalActivityEvent, ActivityField } from './db';
+import type { LocalStep, LocalActivityEvent, ActivityField } from "./db";
 
 // Fields whose changes are worth a row in a step's activity timeline. Strictly
 // a whitelist: sortOrder (drag-reorder would spam dozens of events), timer
 // fields (sessions are first-class timeEntries rows, not events), updatedAt and
 // the derived *At stamps are all deliberately excluded.
 const TRACKED_FIELDS: readonly ActivityField[] = [
-  'title',
-  'description',
-  'dueDate',
-  'startDate',
-  'pathId',
-  'prioritizedToday',
+  "title",
+  "description",
+  "dueDate",
+  "startDate",
+  "pathId",
+  "prioritizedToday",
 ];
 
 // Keep stored old/new values small: titles are truncated, descriptions log only
 // the fact that they changed (their values can be 2000 chars).
 const MAX_VALUE_LENGTH = 80;
-const VALUELESS_FIELDS: ReadonlySet<ActivityField> = new Set(['description']);
+const VALUELESS_FIELDS: ReadonlySet<ActivityField> = new Set(["description"]);
 
 function normalize(value: unknown): string | number | boolean | null {
   if (value === undefined || value === null) return null;
-  if (typeof value === 'string') {
+  if (typeof value === "string") {
     return value.length > MAX_VALUE_LENGTH ? `${value.slice(0, MAX_VALUE_LENGTH)}…` : value;
   }
-  if (typeof value === 'number' || typeof value === 'boolean') return value;
+  if (typeof value === "number" || typeof value === "boolean") return value;
   return String(value);
 }
 
@@ -50,14 +50,26 @@ export function stepEventsFromPatch(
     updatedAt: at,
   });
 
-  if ('completed' in patch && patch.completed !== undefined && patch.completed !== before.completed) {
-    events.push({ ...base(), type: patch.completed ? 'completed' : 'uncompleted' });
+  if (
+    "completed" in patch &&
+    patch.completed !== undefined &&
+    patch.completed !== before.completed
+  ) {
+    events.push({ ...base(), type: patch.completed ? "completed" : "uncompleted" });
   }
-  if ('failed' in patch && patch.failed !== undefined && (patch.failed ?? false) !== (before.failed ?? false)) {
-    events.push({ ...base(), type: patch.failed ? 'failed' : 'unfailed' });
+  if (
+    "failed" in patch &&
+    patch.failed !== undefined &&
+    (patch.failed ?? false) !== (before.failed ?? false)
+  ) {
+    events.push({ ...base(), type: patch.failed ? "failed" : "unfailed" });
   }
-  if ('archived' in patch && patch.archived !== undefined && (patch.archived ?? false) !== (before.archived ?? false)) {
-    events.push({ ...base(), type: patch.archived ? 'archived' : 'unarchived' });
+  if (
+    "archived" in patch &&
+    patch.archived !== undefined &&
+    (patch.archived ?? false) !== (before.archived ?? false)
+  ) {
+    events.push({ ...base(), type: patch.archived ? "archived" : "unarchived" });
   }
 
   for (const field of TRACKED_FIELDS) {
@@ -69,7 +81,7 @@ export function stepEventsFromPatch(
     const valueless = VALUELESS_FIELDS.has(field);
     events.push({
       ...base(),
-      type: 'field_changed',
+      type: "field_changed",
       field,
       oldValue: valueless ? null : normalize(before[field]),
       newValue: valueless ? null : normalize(patch[field]),

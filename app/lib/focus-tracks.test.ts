@@ -9,9 +9,36 @@ import {
   findBundledTrack,
 } from "./focus-tracks";
 
-const REPO = join(__dirname, "..", "..", "..");
-const AUDIO_DIR = join(REPO, "frontend", "public", "audio");
+const REPO = join(__dirname, "..", "..");
+const AUDIO_DIR = join(REPO, "public", "audio");
+const PUBLIC_DIR = join(REPO, "public");
 const CREDITS = readFileSync(join(REPO, "CREDITS.md"), "utf8");
+const ASSET_EXTENSIONS = [
+  ".png",
+  ".svg",
+  ".mp3",
+  ".woff2",
+  ".woff",
+  ".ttf",
+  ".otf",
+  ".jpg",
+  ".jpeg",
+  ".webp",
+];
+
+function listAssetsRecursive(dir: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name.startsWith(".")) continue;
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      found.push(...listAssetsRecursive(full));
+    } else if (ASSET_EXTENSIONS.some((ext) => entry.name.toLowerCase().endsWith(ext))) {
+      found.push(full);
+    }
+  }
+  return found;
+}
 
 describe("bundled tracks", () => {
   it("every declared track has a file on disk", () => {
@@ -59,5 +86,18 @@ describe("bundled tracks", () => {
     expect(findBundledTrack(BUNDLED_TRACKS[0].id)?.title).toBe(BUNDLED_TRACKS[0].title);
     expect(findBundledTrack(CUSTOM_TRACK_ID)).toBeUndefined();
     expect(findBundledTrack(null)).toBeUndefined();
+  });
+});
+
+describe("bundled assets", () => {
+  it("every asset anywhere under public/ is credited by path in CREDITS.md", () => {
+    // The audio-only check above is exactly what let the Satoshi fonts ship
+    // for months without a credit: nothing walked public/fonts, so
+    // a proprietary, non-redistributable font sat in a public GPL repo
+    // unnoticed. This walks the whole public/ tree so no directory is exempt.
+    for (const file of listAssetsRecursive(PUBLIC_DIR)) {
+      const relativePath = file.slice(REPO.length + 1).replace(/\\/g, "/");
+      expect(CREDITS, `${relativePath} is not credited in CREDITS.md`).toContain(relativePath);
+    }
   });
 });

@@ -30,10 +30,10 @@ export function isDesktop(): boolean {
 export async function openExternal(url: string): Promise<void> {
   const invoke = internals()?.invoke;
   if (!invoke) {
-    window.open(url, '_blank', 'noopener');
+    window.open(url, "_blank", "noopener");
     return;
   }
-  await invoke('plugin:opener|open_url', { url });
+  await invoke("plugin:opener|open_url", { url });
 }
 
 interface TauriMetadata {
@@ -52,6 +52,6 @@ export async function setWebviewZoom(factor: number): Promise<void> {
   if (!invoke) return;
   const metadata = (globalThis as { __TAURI_INTERNALS__?: { metadata?: TauriMetadata } })
     .__TAURI_INTERNALS__?.metadata;
-  const label = metadata?.currentWebview?.label ?? 'main';
-  await invoke('plugin:webview|set_webview_zoom', { label, value: factor });
+  const label = metadata?.currentWebview?.label ?? "main";
+  await invoke("plugin:webview|set_webview_zoom", { label, value: factor });
 }

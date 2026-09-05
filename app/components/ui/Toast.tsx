@@ -44,10 +44,7 @@ function Toast({ toast, onDismiss }: ToastProps) {
     >
       <Icon className="w-4 h-4 shrink-0" />
       <span className="text-sm flex-1">{toast.message}</span>
-      <button
-        onClick={() => onDismiss(toast.id)}
-        className="shrink-0 p-0.5 hover:bg-muted rounded"
-      >
+      <button onClick={() => onDismiss(toast.id)} className="shrink-0 p-0.5 hover:bg-muted rounded">
         <X className="w-3.5 h-3.5" />
       </button>
     </motion.div>

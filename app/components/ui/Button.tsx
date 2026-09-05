@@ -35,10 +35,7 @@ const buttonVariants = cva(
           "hover:bg-primary-light/80 hover:-translate-y-0.5 hover:shadow-md",
           "active:translate-y-0 active:shadow-none",
         ],
-        ghost: [
-          "hover:bg-primary-light hover:text-primary",
-          "active:bg-primary-light/70",
-        ],
+        ghost: ["hover:bg-primary-light hover:text-primary", "active:bg-primary-light/70"],
       },
       size: {
         default: "h-10 px-4 py-2",
@@ -56,8 +53,7 @@ const buttonVariants = cva(
 );
 
 export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
   loading?: boolean;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
@@ -72,14 +68,7 @@ const Spinner = ({ className }: { className?: string }) => (
     width="16"
     height="16"
   >
-    <circle
-      className="opacity-25"
-      cx="12"
-      cy="12"
-      r="10"
-      stroke="currentColor"
-      strokeWidth="4"
-    />
+    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
     <path
       className="opacity-75"
       fill="currentColor"

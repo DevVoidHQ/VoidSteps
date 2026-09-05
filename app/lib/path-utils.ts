@@ -1,4 +1,4 @@
-import type { Path } from '@/types';
+import type { Path } from "@/types";
 
 /**
  * Returns a Set containing the given pathId and all its descendant path IDs.

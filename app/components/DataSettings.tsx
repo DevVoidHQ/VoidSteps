@@ -24,15 +24,17 @@ import {
 import { Trash2, AlertTriangle } from "lucide-react";
 
 // An action the user can trigger from the danger zone.
-type WipeAction =
-  | { kind: "type"; entity: WipeEntity }
-  | { kind: "todos" }
-  | { kind: "full" };
+type WipeAction = { kind: "type"; entity: WipeEntity } | { kind: "todos" } | { kind: "full" };
 
 type Counts = Record<WipeEntity, number>;
 
 const ZERO: Counts = {
-  steps: 0, paths: 0, routines: 0, reminders: 0, notebooks: 0, notes: 0,
+  steps: 0,
+  paths: 0,
+  routines: 0,
+  reminders: 0,
+  notebooks: 0,
+  notes: 0,
 };
 
 export default function DataSettings() {
@@ -54,7 +56,9 @@ export default function DataSettings() {
     }
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   const total = WIPE_ENTITIES.reduce((sum, e) => sum + counts[e], 0);
 
@@ -63,7 +67,9 @@ export default function DataSettings() {
     setCascade(false);
     setConfirmText("");
   };
-  const closeAction = () => { if (!busy) setAction(null); };
+  const closeAction = () => {
+    if (!busy) setAction(null);
+  };
 
   // Resolve the entity set + cascade flags for the current action.
   const resolved = (() => {
@@ -72,7 +78,11 @@ export default function DataSettings() {
       return { names: [...WIPE_ENTITIES], count: total, forcedCascade: false };
     }
     if (action.kind === "todos") {
-      return { names: ["steps", "routines"] as WipeEntity[], count: counts.steps + counts.routines, forcedCascade: false };
+      return {
+        names: ["steps", "routines"] as WipeEntity[],
+        count: counts.steps + counts.routines,
+        forcedCascade: false,
+      };
     }
     return {
       names: [action.entity],
@@ -106,12 +116,16 @@ export default function DataSettings() {
   // Human-readable impact line shown in the modal.
   const impactLine = (() => {
     if (!resolved) return "";
-    if (action?.kind === "full") return `Everything: ${total} item${total === 1 ? "" : "s"} across all types.`;
-    if (action?.kind === "todos") return `${counts.steps} step${counts.steps === 1 ? "" : "s"} and ${counts.routines} routine${counts.routines === 1 ? "" : "s"}.`;
+    if (action?.kind === "full")
+      return `Everything: ${total} item${total === 1 ? "" : "s"} across all types.`;
+    if (action?.kind === "todos")
+      return `${counts.steps} step${counts.steps === 1 ? "" : "s"} and ${counts.routines} routine${counts.routines === 1 ? "" : "s"}.`;
     const e = (action as { entity: WipeEntity }).entity;
     const base = `${counts[e]} ${WIPE_ENTITY_LABELS[e].toLowerCase()}`;
-    if (e === "notebooks") return `${base} and all ${counts.notes} note${counts.notes === 1 ? "" : "s"} inside them.`;
-    if (e === "paths" && cascade) return `${base}, plus ${cascadeImpact.steps} step${cascadeImpact.steps === 1 ? "" : "s"} inside them.`;
+    if (e === "notebooks")
+      return `${base} and all ${counts.notes} note${counts.notes === 1 ? "" : "s"} inside them.`;
+    if (e === "paths" && cascade)
+      return `${base}, plus ${cascadeImpact.steps} step${cascadeImpact.steps === 1 ? "" : "s"} inside them.`;
     return `${base}.`;
   })();
 
@@ -161,14 +175,21 @@ export default function DataSettings() {
       </div>
 
       {/* Confirm modal */}
-      <Dialog open={!!action} onOpenChange={(o) => { if (!o) closeAction(); }}>
+      <Dialog
+        open={!!action}
+        onOpenChange={(o) => {
+          if (!o) closeAction();
+        }}
+      >
         <DialogContent size="md" className="w-[28rem] max-w-[calc(100vw-2rem)]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-destructive" />
               Delete data
             </DialogTitle>
-            <DialogDescription>This permanently deletes {impactLine} It can't be undone.</DialogDescription>
+            <DialogDescription>
+              This permanently deletes {impactLine} It can't be undone.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3">
@@ -176,14 +197,18 @@ export default function DataSettings() {
               <Toggle
                 size="sm"
                 checked={cascade}
-                onChange={(e) => { setCascade(e.target.checked); setConfirmText(""); }}
+                onChange={(e) => {
+                  setCascade(e.target.checked);
+                  setConfirmText("");
+                }}
                 label="Also delete the steps inside these paths"
               />
             )}
 
             <div>
               <label className="text-sm text-muted-foreground">
-                Type <span className="font-mono font-semibold text-foreground">{requiredText}</span> to confirm
+                Type <span className="font-mono font-semibold text-foreground">{requiredText}</span>{" "}
+                to confirm
               </label>
               <Input
                 value={confirmText}
@@ -191,13 +216,17 @@ export default function DataSettings() {
                 placeholder={requiredText}
                 autoFocus
                 className="mt-1.5"
-                onKeyDown={(e) => { if (e.key === "Enter" && confirmReady) handleConfirm(); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && confirmReady) handleConfirm();
+                }}
               />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={closeAction} disabled={busy}>Cancel</Button>
+            <Button variant="outline" onClick={closeAction} disabled={busy}>
+              Cancel
+            </Button>
             <Button variant="destructive" onClick={handleConfirm} disabled={!confirmReady}>
               <Trash2 className="w-4 h-4 mr-2" />
               {busy ? "Deleting…" : "Delete"}
@@ -210,7 +239,11 @@ export default function DataSettings() {
 }
 
 function DangerRow({
-  label, description, count, onClick, emphasize,
+  label,
+  description,
+  count,
+  onClick,
+  emphasize,
 }: {
   label: string;
   description?: string;

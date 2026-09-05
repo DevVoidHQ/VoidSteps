@@ -1,15 +1,12 @@
-import { useState, useMemo } from 'react';
-import { Card, CardContent } from '@/components/ui/Card';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { CheckCircle2, Clock, TrendingUp, Flame } from 'lucide-react';
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  CartesianGrid,
-} from 'recharts';
-import { useData } from '@/contexts/DataContext';
-import { useTheme } from '@/contexts/ThemeContext';
-import type { Step } from '@/types';
+import { useState, useMemo } from "react";
+import { Card, CardContent } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs";
+import { CheckCircle2, Clock, TrendingUp, Flame } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { useData } from "@/contexts/DataContext";
+import { useTheme } from "@/contexts/ThemeContext";
+import type { Step } from "@/types";
 import {
   type RangeKey,
   getEffectiveTimeMs,
@@ -17,7 +14,7 @@ import {
   startOfDay,
   generateDayRange,
   formatDayLabel,
-} from '@/lib/analytics-utils';
+} from "@/lib/analytics-utils";
 
 // ---------------------------------------------------------------------------
 // Theme colour helper - re-resolves CSS variables when theme changes
@@ -31,13 +28,13 @@ function useChartColors() {
       return raw ? `hsl(${raw})` : undefined;
     };
     return {
-      primary: resolve('--primary') ?? '#083291',
-      secondary: resolve('--accent') ?? '#c26579',
-      accent: resolve('--accent') ?? '#c26579',
-      destructive: resolve('--destructive') ?? '#ef4444',
-      muted: resolve('--muted') ?? '#64748b',
-      foreground: resolve('--foreground') ?? '#1a1a1a',
-      mutedForeground: resolve('--muted-foreground') ?? '#6b6b6b',
+      primary: resolve("--primary") ?? "#083291",
+      secondary: resolve("--accent") ?? "#c26579",
+      accent: resolve("--accent") ?? "#c26579",
+      destructive: resolve("--destructive") ?? "#ef4444",
+      muted: resolve("--muted") ?? "#64748b",
+      foreground: resolve("--foreground") ?? "#1a1a1a",
+      mutedForeground: resolve("--muted-foreground") ?? "#6b6b6b",
     };
     // theme is the dependency that triggers re-computation when the user changes theme
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -45,9 +42,9 @@ function useChartColors() {
 }
 
 const RANGE_DAYS: Record<RangeKey, number> = {
-  '7d': 7,
-  '30d': 30,
-  '90d': 90,
+  "7d": 7,
+  "30d": 30,
+  "90d": 90,
 };
 
 const TIME_BY_PATH_TOP_N = 8;
@@ -57,18 +54,18 @@ const TIME_BY_PATH_TOP_N = 8;
 // ---------------------------------------------------------------------------
 export default function Analytics() {
   const { allSteps, isLoading } = useData();
-  const [selectedRange, setSelectedRange] = useState<RangeKey>('30d');
+  const [selectedRange, setSelectedRange] = useState<RangeKey>("30d");
   const colors = useChartColors();
 
   // Solid, readable tooltip box. NOTE: only --background/--foreground/etc. exist
   // as CSS vars here - `--card`/`--border` do not, so referencing them yields a
   // transparent box (the old bug). Stick to the real variables.
   const tooltipStyle = {
-    backgroundColor: 'hsl(var(--background))',
-    border: '1px solid hsl(var(--foreground) / 0.12)',
+    backgroundColor: "hsl(var(--background))",
+    border: "1px solid hsl(var(--foreground) / 0.12)",
     borderRadius: 8,
-    boxShadow: '0 6px 20px hsl(var(--foreground) / 0.15)',
-    padding: '8px 12px',
+    boxShadow: "0 6px 20px hsl(var(--foreground) / 0.15)",
+    padding: "8px 12px",
   } as const;
 
   // ---- Range cutoff -------------------------------------------------------
@@ -79,25 +76,19 @@ export default function Analytics() {
 
   // ---- Filtered step sets -------------------------------------------------
   const completedInRange = useMemo(
-    () =>
-      (allSteps ?? []).filter(
-        (s) => s.completed && toMs(s.completedAt) >= rangeCutoff,
-      ),
-    [allSteps, rangeCutoff],
+    () => (allSteps ?? []).filter((s) => s.completed && toMs(s.completedAt) >= rangeCutoff),
+    [allSteps, rangeCutoff]
   );
 
   const failedInRange = useMemo(
-    () =>
-      (allSteps ?? []).filter(
-        (s) => s.failed && toMs(s.failedAt) >= rangeCutoff,
-      ),
-    [allSteps, rangeCutoff],
+    () => (allSteps ?? []).filter((s) => s.failed && toMs(s.failedAt) >= rangeCutoff),
+    [allSteps, rangeCutoff]
   );
 
   // ---- Stat cards ----------------------------------------------------------
   const totalTimeMs = useMemo(
     () => completedInRange.reduce((sum, s) => sum + getEffectiveTimeMs(s.totalTimeSpentMs), 0),
-    [completedInRange],
+    [completedInRange]
   );
 
   const completionRate = useMemo(() => {
@@ -189,7 +180,12 @@ export default function Analytics() {
     const doneMap = new Map<string, number>();
     const totalMap = new Map<string, number>();
     (allSteps ?? []).forEach((s) => {
-      if (toMs(s.completedAt) < rangeCutoff && toMs(s.failedAt) < rangeCutoff && toMs(s.createdAt) < rangeCutoff) return;
+      if (
+        toMs(s.completedAt) < rangeCutoff &&
+        toMs(s.failedAt) < rangeCutoff &&
+        toMs(s.createdAt) < rangeCutoff
+      )
+        return;
       const label = stepPathName(s);
       totalMap.set(label, (totalMap.get(label) ?? 0) + 1);
       if (s.completed && toMs(s.completedAt) >= rangeCutoff) {
@@ -237,7 +233,11 @@ export default function Analytics() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
-        <Tabs defaultValue="30d" value={selectedRange} onValueChange={(v) => setSelectedRange(v as RangeKey)}>
+        <Tabs
+          defaultValue="30d"
+          value={selectedRange}
+          onValueChange={(v) => setSelectedRange(v as RangeKey)}
+        >
           <TabsList>
             <TabsTrigger value="7d">7d</TabsTrigger>
             <TabsTrigger value="30d">30d</TabsTrigger>
@@ -248,10 +248,26 @@ export default function Analytics() {
 
       {/* Section 1: Stat Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard icon={<CheckCircle2 className="w-5 h-5 text-primary" />} label="Completed" value={completedInRange.length} />
-        <StatCard icon={<Clock className="w-5 h-5 text-primary" />} label="Total Time" value={formatDurationHM(totalTimeMs)} />
-        <StatCard icon={<TrendingUp className="w-5 h-5 text-primary" />} label="Completion Rate" value={`${completionRate}%`} />
-        <StatCard icon={<Flame className="w-5 h-5 text-primary" />} label="Current Streak" value={`${currentStreak}d`} />
+        <StatCard
+          icon={<CheckCircle2 className="w-5 h-5 text-primary" />}
+          label="Completed"
+          value={completedInRange.length}
+        />
+        <StatCard
+          icon={<Clock className="w-5 h-5 text-primary" />}
+          label="Total Time"
+          value={formatDurationHM(totalTimeMs)}
+        />
+        <StatCard
+          icon={<TrendingUp className="w-5 h-5 text-primary" />}
+          label="Completion Rate"
+          value={`${completionRate}%`}
+        />
+        <StatCard
+          icon={<Flame className="w-5 h-5 text-primary" />}
+          label="Current Streak"
+          value={`${currentStreak}d`}
+        />
       </div>
 
       {/* Empty State */}
@@ -268,11 +284,15 @@ export default function Analytics() {
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={completionTrendData}>
-              <CartesianGrid strokeDasharray="3 3" stroke={colors.muted + '33'} />
-              <XAxis dataKey="day" tick={{ fontSize: 12, fill: colors.mutedForeground }} interval="preserveStartEnd" />
+              <CartesianGrid strokeDasharray="3 3" stroke={colors.muted + "33"} />
+              <XAxis
+                dataKey="day"
+                tick={{ fontSize: 12, fill: colors.mutedForeground }}
+                interval="preserveStartEnd"
+              />
               <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: colors.mutedForeground }} />
               <Tooltip
-                cursor={{ fill: 'hsl(var(--foreground) / 0.06)' }}
+                cursor={{ fill: "hsl(var(--foreground) / 0.06)" }}
                 contentStyle={tooltipStyle}
                 labelStyle={{ color: colors.foreground, fontWeight: 600 }}
                 itemStyle={{ color: colors.primary }}
@@ -288,16 +308,27 @@ export default function Analytics() {
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={dailyTimeData}>
-              <CartesianGrid strokeDasharray="3 3" stroke={colors.muted + '33'} />
-              <XAxis dataKey="day" tick={{ fontSize: 12, fill: colors.mutedForeground }} interval="preserveStartEnd" />
-              <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: colors.mutedForeground }} unit="h" />
+              <CartesianGrid strokeDasharray="3 3" stroke={colors.muted + "33"} />
+              <XAxis
+                dataKey="day"
+                tick={{ fontSize: 12, fill: colors.mutedForeground }}
+                interval="preserveStartEnd"
+              />
+              <YAxis
+                allowDecimals={false}
+                tick={{ fontSize: 12, fill: colors.mutedForeground }}
+                unit="h"
+              />
               <Tooltip
-                cursor={{ fill: 'hsl(var(--foreground) / 0.06)' }}
+                cursor={{ fill: "hsl(var(--foreground) / 0.06)" }}
                 contentStyle={tooltipStyle}
                 labelStyle={{ color: colors.foreground, fontWeight: 600 }}
                 itemStyle={{ color: colors.accent }}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                formatter={(_v: any, _n: any, props: any) => [formatDurationHM(props.payload.ms), 'Time']}
+
+                formatter={(_v: any, _n: any, props: any) => [
+                  formatDurationHM(props.payload.ms),
+                  "Time",
+                ]}
               />
               <Bar dataKey="hours" fill={colors.accent} radius={[4, 4, 0, 0]} />
             </BarChart>
@@ -309,14 +340,21 @@ export default function Analytics() {
       {(timeByPathData.length > 0 || pathBreakdown.length > 0) && (
         <div className="grid items-start gap-8 md:grid-cols-2">
           {timeByPathData.length > 0 && (
-            <Section title="Time tracking by path" subtitle="Steps without tracked time counted as 15 min">
+            <Section
+              title="Time tracking by path"
+              subtitle="Steps without tracked time counted as 15 min"
+            >
               <div className="space-y-2">
                 {timeByPathData.map((row, i) => (
                   <div key={row.name} className="space-y-1">
                     <div className="flex items-center gap-2 text-sm">
-                      <span className="w-5 text-right text-muted-foreground text-xs shrink-0">{i + 1}</span>
+                      <span className="w-5 text-right text-muted-foreground text-xs shrink-0">
+                        {i + 1}
+                      </span>
                       <span className="font-medium truncate min-w-0 flex-1">{row.name}</span>
-                      <span className="text-muted-foreground whitespace-nowrap shrink-0">{formatDurationHM(row.ms)}</span>
+                      <span className="text-muted-foreground whitespace-nowrap shrink-0">
+                        {formatDurationHM(row.ms)}
+                      </span>
                     </div>
                     <div className="ml-7 h-2 rounded-full bg-muted overflow-hidden">
                       <div
@@ -342,7 +380,9 @@ export default function Analytics() {
                       <span className="font-medium truncate mr-4">{row.name}</span>
                       <span className="text-muted-foreground whitespace-nowrap">
                         {row.done}/{row.total}
-                        <span className={`ml-2 font-medium ${rateColor(row.rate)}`}>{row.rate}%</span>
+                        <span className={`ml-2 font-medium ${rateColor(row.rate)}`}>
+                          {row.rate}%
+                        </span>
                       </span>
                     </div>
                     <div className="h-2 rounded-full bg-muted overflow-hidden">
@@ -377,11 +417,15 @@ export default function Analytics() {
                   <tr key={i} className="border-b border-border/50 even:bg-muted/20">
                     <td className="py-2 pr-4 truncate max-w-[200px]">{row.title}</td>
                     <td className="py-2 pr-4 text-muted-foreground">{row.path}</td>
-                    <td className={`py-2 pr-4 ${row.tracked ? '' : 'text-muted-foreground'}`}>
+                    <td className={`py-2 pr-4 ${row.tracked ? "" : "text-muted-foreground"}`}>
                       {formatDurationHM(row.timeMs)}
                     </td>
                     <td className="py-2 text-muted-foreground">
-                      {new Date(row.completedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {new Date(row.completedAt).toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
                     </td>
                   </tr>
                 ))}
@@ -403,7 +447,15 @@ export default function Analytics() {
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | number }) {
+function StatCard({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+}) {
   return (
     <Card>
       <CardContent className="p-4 flex items-center gap-3">
@@ -417,7 +469,15 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
   );
 }
 
-function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+function Section({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}) {
   return (
     <Card>
       <CardContent className="p-4 space-y-4">
@@ -437,7 +497,7 @@ function Section({ title, subtitle, children }: { title: string; subtitle?: stri
 
 function toMs(value: string | number | undefined): number {
   if (value === undefined || value === null) return 0;
-  if (typeof value === 'number') return value;
+  if (typeof value === "number") return value;
   const n = Number(value);
   if (!Number.isNaN(n)) return n;
   return new Date(value).getTime() || 0;
@@ -445,12 +505,12 @@ function toMs(value: string | number | undefined): number {
 
 function stepPathName(step: Step): string {
   if (step.path) return step.path.title;
-  if (step.pathId) return 'Unknown Path';
-  return 'No path';
+  if (step.pathId) return "Unknown Path";
+  return "No path";
 }
 
 function rateColor(rate: number): string {
-  if (rate >= 70) return 'text-primary';
-  if (rate < 40) return 'text-destructive';
-  return '';
+  if (rate >= 70) return "text-primary";
+  if (rate < 40) return "text-destructive";
+  return "";
 }

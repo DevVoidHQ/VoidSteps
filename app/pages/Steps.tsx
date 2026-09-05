@@ -21,14 +21,7 @@ import { getDescendantPathIds } from "@/lib/path-utils";
 import { useToast } from "@/contexts/ToastContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import {
-  Plus,
-  Star,
-  Search,
-  Calendar,
-  Clock,
-  CheckCircle2,
-} from "lucide-react";
+import { Plus, Star, Search, Calendar, Clock, CheckCircle2 } from "lucide-react";
 import QuickCapture from "@/components/QuickCapture";
 import { getKeybinds, formatKeybindDisplay } from "@/lib/keybind-config";
 import { StepCard } from "@/components/StepCard";
@@ -39,14 +32,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 
 export default function Steps() {
   const toast = useToast();
-  const {
-    activePaths,
-    activeSteps,
-    allSteps,
-    failedSteps,
-    upcomingSteps,
-    activeTimerStepId,
-  } = useData();
+  const { activePaths, activeSteps, allSteps, failedSteps, upcomingSteps, activeTimerStepId } =
+    useData();
 
   // Mutations
   const updateStepMutation = useUpdateStep();
@@ -58,24 +45,34 @@ export default function Steps() {
   const stopTimerMutation = useStopTimer();
   const setTotalTimeMutation = useSetTotalTime();
 
-  const toggleTimer = useCallback(async (id: string) => {
-    try {
-      if (activeTimerStepId === id) {
-        await stopTimerMutation({ id });
-      } else {
-        if (activeTimerStepId) await stopTimerMutation({ id: activeTimerStepId });
-        await startTimerMutation({ id });
+  const toggleTimer = useCallback(
+    async (id: string) => {
+      try {
+        if (activeTimerStepId === id) {
+          await stopTimerMutation({ id });
+        } else {
+          if (activeTimerStepId) await stopTimerMutation({ id: activeTimerStepId });
+          await startTimerMutation({ id });
+        }
+      } catch (error) {
+        reportError("mutation", error, { action: "toggleTimer", stepId: id });
+        toast.error("Failed to toggle timer");
       }
-    } catch (error) {
-      reportError('mutation', error, { action: 'toggleTimer', stepId: id });
-      toast.error("Failed to toggle timer");
-    }
-  }, [activeTimerStepId, startTimerMutation, stopTimerMutation, toast]);
+    },
+    [activeTimerStepId, startTimerMutation, stopTimerMutation, toast]
+  );
 
-  const setTotalTime = useCallback(async (id: string, totalTimeMs: number) => {
-    try { await setTotalTimeMutation({ id, totalTimeSpentMs: totalTimeMs }); }
-    catch (error) { reportError('mutation', error, { action: 'setTotalTime', stepId: id }); toast.error("Failed to set time"); }
-  }, [setTotalTimeMutation, toast]);
+  const setTotalTime = useCallback(
+    async (id: string, totalTimeMs: number) => {
+      try {
+        await setTotalTimeMutation({ id, totalTimeSpentMs: totalTimeMs });
+      } catch (error) {
+        reportError("mutation", error, { action: "setTotalTime", stepId: id });
+        toast.error("Failed to set time");
+      }
+    },
+    [setTotalTimeMutation, toast]
+  );
 
   // UI state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -87,15 +84,22 @@ export default function Steps() {
   useSearchHotkey(searchRef);
   const stepsClickAction = useStepsClickAction();
   const [selectedPathFilterSteps, setSelectedPathFilterSteps] = useState<string>(() => {
-    try { return localStorage.getItem(STEPS_PATH_FILTER_KEY) || ""; } catch { return ""; }
+    try {
+      return localStorage.getItem(STEPS_PATH_FILTER_KEY) || "";
+    } catch {
+      return "";
+    }
   });
 
   // Persist the path filter so it stays locked in until changed/cleared.
   useEffect(() => {
     try {
-      if (selectedPathFilterSteps) localStorage.setItem(STEPS_PATH_FILTER_KEY, selectedPathFilterSteps);
+      if (selectedPathFilterSteps)
+        localStorage.setItem(STEPS_PATH_FILTER_KEY, selectedPathFilterSteps);
       else localStorage.removeItem(STEPS_PATH_FILTER_KEY);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, [selectedPathFilterSteps]);
 
   // Memoize paths for stable reference
@@ -103,8 +107,11 @@ export default function Steps() {
 
   // Drop a stale filter if its path no longer exists (e.g. deleted).
   useEffect(() => {
-    if (selectedPathFilterSteps && memoizedPaths.length > 0 &&
-        !memoizedPaths.some((p) => p._id === selectedPathFilterSteps)) {
+    if (
+      selectedPathFilterSteps &&
+      memoizedPaths.length > 0 &&
+      !memoizedPaths.some((p) => p._id === selectedPathFilterSteps)
+    ) {
       setSelectedPathFilterSteps("");
     }
   }, [selectedPathFilterSteps, memoizedPaths]);
@@ -123,10 +130,13 @@ export default function Steps() {
   // Memoized filtered arrays
   // Separate steps with due dates from active steps (shown at top)
   const unfilteredDueSteps = useMemo(
-    () => activeSteps?.filter((s: Step) => s.dueDate !== undefined).sort((a, b) => {
-      // Sort by due date (soonest/most overdue first)
-      return (a.dueDate ?? 0) - (b.dueDate ?? 0);
-    }) || [],
+    () =>
+      activeSteps
+        ?.filter((s: Step) => s.dueDate !== undefined)
+        .sort((a, b) => {
+          // Sort by due date (soonest/most overdue first)
+          return (a.dueDate ?? 0) - (b.dueDate ?? 0);
+        }) || [],
     [activeSteps]
   );
 
@@ -140,20 +150,14 @@ export default function Steps() {
     [activeSteps]
   );
 
-  const unfilteredUpcomingSteps = useMemo(
-    () => upcomingSteps || [],
-    [upcomingSteps]
-  );
+  const unfilteredUpcomingSteps = useMemo(() => upcomingSteps || [], [upcomingSteps]);
 
   const unfilteredCompletedSteps = useMemo(
     () => allSteps?.filter((s: Step) => s.completed) || [],
     [allSteps]
   );
 
-  const unfilteredFailedStepsList = useMemo(
-    () => failedSteps || [],
-    [failedSteps]
-  );
+  const unfilteredFailedStepsList = useMemo(() => failedSteps || [], [failedSteps]);
 
   const dueSteps = useMemo(
     () => filterSteps(unfilteredDueSteps, searchQuerySteps, selectedPathFilterSteps),
@@ -186,81 +190,102 @@ export default function Steps() {
   );
 
   // Stable callbacks
-  const toggleStep = useCallback(async (id: string) => {
-    try {
-      await toggleStepMutation({ id });
-    } catch (error) {
-      reportError('mutation', error, { action: 'toggleStep', stepId: id });
-      toast.error("Failed to toggle step");
-    }
-  }, [toggleStepMutation, toast]);
-
-  const toggleFailed = useCallback(async (id: string) => {
-    try {
-      await toggleFailedMutation({ id });
-    } catch (error) {
-      reportError('mutation', error, { action: 'toggleFailed', stepId: id });
-      toast.error("Failed to update step");
-    }
-  }, [toggleFailedMutation, toast]);
-
-  const togglePriority = useCallback(async (id: string, currentValue: boolean) => {
-    try {
-      await updateStepMutation({
-        id,
-        prioritizedToday: !currentValue,
-      });
-    } catch (error) {
-      reportError('mutation', error, { action: 'togglePriority', stepId: id });
-      toast.error("Failed to update priority");
-    }
-  }, [updateStepMutation, toast]);
-
-  const deleteStep = useCallback(async (id: string) => {
-    try {
-      await deleteStepMutation({ id });
-    } catch (error) {
-      reportError('mutation', error, { action: 'deleteStep', stepId: id });
-      toast.error("Failed to delete step");
-    }
-  }, [deleteStepMutation, toast]);
-
-  const handleReorder = useCallback(async (stepIds: string[]) => {
-    try {
-      await reorderStepsMutation({ stepIds });
-    } catch (error) {
-      reportError('mutation', error, { action: 'reorderSteps' });
-      toast.error("Failed to reorder steps");
-    }
-  }, [reorderStepsMutation, toast]);
-
-  const updateStep = useCallback(async (id: string, updates: Partial<Step>) => {
-    try {
-      const updateData: any = { id };
-      if (updates.title !== undefined) updateData.title = updates.title;
-      if (updates.description !== undefined) updateData.description = updates.description;
-      if (updates.completed !== undefined) updateData.completed = updates.completed;
-      if (updates.pathId !== undefined) {
-        updateData.pathId = updates.pathId
-          ? (typeof updates.pathId === 'string' ? updates.pathId : null)
-          : null;
+  const toggleStep = useCallback(
+    async (id: string) => {
+      try {
+        await toggleStepMutation({ id });
+      } catch (error) {
+        reportError("mutation", error, { action: "toggleStep", stepId: id });
+        toast.error("Failed to toggle step");
       }
-      if (updates.prioritizedToday !== undefined) updateData.prioritizedToday = updates.prioritizedToday;
-      // Handle dueDate - allow undefined to clear
-      if ('dueDate' in updates) {
-        updateData.dueDate = updates.dueDate ?? null;
-      }
-      // Handle startDate - allow undefined to clear
-      if ('startDate' in updates) {
-        updateData.startDate = updates.startDate ?? null;
-      }
+    },
+    [toggleStepMutation, toast]
+  );
 
-      await updateStepMutation(updateData);
-    } catch (error) {
-      reportError('mutation', error, { action: 'updateStep', stepId: id });
-      toast.error("Failed to update step");
-    }
-  }, [updateStepMutation, toast]);
+  const toggleFailed = useCallback(
+    async (id: string) => {
+      try {
+        await toggleFailedMutation({ id });
+      } catch (error) {
+        reportError("mutation", error, { action: "toggleFailed", stepId: id });
+        toast.error("Failed to update step");
+      }
+    },
+    [toggleFailedMutation, toast]
+  );
+
+  const togglePriority = useCallback(
+    async (id: string, currentValue: boolean) => {
+      try {
+        await updateStepMutation({
+          id,
+          prioritizedToday: !currentValue,
+        });
+      } catch (error) {
+        reportError("mutation", error, { action: "togglePriority", stepId: id });
+        toast.error("Failed to update priority");
+      }
+    },
+    [updateStepMutation, toast]
+  );
+
+  const deleteStep = useCallback(
+    async (id: string) => {
+      try {
+        await deleteStepMutation({ id });
+      } catch (error) {
+        reportError("mutation", error, { action: "deleteStep", stepId: id });
+        toast.error("Failed to delete step");
+      }
+    },
+    [deleteStepMutation, toast]
+  );
+
+  const handleReorder = useCallback(
+    async (stepIds: string[]) => {
+      try {
+        await reorderStepsMutation({ stepIds });
+      } catch (error) {
+        reportError("mutation", error, { action: "reorderSteps" });
+        toast.error("Failed to reorder steps");
+      }
+    },
+    [reorderStepsMutation, toast]
+  );
+
+  const updateStep = useCallback(
+    async (id: string, updates: Partial<Step>) => {
+      try {
+        const updateData: any = { id };
+        if (updates.title !== undefined) updateData.title = updates.title;
+        if (updates.description !== undefined) updateData.description = updates.description;
+        if (updates.completed !== undefined) updateData.completed = updates.completed;
+        if (updates.pathId !== undefined) {
+          updateData.pathId = updates.pathId
+            ? typeof updates.pathId === "string"
+              ? updates.pathId
+              : null
+            : null;
+        }
+        if (updates.prioritizedToday !== undefined)
+          updateData.prioritizedToday = updates.prioritizedToday;
+        // Handle dueDate - allow undefined to clear
+        if ("dueDate" in updates) {
+          updateData.dueDate = updates.dueDate ?? null;
+        }
+        // Handle startDate - allow undefined to clear
+        if ("startDate" in updates) {
+          updateData.startDate = updates.startDate ?? null;
+        }
+
+        await updateStepMutation(updateData);
+      } catch (error) {
+        reportError("mutation", error, { action: "updateStep", stepId: id });
+        toast.error("Failed to update step");
+      }
+    },
+    [updateStepMutation, toast]
+  );
 
   return (
     <div className="space-y-6">
@@ -374,21 +399,24 @@ export default function Steps() {
       )}
 
       {/* Empty State */}
-      {dueSteps.length === 0 && prioritySteps.length === 0 && regularSteps.length === 0 && filteredUpcomingSteps.length === 0 && (
-        <EmptyState
-          icon={searchQuerySteps || selectedPathFilterSteps ? Search : CheckCircle2}
-          message={
-            searchQuerySteps || selectedPathFilterSteps
-              ? "No steps match your filters"
-              : "No active steps"
-          }
-          hint={
-            searchQuerySteps || selectedPathFilterSteps
-              ? "Try adjusting your search or path filter"
-              : "Add a step above to get started"
-          }
-        />
-      )}
+      {dueSteps.length === 0 &&
+        prioritySteps.length === 0 &&
+        regularSteps.length === 0 &&
+        filteredUpcomingSteps.length === 0 && (
+          <EmptyState
+            icon={searchQuerySteps || selectedPathFilterSteps ? Search : CheckCircle2}
+            message={
+              searchQuerySteps || selectedPathFilterSteps
+                ? "No steps match your filters"
+                : "No active steps"
+            }
+            hint={
+              searchQuerySteps || selectedPathFilterSteps
+                ? "Try adjusting your search or path filter"
+                : "Add a step above to get started"
+            }
+          />
+        )}
 
       {/* Upcoming Steps - At bottom with muted styling */}
       {filteredUpcomingSteps.length > 0 && (
@@ -414,10 +442,10 @@ export default function Steps() {
                   onDelete={deleteStep}
                   onTogglePriority={togglePriority}
                   onSaveEdit={updateStep}
-                onToggleTimer={toggleTimer}
-                activeTimerStepId={activeTimerStepId}
-                onSetTotalTime={setTotalTime}
-                clickAction={stepsClickAction}
+                  onToggleTimer={toggleTimer}
+                  activeTimerStepId={activeTimerStepId}
+                  onSetTotalTime={setTotalTime}
+                  clickAction={stepsClickAction}
                   showStartDateBadge
                 />
               ))}

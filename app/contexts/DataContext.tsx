@@ -1,9 +1,9 @@
-import React, { createContext, useContext, useMemo, useCallback, useState, useEffect } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '@/lib/db';
-import { getLogicalDayStart } from '@/lib/calculate-next-occurrence';
-import type { Path, Step, Routine, Reminder } from '@/types';
-import type { LocalUserSettings } from '@/lib/db';
+import React, { createContext, useContext, useMemo, useCallback, useState, useEffect } from "react";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@/lib/db";
+import { getLogicalDayStart } from "@/lib/calculate-next-occurrence";
+import type { Path, Step, Routine, Reminder } from "@/types";
+import type { LocalUserSettings } from "@/lib/db";
 
 interface DataContextType {
   paths: Path[] | undefined;
@@ -37,14 +37,16 @@ function enrichStepWithPath(step: any, pathsMap: Map<string, any>): Step {
   const path = step.pathId ? pathsMap.get(step.pathId) || null : null;
   return {
     ...step,
-    path: path ? {
-      _id: path._id,
-      title: path.title,
-      description: path.description,
-      parentId: path.parentId || null,
-      createdAt: path.createdAt,
-      updatedAt: path.updatedAt,
-    } : null,
+    path: path
+      ? {
+          _id: path._id,
+          title: path.title,
+          description: path.description,
+          parentId: path.parentId || null,
+          createdAt: path.createdAt,
+          updatedAt: path.updatedAt,
+        }
+      : null,
     parentId: step.parentId || null,
     pathId: step.pathId || null,
   } as Step;
@@ -55,56 +57,43 @@ function enrichRoutineWithPath(routine: any, pathsMap: Map<string, any>): Routin
   const path = routine.pathId ? pathsMap.get(routine.pathId) || null : null;
   return {
     ...routine,
-    path: path ? {
-      _id: path._id,
-      title: path.title,
-      description: path.description,
-      parentId: path.parentId || null,
-      createdAt: path.createdAt,
-      updatedAt: path.updatedAt,
-    } : null,
+    path: path
+      ? {
+          _id: path._id,
+          title: path.title,
+          description: path.description,
+          parentId: path.parentId || null,
+          createdAt: path.createdAt,
+          updatedAt: path.updatedAt,
+        }
+      : null,
     pathId: routine.pathId || null,
   } as Routine;
 }
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Read all non-deleted data from IndexedDB reactively
-  const localSteps = useLiveQuery(
-    () => db.steps.toArray(),
-    []
-  );
+  const localSteps = useLiveQuery(() => db.steps.toArray(), []);
 
-  const localPaths = useLiveQuery(
-    () => db.paths.toArray(),
-    []
-  );
+  const localPaths = useLiveQuery(() => db.paths.toArray(), []);
 
-  const localRoutines = useLiveQuery(
-    () => db.routines.toArray(),
-    []
-  );
+  const localRoutines = useLiveQuery(() => db.routines.toArray(), []);
 
-  const localReminders = useLiveQuery(
-    () => db.reminders.toArray(),
-    []
-  );
+  const localReminders = useLiveQuery(() => db.reminders.toArray(), []);
 
   // Read user settings (single-user app, take first)
-  const userSettings = useLiveQuery(
-    () => db.userSettings.toCollection().first(),
-    []
-  );
+  const userSettings = useLiveQuery(() => db.userSettings.toCollection().first(), []);
 
   // Build paths map for enrichment
   const pathsMap = useMemo(() => {
     if (!localPaths) return new Map();
-    return new Map(localPaths.map(p => [p._id, p]));
+    return new Map(localPaths.map((p) => [p._id, p]));
   }, [localPaths]);
 
   // Transform local paths to app Path type
   const paths = useMemo(() => {
     if (!localPaths) return undefined;
-    return localPaths.map(p => ({
+    return localPaths.map((p) => ({
       ...p,
       parentId: p.parentId || null,
     })) as Path[];
@@ -113,25 +102,25 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Active paths (non-archived)
   const activePaths = useMemo(() => {
     if (!paths) return undefined;
-    return paths.filter(p => !p.archived);
+    return paths.filter((p) => !p.archived);
   }, [paths]);
 
   // Archived paths
   const archivedPaths = useMemo(() => {
     if (!paths) return undefined;
-    return paths.filter(p => p.archived);
+    return paths.filter((p) => p.archived);
   }, [paths]);
 
   // Root paths
   const rootPaths = useMemo(() => {
     if (!paths) return undefined;
-    return paths.filter(path => !path.parentId);
+    return paths.filter((path) => !path.parentId);
   }, [paths]);
 
   // Transform and enrich routines
   const routines = useMemo(() => {
     if (!localRoutines) return undefined;
-    return localRoutines.map(r => enrichRoutineWithPath(r, pathsMap));
+    return localRoutines.map((r) => enrichRoutineWithPath(r, pathsMap));
   }, [localRoutines, pathsMap]);
 
   // Reminders need no enrichment - they're standalone date markers.
@@ -143,7 +132,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // All enriched steps
   const allSteps = useMemo(() => {
     if (!localSteps) return undefined;
-    return localSteps.map(s => enrichStepWithPath(s, pathsMap));
+    return localSteps.map((s) => enrichStepWithPath(s, pathsMap));
   }, [localSteps, pathsMap]);
 
   // Start of "today" for task semantics: the user's configured end-of-day
@@ -163,17 +152,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     tick();
     const id = setInterval(tick, 60_000);
-    document.addEventListener('visibilitychange', tick);
+    document.addEventListener("visibilitychange", tick);
     return () => {
       clearInterval(id);
-      document.removeEventListener('visibilitychange', tick);
+      document.removeEventListener("visibilitychange", tick);
     };
   }, [turnoverMinutes]);
 
   // Active steps: not completed, not failed, not archived, startDate <= startOfToday or no startDate
   const activeSteps = useMemo(() => {
     if (!allSteps) return undefined;
-    const active = allSteps.filter(step => {
+    const active = allSteps.filter((step) => {
       if (step.archived) return false;
       if (step.completed) return false;
       if (step.failed) return false;
@@ -182,8 +171,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
     // Sort by sortOrder ascending, fallback to createdAt
     return active.sort((a, b) => {
-      const orderA = a.sortOrder ?? (typeof a.createdAt === 'number' ? a.createdAt : 0);
-      const orderB = b.sortOrder ?? (typeof b.createdAt === 'number' ? b.createdAt : 0);
+      const orderA = a.sortOrder ?? (typeof a.createdAt === "number" ? a.createdAt : 0);
+      const orderB = b.sortOrder ?? (typeof b.createdAt === "number" ? b.createdAt : 0);
       return orderA - orderB;
     });
   }, [allSteps, startOfToday]);
@@ -191,17 +180,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Failed steps (exclude archived)
   const failedSteps = useMemo(() => {
     if (!allSteps) return undefined;
-    return allSteps.filter(step => step.failed === true && !step.archived);
+    return allSteps.filter((step) => step.failed === true && !step.archived);
   }, [allSteps]);
 
   // Completed steps today (exclude archived)
   const completedStepsToday = useMemo(() => {
     if (!allSteps) return undefined;
-    return allSteps.filter(step =>
-      !step.archived &&
-      step.completed &&
-      step.completedAt !== undefined &&
-      (typeof step.completedAt === 'number' ? step.completedAt : 0) >= startOfToday
+    return allSteps.filter(
+      (step) =>
+        !step.archived &&
+        step.completed &&
+        step.completedAt !== undefined &&
+        (typeof step.completedAt === "number" ? step.completedAt : 0) >= startOfToday
     );
   }, [allSteps, startOfToday]);
 
@@ -209,7 +199,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const upcomingSteps = useMemo(() => {
     if (!allSteps) return undefined;
     return allSteps
-      .filter(step => {
+      .filter((step) => {
         if (step.archived) return false;
         if (step.completed) return false;
         if (step.failed) return false;
@@ -220,22 +210,23 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [allSteps, startOfToday]);
 
   const isLoading =
-    localSteps === undefined ||
-    localPaths === undefined ||
-    localRoutines === undefined;
+    localSteps === undefined || localPaths === undefined || localRoutines === undefined;
 
   // Active timer step ID
   const activeTimerStepId = useMemo(() => {
     if (!allSteps) return null;
-    const stepWithTimer = allSteps.find(s => s.timerStartedAt != null);
+    const stepWithTimer = allSteps.find((s) => s.timerStartedAt != null);
     return stepWithTimer?._id ?? null;
   }, [allSteps]);
 
   // isStepUpcoming helper - same turnover boundary as activeSteps/upcomingSteps
   // so a deferred step can't read "upcoming" in one place and "active" in another.
-  const isStepUpcoming = useCallback((step: Step) => {
-    return !!step.startDate && step.startDate > startOfToday;
-  }, [startOfToday]);
+  const isStepUpcoming = useCallback(
+    (step: Step) => {
+      return !!step.startDate && step.startDate > startOfToday;
+    },
+    [startOfToday]
+  );
 
   // No-op optimistic update functions (writes are now instant via IndexedDB)
   const applyOptimisticUpdate = useCallback((_id: string, _updates: Partial<Step>) => {}, []);
@@ -265,21 +256,36 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isStepUpcoming,
       activeTimerStepId,
     }),
-    [paths, activePaths, archivedPaths, rootPaths, routines, reminders, allSteps, activeSteps, failedSteps, completedStepsToday, upcomingSteps, userSettings, isLoading,
-     applyOptimisticUpdate, applyOptimisticDelete, clearOptimisticUpdate, clearOptimisticDelete, isStepUpcoming, activeTimerStepId]
+    [
+      paths,
+      activePaths,
+      archivedPaths,
+      rootPaths,
+      routines,
+      reminders,
+      allSteps,
+      activeSteps,
+      failedSteps,
+      completedStepsToday,
+      upcomingSteps,
+      userSettings,
+      isLoading,
+      applyOptimisticUpdate,
+      applyOptimisticDelete,
+      clearOptimisticUpdate,
+      clearOptimisticDelete,
+      isStepUpcoming,
+      activeTimerStepId,
+    ]
   );
 
-  return (
-    <DataContext.Provider value={value}>
-      {children}
-    </DataContext.Provider>
-  );
+  return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 };
 
 export const useData = () => {
   const context = useContext(DataContext);
   if (!context) {
-    throw new Error('useData must be used within DataProvider');
+    throw new Error("useData must be used within DataProvider");
   }
   return context;
 };

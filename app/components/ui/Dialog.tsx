@@ -37,10 +37,7 @@ function Dialog({ open, onOpenChange, children }: DialogProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div
-        className={cn(
-          "fixed inset-0 bg-black/80",
-          "animate-in fade-in-0 duration-200"
-        )}
+        className={cn("fixed inset-0 bg-black/80", "animate-in fade-in-0 duration-200")}
         aria-hidden="true"
       />
       <div
@@ -66,11 +63,7 @@ const sizeClasses = {
   lg: "max-w-lg",
 };
 
-function DialogContent({
-  children,
-  className,
-  size = "md",
-}: DialogContentProps) {
+function DialogContent({ children, className, size = "md" }: DialogContentProps) {
   return (
     <div
       className={cn(
@@ -85,26 +78,12 @@ function DialogContent({
   );
 }
 
-function DialogHeader({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
+function DialogHeader({ children, className }: { children: React.ReactNode; className?: string }) {
   return <div className={cn("mb-4", className)}>{children}</div>;
 }
 
-function DialogTitle({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <h2 className={cn("text-xl font-semibold", className)}>{children}</h2>
-  );
+function DialogTitle({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <h2 className={cn("text-xl font-semibold", className)}>{children}</h2>;
 }
 
 function DialogDescription({
@@ -114,32 +93,11 @@ function DialogDescription({
   children: React.ReactNode;
   className?: string;
 }) {
-  return (
-    <p className={cn("text-sm text-muted-foreground mt-1", className)}>
-      {children}
-    </p>
-  );
+  return <p className={cn("text-sm text-muted-foreground mt-1", className)}>{children}</p>;
 }
 
-function DialogFooter({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={cn("flex justify-end gap-2 mt-6", className)}>
-      {children}
-    </div>
-  );
+function DialogFooter({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={cn("flex justify-end gap-2 mt-6", className)}>{children}</div>;
 }
 
-export {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-};
+export { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter };

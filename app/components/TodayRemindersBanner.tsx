@@ -24,9 +24,7 @@ export default function TodayRemindersBanner() {
       <Bell className="mt-0.5 w-4 h-4 text-warning shrink-0" />
       <div className="min-w-0 text-sm">
         <span className="font-medium text-foreground">Today: </span>
-        <span className="text-foreground">
-          {todays.map((r) => r.title).join(", ")}
-        </span>
+        <span className="text-foreground">{todays.map((r) => r.title).join(", ")}</span>
       </div>
     </div>
   );

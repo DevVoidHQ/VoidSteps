@@ -9,10 +9,10 @@ import type { ThemeTokens } from "./theme-types";
 const devVoidTheme: ThemeTokens = {
   background: "44 10% 97%",
   foreground: "43 8% 10%",
-  primary: "222 90% 30%",      // #083291
-  accent: "348 42% 58%",       // #c26579
+  primary: "222 90% 30%", // #083291
+  accent: "348 42% 58%", // #c26579
   primaryLight: "221 83% 95%", // #e8effc
-  accentLight: "348 83% 95%",  // #fce8ed
+  accentLight: "348 83% 95%", // #fce8ed
 };
 
 // Minimal dark - pure black/white + brand

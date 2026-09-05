@@ -98,7 +98,7 @@ export default function FocusSettings() {
     : focusBackgroundCss(backgroundId);
 
   const selectedTrack =
-    trackId === CUSTOM_TRACK_ID ? audioName : findBundledTrack(trackId)?.title ?? null;
+    trackId === CUSTOM_TRACK_ID ? audioName : (findBundledTrack(trackId)?.title ?? null);
 
   const swatch = (selected: boolean) =>
     `h-12 rounded-lg text-xs font-medium transition ${
@@ -127,12 +127,14 @@ export default function FocusSettings() {
           <div className="mt-5 rounded-full px-3 py-1 text-[11px] text-muted-foreground ring-1 ring-border/50">
             Launch
           </div>
-          <p className="mt-3 text-lg font-semibold text-foreground">Write the launch announcement</p>
+          <p className="mt-3 text-lg font-semibold text-foreground">
+            Write the launch announcement
+          </p>
           <p className="mt-2 font-mono text-4xl font-bold tabular-nums text-primary">24:13</p>
         </div>
         <p className="mt-2 text-sm text-muted-foreground">
-          A preview of the fullscreen focus view. Presets are drawn from your current theme, so
-          they follow it when you switch.
+          A preview of the fullscreen focus view. Presets are drawn from your current theme, so they
+          follow it when you switch.
         </p>
       </div>
 
@@ -241,7 +243,6 @@ export default function FocusSettings() {
             {audioName ? "Replace your track" : "Use your own track"}
           </Button>
         </div>
-
       </div>
 
       <div className="space-y-2 border-t border-border pt-6">
@@ -298,7 +299,9 @@ function TrackRow({
         onClick={onSelect}
         className="min-w-0 flex-1 rounded-md px-2 py-1 text-left transition hover:bg-muted"
       >
-        <span className={`block truncate text-sm ${selected ? "text-foreground" : "text-muted-foreground"}`}>
+        <span
+          className={`block truncate text-sm ${selected ? "text-foreground" : "text-muted-foreground"}`}
+        >
           {title}
         </span>
       </button>

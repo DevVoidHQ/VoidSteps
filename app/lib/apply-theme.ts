@@ -12,9 +12,7 @@ const TOKEN_TO_CSS_VAR: Record<ThemeTokenKey, string> = {
 // Parse an "H S% L%" string and convert to sRGB in [0,1]. Returns null on a
 // malformed string so callers can pick their own fallback.
 function hslToRgb(hsl: string): { r: number; g: number; b: number } | null {
-  const m = hsl
-    .trim()
-    .match(/^(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)%\s+(\d+(?:\.\d+)?)%$/);
+  const m = hsl.trim().match(/^(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)%\s+(\d+(?:\.\d+)?)%$/);
   if (!m) return null;
 
   const h = parseFloat(m[1]);
@@ -24,7 +22,7 @@ function hslToRgb(hsl: string): { r: number; g: number; b: number } | null {
   const c = (1 - Math.abs(2 * l - 1)) * s;
   const hp = (h % 360) / 60;
   const x = c * (1 - Math.abs((hp % 2) - 1));
-  let r = 0, g = 0, b = 0;
+  let r: number, g: number, b: number;
   if (hp < 1) [r, g, b] = [c, x, 0];
   else if (hp < 2) [r, g, b] = [x, c, 0];
   else if (hp < 3) [r, g, b] = [0, c, x];
@@ -42,8 +40,7 @@ function contrastForeground(hsl: string): string {
   const rgb = hslToRgb(hsl);
   if (!rgb) return "0 0% 100%";
 
-  const toLinear = (v: number) =>
-    v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  const toLinear = (v: number) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
   const Y = 0.2126 * toLinear(rgb.r) + 0.7152 * toLinear(rgb.g) + 0.0722 * toLinear(rgb.b);
 
   return Y > 0.5 ? "0 0% 10%" : "0 0% 100%";
@@ -53,7 +50,10 @@ function contrastForeground(hsl: string): string {
 function hslToHex(hsl: string): string {
   const rgb = hslToRgb(hsl);
   if (!rgb) return "#083291";
-  const to = (v: number) => Math.round(v * 255).toString(16).padStart(2, "0");
+  const to = (v: number) =>
+    Math.round(v * 255)
+      .toString(16)
+      .padStart(2, "0");
   return `#${to(rgb.r)}${to(rgb.g)}${to(rgb.b)}`;
 }
 
@@ -87,7 +87,7 @@ function applyFavicon(theme: ThemeTokens): void {
   const svg =
     `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>` +
     `<rect width='64' height='64' rx='14' fill='${bgHex}'/>` +
-    `<text x='32' y='45' text-anchor='middle' font-family='Satoshi,-apple-system,Segoe UI,Roboto,sans-serif' font-size='34' font-weight='700' letter-spacing='-1'>` +
+    `<text x='32' y='45' text-anchor='middle' font-family='Geist,-apple-system,Segoe UI,Roboto,sans-serif' font-size='34' font-weight='700' letter-spacing='-1'>` +
     `<tspan fill='${primaryHex}'>V</tspan><tspan fill='${accentHex}'>S</tspan></text></svg>`;
   const href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
 
@@ -123,9 +123,7 @@ export function applyTheme(
   applyFavicon(theme);
 }
 
-export function getThemeFromDOM(
-  target: HTMLElement = document.documentElement
-): ThemeTokens {
+export function getThemeFromDOM(target: HTMLElement = document.documentElement): ThemeTokens {
   const style = getComputedStyle(target);
   const theme: Partial<ThemeTokens> = {};
 

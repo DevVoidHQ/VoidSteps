@@ -7,9 +7,7 @@ const DEFAULT_STEP_DURATION_MS = 15 * 60 * 1000;
  * Returns actual time spent if tracked, otherwise the 15-min default.
  */
 export function getEffectiveTimeMs(totalTimeSpentMs: number | undefined): number {
-  return totalTimeSpentMs && totalTimeSpentMs > 0
-    ? totalTimeSpentMs
-    : DEFAULT_STEP_DURATION_MS;
+  return totalTimeSpentMs && totalTimeSpentMs > 0 ? totalTimeSpentMs : DEFAULT_STEP_DURATION_MS;
 }
 
 /**
@@ -46,7 +44,7 @@ export function generateDayRange(daysAgo: number): number[] {
   return days;
 }
 
-export type RangeKey = '7d' | '30d' | '90d';
+export type RangeKey = "7d" | "30d" | "90d";
 
 /**
  * Formats a timestamp for use as a chart axis label.
@@ -56,8 +54,8 @@ export type RangeKey = '7d' | '30d' | '90d';
  */
 export function formatDayLabel(timestamp: number, rangeKey: RangeKey): string {
   const d = new Date(timestamp);
-  if (rangeKey === '7d') {
-    return d.toLocaleDateString(undefined, { weekday: 'short' });
+  if (rangeKey === "7d") {
+    return d.toLocaleDateString(undefined, { weekday: "short" });
   }
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }

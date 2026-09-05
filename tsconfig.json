@@ -22,7 +22,7 @@
     /* Path aliases (baseUrl omitted: deprecated in TS 6+; under bundler
        moduleResolution, paths resolve relative to this tsconfig) */
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./app/*"]
     },
 
     /* Linting */
@@ -33,5 +33,5 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src"]
+  "include": ["app"]
 }

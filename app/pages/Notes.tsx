@@ -1,7 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchHotkey } from "@/hooks/useSearchHotkey";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Plus, Trash2, Pencil, BookOpen, FileText, Search, X, Maximize2, Minimize2, ChevronRight, Check, ArrowLeft } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Pencil,
+  BookOpen,
+  FileText,
+  Search,
+  X,
+  Maximize2,
+  Minimize2,
+  ChevronRight,
+  Check,
+  ArrowLeft,
+} from "lucide-react";
 
 import { db } from "@/lib/db";
 import type { LocalNotebook, LocalNote } from "@/lib/db";
@@ -58,27 +71,25 @@ function formatDateTitle(d: Date): string {
     rem100 >= 11 && rem100 <= 13
       ? "th"
       : rem10 === 1
-      ? "st"
-      : rem10 === 2
-      ? "nd"
-      : rem10 === 3
-      ? "rd"
-      : "th";
+        ? "st"
+        : rem10 === 2
+          ? "nd"
+          : rem10 === 3
+            ? "rd"
+            : "th";
   return `${month} ${day}${suffix} ${year}`;
 }
 
 export default function Notes() {
-  const notebooks = useLiveQuery(
-    () => db.notebooks.toArray(),
-    []
-  );
-  const notes = useLiveQuery(
-    () => db.notes.toArray(),
-    []
-  );
+  const notebooks = useLiveQuery(() => db.notebooks.toArray(), []);
+  const notes = useLiveQuery(() => db.notes.toArray(), []);
 
-  const [activeNotebookId, setActiveNotebookId] = useState<string | null>(() => readStored(OPEN_NB_KEY));
-  const [activeNoteId, setActiveNoteId] = useState<string | null>(() => readStored(ACTIVE_NOTE_KEY));
+  const [activeNotebookId, setActiveNotebookId] = useState<string | null>(() =>
+    readStored(OPEN_NB_KEY)
+  );
+  const [activeNoteId, setActiveNoteId] = useState<string | null>(() =>
+    readStored(ACTIVE_NOTE_KEY)
+  );
   const [editingNotebookId, setEditingNotebookId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [openId, setOpenId] = useState<string | null>(() => readStored(OPEN_NB_KEY));
@@ -97,8 +108,12 @@ export default function Notes() {
   }, []);
 
   // Persist the open notebook + selected note across navigation.
-  useEffect(() => { writeStored(OPEN_NB_KEY, openId); }, [openId]);
-  useEffect(() => { writeStored(ACTIVE_NOTE_KEY, activeNoteId); }, [activeNoteId]);
+  useEffect(() => {
+    writeStored(OPEN_NB_KEY, openId);
+  }, [openId]);
+  useEffect(() => {
+    writeStored(ACTIVE_NOTE_KEY, activeNoteId);
+  }, [activeNoteId]);
 
   const toggleFocusMode = useCallback(() => {
     setFocusMode((prev) => {
@@ -194,7 +209,7 @@ export default function Notes() {
       const first = notesByNotebook.get(id)?.[0];
       setActiveNoteId(first ? first._id : null);
     },
-    [openId, notesByNotebook],
+    [openId, notesByNotebook]
   );
 
   const effectiveExpanded = useMemo(() => {
@@ -211,16 +226,19 @@ export default function Notes() {
     setEditingNotebookId(nb._id);
   }, [createNotebook]);
 
-  const handleNewNote = useCallback(async (notebookId?: string) => {
-    const target = notebookId ?? activeNotebookId;
-    if (!target) return;
-    const note = await createNote({
-      notebookId: target,
-      title: formatDateTitle(new Date()),
-      body: "",
-    });
-    setActiveNoteId(note._id);
-  }, [activeNotebookId, createNote]);
+  const handleNewNote = useCallback(
+    async (notebookId?: string) => {
+      const target = notebookId ?? activeNotebookId;
+      if (!target) return;
+      const note = await createNote({
+        notebookId: target,
+        title: formatDateTitle(new Date()),
+        body: "",
+      });
+      setActiveNoteId(note._id);
+    },
+    [activeNotebookId, createNote]
+  );
 
   const handleDeleteNotebook = useCallback(
     async (id: string) => {
@@ -336,7 +354,9 @@ function NotesTreePane({
   const searchRef = useRef<HTMLInputElement>(null);
   useSearchHotkey(searchRef);
   return (
-    <div className={`${activeNoteId ? "hidden md:flex" : "flex"} w-full md:w-72 shrink-0 flex-col border-r border-border`}>
+    <div
+      className={`${activeNoteId ? "hidden md:flex" : "flex"} w-full md:w-72 shrink-0 flex-col border-r border-border`}
+    >
       <div className="px-3 py-3 space-y-2">
         <div className="flex items-center justify-between">
           <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
@@ -521,7 +541,10 @@ function NotebookTreeRow({
         <span
           role="button"
           tabIndex={0}
-          onClick={(e) => { e.stopPropagation(); onNewNote(); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onNewNote();
+          }}
           className="p-1 rounded hover:bg-foreground/10"
           title="New note"
         >
@@ -530,7 +553,10 @@ function NotebookTreeRow({
         <span
           role="button"
           tabIndex={0}
-          onClick={(e) => { e.stopPropagation(); onStartEdit(); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onStartEdit();
+          }}
           className="p-1 rounded hover:bg-foreground/10"
           title="Rename"
         >
@@ -539,7 +565,10 @@ function NotebookTreeRow({
         <span
           role="button"
           tabIndex={0}
-          onClick={(e) => { e.stopPropagation(); handleDeleteClick(); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDeleteClick();
+          }}
           className={`p-1 rounded ${
             confirmDel ? "bg-destructive/15 text-destructive" : "hover:bg-foreground/10"
           }`}
@@ -590,14 +619,15 @@ function NoteTreeRow({
         <div className={`text-sm truncate ${active ? "font-medium" : ""}`}>
           {note.title || "Untitled"}
         </div>
-        <div className="text-xs text-muted-foreground truncate">
-          {previewFromBody(note.body)}
-        </div>
+        <div className="text-xs text-muted-foreground truncate">{previewFromBody(note.body)}</div>
       </div>
       <span
         role="button"
         tabIndex={0}
-        onClick={(e) => { e.stopPropagation(); handleDeleteClick(); }}
+        onClick={(e) => {
+          e.stopPropagation();
+          handleDeleteClick();
+        }}
         className={`p-1 rounded transition-opacity ${
           confirmDel
             ? "bg-destructive/15 text-destructive opacity-100"
@@ -639,17 +669,17 @@ function previewFromBody(body: string): string {
 // Strip common markdown syntax so list previews read as plain text.
 function stripMarkdown(s: string): string {
   return s
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")        // images
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")      // links → text
-    .replace(/`{1,3}([^`]*)`{1,3}/g, "$1")        // inline/block code
-    .replace(/^\s{0,3}#{1,6}\s+/gm, "")           // headings
-    .replace(/^\s*>\s?/gm, "")                    // blockquotes
-    .replace(/\[[ xX]\]\s*/g, "")                 // task checkboxes
-    .replace(/^\s*([-*+]|\d+\.)\s+/gm, "")        // list markers
-    .replace(/^\s*([-*_]\s*){3,}\s*$/gm, "")      // horizontal rules
-    .replace(/(\*\*|__)(.*?)\1/g, "$2")           // bold
-    .replace(/(\*|_)(.*?)\1/g, "$2")              // italic
-    .replace(/~~(.*?)~~/g, "$1")                  // strikethrough
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "") // images
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1") // links → text
+    .replace(/`{1,3}([^`]*)`{1,3}/g, "$1") // inline/block code
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "") // headings
+    .replace(/^\s*>\s?/gm, "") // blockquotes
+    .replace(/\[[ xX]\]\s*/g, "") // task checkboxes
+    .replace(/^\s*([-*+]|\d+\.)\s+/gm, "") // list markers
+    .replace(/^\s*([-*_]\s*){3,}\s*$/gm, "") // horizontal rules
+    .replace(/(\*\*|__)(.*?)\1/g, "$2") // bold
+    .replace(/(\*|_)(.*?)\1/g, "$2") // italic
+    .replace(/~~(.*?)~~/g, "$1") // strikethrough
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -782,9 +812,7 @@ function NoteEditorPane({
     // empty editor only shows on md+.
     return (
       <div className="hidden md:flex flex-1 flex-col min-w-0">
-        <div className="flex items-center px-4 py-3 border-b border-border">
-          {focusToggle}
-        </div>
+        <div className="flex items-center px-4 py-3 border-b border-border">{focusToggle}</div>
         <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
           Select or create a note to get started.
         </div>

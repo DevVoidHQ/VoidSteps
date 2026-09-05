@@ -32,7 +32,6 @@ export function TimeEntryDialog({ open, onOpenChange, initial, onSubmit }: TimeE
     // Depend on the primitive bounds, not the object identity: callers build
     // `initial` inline, and a parent that re-renders every second (running
     // timer tick) would otherwise re-seed the form and clobber user input.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initial?.start, initial?.end]);
 
   const start = fromDateTimeLocal(startValue);
@@ -92,7 +91,9 @@ export function TimeEntryDialog({ open, onOpenChange, initial, onSubmit }: TimeE
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
           <Button onClick={handleSubmit} disabled={!!error}>
             {initial ? "Save" : "Add"}
           </Button>

@@ -8,7 +8,7 @@
 
 .voidsteps-editor .bn-editor {
   padding: 3rem 5rem;
-  font-family: "Satoshi", system-ui, sans-serif;
+  font-family: var(--font-ui);
   background: transparent;
   color: hsl(var(--foreground));
   caret-color: hsl(var(--accent));
@@ -51,7 +51,7 @@
   --bn-colors-border: hsl(var(--foreground) / 0.1);
   --bn-colors-side-menu: hsl(var(--foreground) / 0.4);
   --bn-colors-highlights-gray-background: hsl(var(--foreground) / 0.05);
-  --bn-font-family: "Satoshi", system-ui, sans-serif;
+  --bn-font-family: var(--font-ui);
 }
 
 .bn-mantine-root .mantine-Popover-dropdown,
@@ -76,7 +76,7 @@
   border-radius: 0.75rem;
   box-shadow: 0 8px 24px hsl(var(--foreground) / 0.18);
   color: hsl(var(--foreground));
-  font-family: "Satoshi", system-ui, sans-serif;
+  font-family: var(--font-ui);
 }
 
 .bn-suggestion-menu-label {
@@ -115,9 +115,15 @@
 }
 
 /* Headings and inline text */
-.voidsteps-editor h1 { font-weight: 700; }
-.voidsteps-editor h2 { font-weight: 700; }
-.voidsteps-editor h3 { font-weight: 600; }
+.voidsteps-editor h1 {
+  font-weight: 700;
+}
+.voidsteps-editor h2 {
+  font-weight: 700;
+}
+.voidsteps-editor h3 {
+  font-weight: 600;
+}
 
 /* Inline code */
 .voidsteps-editor code {
@@ -141,7 +147,9 @@
   text-decoration: underline;
   text-underline-offset: 2px;
 }
-.voidsteps-editor a:hover { color: hsl(var(--accent)); }
+.voidsteps-editor a:hover {
+  color: hsl(var(--accent));
+}
 
 /* Blockquote */
 .voidsteps-editor blockquote {

@@ -4,7 +4,15 @@ import { getStartOfDay } from "@/lib/calendar-utils";
 import { StepCard } from "@/components/StepCard";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { CalendarDays, AlertCircle, PlayCircle, RefreshCw, CheckCircle2, XCircle, Bell } from "lucide-react";
+import {
+  CalendarDays,
+  AlertCircle,
+  PlayCircle,
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
+  Bell,
+} from "lucide-react";
 
 export interface StepActions {
   onToggle: (id: string) => void;
@@ -80,7 +88,9 @@ function EventSection({
               <div className="flex-1 min-w-0">
                 <span className="text-sm font-medium truncate block">{event.title}</span>
                 {event.reminder?.note && (
-                  <span className="text-xs text-muted-foreground truncate block">{event.reminder.note}</span>
+                  <span className="text-xs text-muted-foreground truncate block">
+                    {event.reminder.note}
+                  </span>
                 )}
               </div>
               <Badge variant="outline" size="sm" className="capitalize">
@@ -135,13 +145,46 @@ export default function DayDetailPanel({ date, calendarDays, stepActions }: DayD
 
   return (
     <div className="space-y-4 max-h-96 overflow-y-auto scrollbar-hide">
-      <EventSection title="Reminders" icon={Bell} events={reminderEvents} stepActions={stepActions} />
-      <EventSection title="Overdue" icon={AlertCircle} events={overdueEvents} stepActions={stepActions} variant="destructive" />
+      <EventSection
+        title="Reminders"
+        icon={Bell}
+        events={reminderEvents}
+        stepActions={stepActions}
+      />
+      <EventSection
+        title="Overdue"
+        icon={AlertCircle}
+        events={overdueEvents}
+        stepActions={stepActions}
+        variant="destructive"
+      />
       <EventSection title="Due" icon={CalendarDays} events={dueEvents} stepActions={stepActions} />
-      <EventSection title="Starting" icon={PlayCircle} events={startEvents} stepActions={stepActions} />
-      <EventSection title="Routines" icon={RefreshCw} events={routineEvents} stepActions={stepActions} />
-      <EventSection title="Completed" icon={CheckCircle2} events={completedEvents} stepActions={stepActions} variant="muted" />
-      <EventSection title="Failed" icon={XCircle} events={failedEvents} stepActions={stepActions} variant="destructive" />
+      <EventSection
+        title="Starting"
+        icon={PlayCircle}
+        events={startEvents}
+        stepActions={stepActions}
+      />
+      <EventSection
+        title="Routines"
+        icon={RefreshCw}
+        events={routineEvents}
+        stepActions={stepActions}
+      />
+      <EventSection
+        title="Completed"
+        icon={CheckCircle2}
+        events={completedEvents}
+        stepActions={stepActions}
+        variant="muted"
+      />
+      <EventSection
+        title="Failed"
+        icon={XCircle}
+        events={failedEvents}
+        stepActions={stepActions}
+        variant="destructive"
+      />
     </div>
   );
 }

@@ -2,8 +2,8 @@
 // spawn) and "end of day" (when 'today' rolls over for task semantics). Stored
 // on the userSettings row and read from Dexie here.
 
-import { db } from './db';
-import type { DayBoundaryOpts } from './calculate-next-occurrence';
+import { db } from "./db";
+import type { DayBoundaryOpts } from "./calculate-next-occurrence";
 
 export interface DaySettings {
   /** "End of day": minutes past midnight when the logical day rolls over. */
@@ -43,5 +43,5 @@ export function toDayBoundaryOpts(settings: DaySettings): DayBoundaryOpts {
 /** "3:30 AM"-style label for a minutes-past-midnight value (Settings UI). */
 export function formatMinutesAsTime(minutes: number): string {
   const d = new Date(2000, 0, 1, Math.floor(minutes / 60), minutes % 60);
-  return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 }

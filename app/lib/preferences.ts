@@ -19,7 +19,8 @@ const PREFS_EVENT = "voidsteps-prefs-changed";
 
 // Per-action placement on a step: "open" = its own inline icon, "compact" =
 // tucked into the step's "more" menu.
-export type StepActionKey = "failed" | "timer" | "priority" | "postpone" | "time" | "open" | "edit" | "delete";
+export type StepActionKey =
+  "failed" | "timer" | "priority" | "postpone" | "time" | "open" | "edit" | "delete";
 export type StepActionMode = "open" | "compact";
 export type StepActionsConfig = Record<StepActionKey, StepActionMode>;
 
@@ -33,7 +34,16 @@ export const STEP_ACTION_LABELS: Record<StepActionKey, string> = {
   edit: "Edit",
   delete: "Delete",
 };
-export const STEP_ACTION_ORDER: StepActionKey[] = ["timer", "priority", "postpone", "failed", "time", "open", "edit", "delete"];
+export const STEP_ACTION_ORDER: StepActionKey[] = [
+  "timer",
+  "priority",
+  "postpone",
+  "failed",
+  "time",
+  "open",
+  "edit",
+  "delete",
+];
 
 const DEFAULT_STEP_ACTIONS: StepActionsConfig = {
   failed: "open",
@@ -89,7 +99,8 @@ const TODAY_CLICK_ACTION_KEY = "voidsteps-today-click-action";
 function readClickAction(key: string, fallback: StepClickAction): StepClickAction {
   try {
     const v = localStorage.getItem(key);
-    if (v === "prioritize" || v === "play" || v === "complete" || v === "open" || v === "none") return v;
+    if (v === "prioritize" || v === "play" || v === "complete" || v === "open" || v === "none")
+      return v;
     return fallback;
   } catch {
     return fallback;

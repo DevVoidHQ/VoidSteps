@@ -1,20 +1,28 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
 } from "@/components/ui/Dialog";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { Toggle } from "@/components/ui/Toggle";
 import { HierarchicalPathSelector } from "@/components/HierarchicalPathSelector";
-import { useCreateRoutine, useUpdateRoutine, MAX_TITLE_LENGTH, MAX_DESCRIPTION_LENGTH } from "@/lib/local-mutations";
+import {
+  useCreateRoutine,
+  useUpdateRoutine,
+  MAX_TITLE_LENGTH,
+  MAX_DESCRIPTION_LENGTH,
+} from "@/lib/local-mutations";
 import { useData } from "@/contexts/DataContext";
 import { useToast } from "@/contexts/ToastContext";
 import { reportError } from "@/lib/error-store";
 import type { Routine } from "@/types";
 import { DAY_LABELS, MONTH_LABELS } from "@/lib/date-utils";
 import { Plus, Check } from "lucide-react";
-
 
 interface QuickCreateRoutineDialogProps {
   open: boolean;
@@ -23,7 +31,11 @@ interface QuickCreateRoutineDialogProps {
   routine?: Routine | null;
 }
 
-export default function QuickCreateRoutineDialog({ open, onOpenChange, routine }: QuickCreateRoutineDialogProps) {
+export default function QuickCreateRoutineDialog({
+  open,
+  onOpenChange,
+  routine,
+}: QuickCreateRoutineDialogProps) {
   const toast = useToast();
   const { activePaths } = useData();
   const createRoutineMutation = useCreateRoutine();
@@ -42,8 +54,15 @@ export default function QuickCreateRoutineDialog({ open, onOpenChange, routine }
   const [autoPrioritize, setAutoPrioritize] = useState(true);
 
   const resetForm = useCallback(() => {
-    setTitle(""); setDescription(""); setPathId(""); setFrequency("daily");
-    setDaysOfWeek([1]); setDayOfMonth(1); setMonth(1); setDayOfYear(1); setAutoPrioritize(true);
+    setTitle("");
+    setDescription("");
+    setPathId("");
+    setFrequency("daily");
+    setDaysOfWeek([1]);
+    setDayOfMonth(1);
+    setMonth(1);
+    setDayOfYear(1);
+    setAutoPrioritize(true);
   }, []);
 
   // Prefill from the routine being edited (or reset to defaults) when opened.
@@ -52,7 +71,9 @@ export default function QuickCreateRoutineDialog({ open, onOpenChange, routine }
     if (routine) {
       setTitle(routine.title ?? "");
       setDescription(routine.description ?? "");
-      setPathId(routine.path?._id ?? (typeof routine.pathId === "string" ? routine.pathId : "") ?? "");
+      setPathId(
+        routine.path?._id ?? (typeof routine.pathId === "string" ? routine.pathId : "") ?? ""
+      );
       setFrequency(routine.frequency ?? "daily");
       setDaysOfWeek(routine.daysOfWeek ?? [1]);
       setDayOfMonth(routine.dayOfMonth ?? 1);
@@ -66,7 +87,9 @@ export default function QuickCreateRoutineDialog({ open, onOpenChange, routine }
   }, [open, routine, resetForm]);
 
   const toggleDay = (day: number) => {
-    setDaysOfWeek(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day].sort());
+    setDaysOfWeek((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort()
+    );
   };
 
   const handleSubmit = useCallback(async () => {
@@ -108,25 +131,70 @@ export default function QuickCreateRoutineDialog({ open, onOpenChange, routine }
       reportError("mutation", error, { action: routine ? "editRoutine" : "quickCreateRoutine" });
       toast.error(routine ? "Failed to update routine" : "Failed to create routine");
     }
-  }, [routine, title, description, pathId, frequency, daysOfWeek, dayOfMonth, month, dayOfYear, autoPrioritize, createRoutineMutation, updateRoutineMutation, toast, resetForm, onOpenChange]);
+  }, [
+    routine,
+    title,
+    description,
+    pathId,
+    frequency,
+    daysOfWeek,
+    dayOfMonth,
+    month,
+    dayOfYear,
+    autoPrioritize,
+    createRoutineMutation,
+    updateRoutineMutation,
+    toast,
+    resetForm,
+    onOpenChange,
+  ]);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key !== "Enter") return;
-    const target = e.target as HTMLElement;
-    if (target.tagName === "TEXTAREA" && e.shiftKey && !(e.metaKey || e.ctrlKey)) return;
-    e.preventDefault();
-    handleSubmit();
-  }, [handleSubmit]);
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key !== "Enter") return;
+      const target = e.target as HTMLElement;
+      if (target.tagName === "TEXTAREA" && e.shiftKey && !(e.metaKey || e.ctrlKey)) return;
+      e.preventDefault();
+      handleSubmit();
+    },
+    [handleSubmit]
+  );
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) resetForm(); onOpenChange(o); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) resetForm();
+        onOpenChange(o);
+      }}
+    >
       <DialogContent size="md">
-        <DialogHeader><DialogTitle>{isEditing ? "Edit routine" : "New routine"}</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>{isEditing ? "Edit routine" : "New routine"}</DialogTitle>
+        </DialogHeader>
         <div className="space-y-3" onKeyDown={handleKeyDown}>
-          <Input ref={titleRef} placeholder="Routine title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={MAX_TITLE_LENGTH} />
-          <textarea placeholder="Description (optional)" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} maxLength={MAX_DESCRIPTION_LENGTH}
-            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none" />
-          <HierarchicalPathSelector paths={activePaths || []} selectedPathId={pathId || null} onChange={(id) => setPathId(id || "")} placeholder="Select path" allowEmpty />
+          <Input
+            ref={titleRef}
+            placeholder="Routine title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            maxLength={MAX_TITLE_LENGTH}
+          />
+          <textarea
+            placeholder="Description (optional)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={2}
+            maxLength={MAX_DESCRIPTION_LENGTH}
+            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
+          />
+          <HierarchicalPathSelector
+            paths={activePaths || []}
+            selectedPathId={pathId || null}
+            onChange={(id) => setPathId(id || "")}
+            placeholder="Select path"
+            allowEmpty
+          />
 
           {/* Frequency */}
           <div className="space-y-2">
@@ -148,8 +216,12 @@ export default function QuickCreateRoutineDialog({ open, onOpenChange, routine }
           {frequency === "weekly" && (
             <div className="flex gap-1">
               {DAY_LABELS.map((label, i) => (
-                <button key={i} type="button" onClick={() => toggleDay(i)}
-                  className={`flex-1 py-1.5 rounded text-xs font-medium transition-colors ${daysOfWeek.includes(i) ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => toggleDay(i)}
+                  className={`flex-1 py-1.5 rounded text-xs font-medium transition-colors ${daysOfWeek.includes(i) ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                >
                   {label}
                 </button>
               ))}
@@ -161,7 +233,10 @@ export default function QuickCreateRoutineDialog({ open, onOpenChange, routine }
             <Select
               value={String(dayOfMonth)}
               onValueChange={(v) => setDayOfMonth(Number(v))}
-              options={Array.from({ length: 31 }, (_, i) => ({ value: String(i + 1), label: `Day ${i + 1}` }))}
+              options={Array.from({ length: 31 }, (_, i) => ({
+                value: String(i + 1),
+                label: `Day ${i + 1}`,
+              }))}
             />
           )}
 
@@ -176,7 +251,10 @@ export default function QuickCreateRoutineDialog({ open, onOpenChange, routine }
               <Select
                 value={String(dayOfYear)}
                 onValueChange={(v) => setDayOfYear(Number(v))}
-                options={Array.from({ length: 31 }, (_, i) => ({ value: String(i + 1), label: `Day ${i + 1}` }))}
+                options={Array.from({ length: 31 }, (_, i) => ({
+                  value: String(i + 1),
+                  label: `Day ${i + 1}`,
+                }))}
               />
             </div>
           )}
@@ -189,7 +267,15 @@ export default function QuickCreateRoutineDialog({ open, onOpenChange, routine }
           />
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => { resetForm(); onOpenChange(false); }}>Cancel</Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              resetForm();
+              onOpenChange(false);
+            }}
+          >
+            Cancel
+          </Button>
           <Button onClick={handleSubmit} disabled={!title.trim()}>
             {isEditing ? <Check className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
             {isEditing ? "Save" : "Create"}

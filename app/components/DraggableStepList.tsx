@@ -1,4 +1,4 @@
-import { memo, useMemo, useCallback, useState } from 'react';
+import { memo, useMemo, useCallback, useState } from "react";
 import {
   DndContext,
   KeyboardSensor,
@@ -7,16 +7,16 @@ import {
   useSensors,
   DragOverlay,
   closestCenter,
-} from '@dnd-kit/core';
-import type { DragEndEvent, DragStartEvent, UniqueIdentifier } from '@dnd-kit/core';
+} from "@dnd-kit/core";
+import type { DragEndEvent, DragStartEvent, UniqueIdentifier } from "@dnd-kit/core";
 import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
   useSortable,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import type { Step, Path } from "@/types/index";
 import { StepCard } from "./StepCard";
 import type { StepCardProps } from "./StepCard";
@@ -52,19 +52,18 @@ const SortableStepItem = memo(function SortableStepItem({
   isOverlay,
   ...props
 }: SortableStepItemProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: step._id });
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
+    id: step._id,
+  });
 
-  const style = useMemo(() => ({
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.3 : 1,
-  }), [transform, transition, isDragging]);
+  const style = useMemo(
+    () => ({
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.3 : 1,
+    }),
+    [transform, transition, isDragging]
+  );
 
   if (isOverlay) {
     return (
@@ -126,16 +125,19 @@ export function DraggableStepList({
     setActiveId(event.active.id);
   }, []);
 
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveId(null);
-    if (!over || active.id === over.id) return;
-    const oldIndex = steps.findIndex((s) => s._id === active.id);
-    const newIndex = steps.findIndex((s) => s._id === over.id);
-    if (oldIndex === -1 || newIndex === -1) return;
-    const reordered = arrayMove(steps, oldIndex, newIndex);
-    onReorder(reordered.map((s) => s._id));
-  }, [steps, onReorder]);
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      setActiveId(null);
+      if (!over || active.id === over.id) return;
+      const oldIndex = steps.findIndex((s) => s._id === active.id);
+      const newIndex = steps.findIndex((s) => s._id === over.id);
+      if (oldIndex === -1 || newIndex === -1) return;
+      const reordered = arrayMove(steps, oldIndex, newIndex);
+      onReorder(reordered.map((s) => s._id));
+    },
+    [steps, onReorder]
+  );
 
   const ids = useMemo(() => steps.map((s) => s._id), [steps]);
   const activeStep = activeId ? steps.find((s) => s._id === activeId) : null;

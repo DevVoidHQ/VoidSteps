@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { applyTheme } from '@/lib/apply-theme';
-import { themePresets } from '@/lib/theme-presets';
-import type { ThemeTokens } from '@/lib/theme-types';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { applyTheme } from "@/lib/apply-theme";
+import { themePresets } from "@/lib/theme-presets";
+import type { ThemeTokens } from "@/lib/theme-types";
 
 export type ThemeColors = ThemeTokens;
 const DEFAULT_THEME = themePresets.devvoid;
@@ -35,14 +35,14 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Load theme from localStorage on mount
   useEffect(() => {
-    const savedTheme = localStorage.getItem('userTheme');
+    const savedTheme = localStorage.getItem("userTheme");
     if (savedTheme) {
       try {
         const parsed = JSON.parse(savedTheme);
         setThemeState(parsed);
         applyTheme(parsed);
       } catch (error) {
-        console.error('Failed to parse saved theme', error);
+        console.error("Failed to parse saved theme", error);
       }
     } else {
       applyTheme(DEFAULT_THEME);
@@ -54,7 +54,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) setSavedThemes(parsed);
       } catch (error) {
-        console.error('Failed to parse saved themes', error);
+        console.error("Failed to parse saved themes", error);
       }
     }
   }, []);
@@ -81,7 +81,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const setTheme = (newTheme: ThemeColors) => {
     setThemeState(newTheme);
     applyTheme(newTheme);
-    localStorage.setItem('userTheme', JSON.stringify(newTheme));
+    localStorage.setItem("userTheme", JSON.stringify(newTheme));
   };
 
   const applyPreset = (presetName: string) => {
@@ -106,14 +106,14 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const requiredKeys = Object.keys(DEFAULT_THEME).filter(
         (k) => k !== "primaryLight" && k !== "accentLight"
       );
-      const hasAllKeys = requiredKeys.every(key => key in parsed);
+      const hasAllKeys = requiredKeys.every((key) => key in parsed);
       if (hasAllKeys) {
         setTheme(parsed);
         return true;
       }
       return false;
     } catch (error) {
-      console.error('Failed to import theme', error);
+      console.error("Failed to import theme", error);
       return false;
     }
   };
@@ -140,7 +140,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 export const useTheme = () => {
   const context = useContext(ThemeContext);
   if (!context) {
-    throw new Error('useTheme must be used within ThemeProvider');
+    throw new Error("useTheme must be used within ThemeProvider");
   }
   return context;
 };

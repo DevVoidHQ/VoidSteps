@@ -2,13 +2,24 @@ import { useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/Dialog";
 import { useToast } from "@/contexts/ToastContext";
 import { reportError } from "@/lib/error-store";
 import {
-  buildSnapshot, parseSnapshot, restoreSnapshot, countRows, totalRows,
-  snapshotFilename, SNAPSHOT_TABLES, type Snapshot,
+  buildSnapshot,
+  parseSnapshot,
+  restoreSnapshot,
+  countRows,
+  totalRows,
+  snapshotFilename,
+  SNAPSHOT_TABLES,
+  type Snapshot,
 } from "@/lib/snapshot";
 
 function describe(snapshot: Snapshot): string {
@@ -76,9 +87,9 @@ export default function BackupCard() {
           <div>
             <h2 className="text-xl font-semibold">Backup</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Your data lives on this device only. Nothing is uploaded anywhere, so
-              a backup file is the only way to move it to another machine or get it
-              back after a reset. Keep one somewhere safe.
+              Your data lives on this device only. Nothing is uploaded anywhere, so a backup file is
+              the only way to move it to another machine or get it back after a reset. Keep one
+              somewhere safe.
             </p>
           </div>
 
@@ -106,14 +117,19 @@ export default function BackupCard() {
         </CardContent>
       </Card>
 
-      <Dialog open={pending !== null} onOpenChange={(o) => { if (!restoring && !o) setPending(null); }}>
+      <Dialog
+        open={pending !== null}
+        onOpenChange={(o) => {
+          if (!restoring && !o) setPending(null);
+        }}
+      >
         <DialogContent size="md" className="w-[28rem] max-w-[calc(100vw-2rem)]">
           <DialogHeader>
             <DialogTitle>Restore from a backup</DialogTitle>
             <DialogDescription>
-              This replaces everything on this device with the contents of that file
-              ({pending ? describe(pending) : ""}). Anything here that isn't in the
-              backup is permanently lost. Export first if you aren't sure.
+              This replaces everything on this device with the contents of that file (
+              {pending ? describe(pending) : ""}). Anything here that isn't in the backup is
+              permanently lost. Export first if you aren't sure.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

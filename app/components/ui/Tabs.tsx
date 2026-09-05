@@ -50,10 +50,7 @@ export interface TabsListProps {
 
 function TabsList({ children, className }: TabsListProps) {
   return (
-    <div
-      role="tablist"
-      className={cn("inline-flex items-center gap-2", className)}
-    >
+    <div role="tablist" className={cn("inline-flex items-center gap-2", className)}>
       {children}
     </div>
   );
@@ -66,12 +63,7 @@ export interface TabsTriggerProps {
   className?: string;
 }
 
-function TabsTrigger({
-  value,
-  children,
-  disabled = false,
-  className,
-}: TabsTriggerProps) {
+function TabsTrigger({ value, children, disabled = false, className }: TabsTriggerProps) {
   const context = useTabsContext();
   const isActive = context.value === value;
 
@@ -89,10 +81,7 @@ function TabsTrigger({
         "disabled:pointer-events-none disabled:opacity-50",
         "active:scale-[0.97]",
         isActive
-          ? [
-              "bg-accent text-accent-foreground border-accent shadow-sm",
-              "hover:bg-accent/90",
-            ]
+          ? ["bg-accent text-accent-foreground border-accent shadow-sm", "hover:bg-accent/90"]
           : [
               "bg-background text-foreground border-input",
               "hover:bg-primary-light hover:text-primary hover:-translate-y-0.5 hover:shadow-sm",

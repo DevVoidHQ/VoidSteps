@@ -20,11 +20,7 @@ import { reportError } from "@/lib/error-store";
 import { getDescendantPathIds } from "@/lib/path-utils";
 import { useToast } from "@/contexts/ToastContext";
 import { Input } from "@/components/ui/Input";
-import {
-  Star,
-  Search,
-  Calendar,
-} from "lucide-react";
+import { Star, Search, Calendar } from "lucide-react";
 import { StepCard } from "@/components/StepCard";
 import { filterSteps as applyStepFilters } from "@/lib/step-filters";
 import { DraggableStepList } from "@/components/DraggableStepList";
@@ -33,12 +29,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 
 export default function TodayView() {
   const toast = useToast();
-  const {
-    activePaths,
-    activeSteps,
-    completedStepsToday,
-    activeTimerStepId,
-  } = useData();
+  const { activePaths, activeSteps, completedStepsToday, activeTimerStepId } = useData();
 
   const updateStepMutation = useUpdateStep();
   const deleteStepMutation = useDeleteStep();
@@ -54,23 +45,33 @@ export default function TodayView() {
   useSearchHotkey(searchRef);
   const todayClickAction = useTodayClickAction();
   const [selectedPathFilterToday, setSelectedPathFilterToday] = useState<string>(() => {
-    try { return localStorage.getItem(TODAY_PATH_FILTER_KEY) || ""; } catch { return ""; }
+    try {
+      return localStorage.getItem(TODAY_PATH_FILTER_KEY) || "";
+    } catch {
+      return "";
+    }
   });
 
   // Persist the path filter so it stays locked in until changed/cleared.
   useEffect(() => {
     try {
-      if (selectedPathFilterToday) localStorage.setItem(TODAY_PATH_FILTER_KEY, selectedPathFilterToday);
+      if (selectedPathFilterToday)
+        localStorage.setItem(TODAY_PATH_FILTER_KEY, selectedPathFilterToday);
       else localStorage.removeItem(TODAY_PATH_FILTER_KEY);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, [selectedPathFilterToday]);
 
   const memoizedPaths = useMemo(() => activePaths || [], [activePaths]);
 
   // Drop a stale filter if its path no longer exists (e.g. deleted).
   useEffect(() => {
-    if (selectedPathFilterToday && memoizedPaths.length > 0 &&
-        !memoizedPaths.some((p) => p._id === selectedPathFilterToday)) {
+    if (
+      selectedPathFilterToday &&
+      memoizedPaths.length > 0 &&
+      !memoizedPaths.some((p) => p._id === selectedPathFilterToday)
+    ) {
       setSelectedPathFilterToday("");
     }
   }, [selectedPathFilterToday, memoizedPaths]);
@@ -87,9 +88,12 @@ export default function TodayView() {
   );
 
   const unfilteredDuePrioritySteps = useMemo(
-    () => activeSteps?.filter((s: Step) => s.prioritizedToday && s.dueDate !== undefined).sort((a, b) => {
-      return (a.dueDate ?? 0) - (b.dueDate ?? 0);
-    }) || [],
+    () =>
+      activeSteps
+        ?.filter((s: Step) => s.prioritizedToday && s.dueDate !== undefined)
+        .sort((a, b) => {
+          return (a.dueDate ?? 0) - (b.dueDate ?? 0);
+        }) || [],
     [activeSteps]
   );
 
@@ -118,70 +122,121 @@ export default function TodayView() {
     [filterSteps, unfilteredTodayCompletedSteps, searchQueryToday, selectedPathFilterToday]
   );
 
-  const toggleStep = useCallback(async (id: string) => {
-    try { await toggleStepMutation({ id }); }
-    catch (error) { reportError('mutation', error, { action: 'toggleStep', stepId: id }); toast.error("Failed to toggle step"); }
-  }, [toggleStepMutation, toast]);
-
-  const toggleFailed = useCallback(async (id: string) => {
-    try { await toggleFailedMutation({ id }); }
-    catch (error) { reportError('mutation', error, { action: 'toggleFailed', stepId: id }); toast.error("Failed to update step"); }
-  }, [toggleFailedMutation, toast]);
-
-  const togglePriority = useCallback(async (id: string, currentValue: boolean) => {
-    try { await updateStepMutation({ id, prioritizedToday: !currentValue }); }
-    catch (error) { reportError('mutation', error, { action: 'togglePriority', stepId: id }); toast.error("Failed to update priority"); }
-  }, [updateStepMutation, toast]);
-
-  const deleteStep = useCallback(async (id: string) => {
-    try { await deleteStepMutation({ id }); }
-    catch (error) { reportError('mutation', error, { action: 'deleteStep', stepId: id }); toast.error("Failed to delete step"); }
-  }, [deleteStepMutation, toast]);
-
-  const handleReorder = useCallback(async (stepIds: string[]) => {
-    try { await reorderStepsMutation({ stepIds }); }
-    catch (error) { reportError('mutation', error, { action: 'reorderSteps' }); toast.error("Failed to reorder steps"); }
-  }, [reorderStepsMutation, toast]);
-
-  const updateStep = useCallback(async (id: string, updates: Partial<Step>) => {
-    try {
-      const updateData: any = { id };
-      if (updates.title !== undefined) updateData.title = updates.title;
-      if (updates.description !== undefined) updateData.description = updates.description;
-      if (updates.completed !== undefined) updateData.completed = updates.completed;
-      if (updates.pathId !== undefined) {
-        updateData.pathId = updates.pathId
-          ? (typeof updates.pathId === 'string' ? updates.pathId : null)
-          : null;
+  const toggleStep = useCallback(
+    async (id: string) => {
+      try {
+        await toggleStepMutation({ id });
+      } catch (error) {
+        reportError("mutation", error, { action: "toggleStep", stepId: id });
+        toast.error("Failed to toggle step");
       }
-      if (updates.prioritizedToday !== undefined) updateData.prioritizedToday = updates.prioritizedToday;
-      if ('dueDate' in updates) updateData.dueDate = updates.dueDate ?? null;
-      if ('startDate' in updates) updateData.startDate = updates.startDate ?? null;
-      await updateStepMutation(updateData);
-    } catch (error) {
-      reportError('mutation', error, { action: 'updateStep', stepId: id });
-      toast.error("Failed to update step");
-    }
-  }, [updateStepMutation, toast]);
+    },
+    [toggleStepMutation, toast]
+  );
 
-  const toggleTimer = useCallback(async (id: string) => {
-    try {
-      if (activeTimerStepId === id) {
-        await stopTimerMutation({ id });
-      } else {
-        if (activeTimerStepId) await stopTimerMutation({ id: activeTimerStepId });
-        await startTimerMutation({ id });
+  const toggleFailed = useCallback(
+    async (id: string) => {
+      try {
+        await toggleFailedMutation({ id });
+      } catch (error) {
+        reportError("mutation", error, { action: "toggleFailed", stepId: id });
+        toast.error("Failed to update step");
       }
-    } catch (error) {
-      reportError('mutation', error, { action: 'toggleTimer', stepId: id });
-      toast.error("Failed to toggle timer");
-    }
-  }, [activeTimerStepId, startTimerMutation, stopTimerMutation, toast]);
+    },
+    [toggleFailedMutation, toast]
+  );
 
-  const setTotalTime = useCallback(async (id: string, totalTimeMs: number) => {
-    try { await setTotalTimeMutation({ id, totalTimeSpentMs: totalTimeMs }); }
-    catch (error) { reportError('mutation', error, { action: 'setTotalTime', stepId: id }); toast.error("Failed to set time"); }
-  }, [setTotalTimeMutation, toast]);
+  const togglePriority = useCallback(
+    async (id: string, currentValue: boolean) => {
+      try {
+        await updateStepMutation({ id, prioritizedToday: !currentValue });
+      } catch (error) {
+        reportError("mutation", error, { action: "togglePriority", stepId: id });
+        toast.error("Failed to update priority");
+      }
+    },
+    [updateStepMutation, toast]
+  );
+
+  const deleteStep = useCallback(
+    async (id: string) => {
+      try {
+        await deleteStepMutation({ id });
+      } catch (error) {
+        reportError("mutation", error, { action: "deleteStep", stepId: id });
+        toast.error("Failed to delete step");
+      }
+    },
+    [deleteStepMutation, toast]
+  );
+
+  const handleReorder = useCallback(
+    async (stepIds: string[]) => {
+      try {
+        await reorderStepsMutation({ stepIds });
+      } catch (error) {
+        reportError("mutation", error, { action: "reorderSteps" });
+        toast.error("Failed to reorder steps");
+      }
+    },
+    [reorderStepsMutation, toast]
+  );
+
+  const updateStep = useCallback(
+    async (id: string, updates: Partial<Step>) => {
+      try {
+        const updateData: any = { id };
+        if (updates.title !== undefined) updateData.title = updates.title;
+        if (updates.description !== undefined) updateData.description = updates.description;
+        if (updates.completed !== undefined) updateData.completed = updates.completed;
+        if (updates.pathId !== undefined) {
+          updateData.pathId = updates.pathId
+            ? typeof updates.pathId === "string"
+              ? updates.pathId
+              : null
+            : null;
+        }
+        if (updates.prioritizedToday !== undefined)
+          updateData.prioritizedToday = updates.prioritizedToday;
+        if ("dueDate" in updates) updateData.dueDate = updates.dueDate ?? null;
+        if ("startDate" in updates) updateData.startDate = updates.startDate ?? null;
+        await updateStepMutation(updateData);
+      } catch (error) {
+        reportError("mutation", error, { action: "updateStep", stepId: id });
+        toast.error("Failed to update step");
+      }
+    },
+    [updateStepMutation, toast]
+  );
+
+  const toggleTimer = useCallback(
+    async (id: string) => {
+      try {
+        if (activeTimerStepId === id) {
+          await stopTimerMutation({ id });
+        } else {
+          if (activeTimerStepId) await stopTimerMutation({ id: activeTimerStepId });
+          await startTimerMutation({ id });
+        }
+      } catch (error) {
+        reportError("mutation", error, { action: "toggleTimer", stepId: id });
+        toast.error("Failed to toggle timer");
+      }
+    },
+    [activeTimerStepId, startTimerMutation, stopTimerMutation, toast]
+  );
+
+  const setTotalTime = useCallback(
+    async (id: string, totalTimeMs: number) => {
+      try {
+        await setTotalTimeMutation({ id, totalTimeSpentMs: totalTimeMs });
+      } catch (error) {
+        reportError("mutation", error, { action: "setTotalTime", stepId: id });
+        toast.error("Failed to set time");
+      }
+    },
+    [setTotalTimeMutation, toast]
+  );
 
   return (
     <div className="space-y-6">
@@ -260,9 +315,7 @@ export default function TodayView() {
               : "No steps prioritized for today"
           }
           hint={
-            !searchQueryToday && !selectedPathFilterToday
-              ? "Star a step to add it here"
-              : undefined
+            !searchQueryToday && !selectedPathFilterToday ? "Star a step to add it here" : undefined
           }
         />
       ) : null}

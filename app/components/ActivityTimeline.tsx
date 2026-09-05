@@ -46,7 +46,12 @@ function formatDay(dayStart: number): string {
   if (diffDays === 1) return "Yesterday";
   const d = new Date(dayStart);
   const sameYear = d.getFullYear() === today.getFullYear();
-  return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }) });
+  return d.toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+  });
 }
 
 function formatDateValue(value: unknown): string {
@@ -81,7 +86,10 @@ function describeEvent(
     case "field_changed":
       switch (event.field) {
         case "title":
-          return { icon: <Pencil className={iconCls} />, text: `Renamed to “${event.newValue ?? ""}”` };
+          return {
+            icon: <Pencil className={iconCls} />,
+            text: `Renamed to “${event.newValue ?? ""}”`,
+          };
         case "description":
           return { icon: <Pencil className={iconCls} />, text: "Description updated" };
         case "dueDate":
@@ -105,15 +113,22 @@ function describeEvent(
                   : `Defer date: ${formatDateValue(event.oldValue)} → ${formatDateValue(event.newValue)}`,
           };
         case "pathId": {
-          const title = typeof event.newValue === "string" ? pathsById.get(event.newValue)?.title : undefined;
+          const title =
+            typeof event.newValue === "string" ? pathsById.get(event.newValue)?.title : undefined;
           return {
             icon: <Target className={iconCls} />,
-            text: event.newValue == null ? "Removed from its path" : `Moved to ${title ?? "another path"}`,
+            text:
+              event.newValue == null
+                ? "Removed from its path"
+                : `Moved to ${title ?? "another path"}`,
           };
         }
         case "prioritizedToday":
           return event.newValue === true
-            ? { icon: <Star className={`${iconCls} text-primary`} />, text: "Prioritized for today" }
+            ? {
+                icon: <Star className={`${iconCls} text-primary`} />,
+                text: "Prioritized for today",
+              }
             : { icon: <StarOff className={iconCls} />, text: "Priority removed" };
         default:
           return { icon: <Pencil className={iconCls} />, text: "Updated" };
@@ -131,9 +146,7 @@ function RunningRow({ startedAt }: { startedAt: number }) {
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
         <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
       </span>
-      <span className="text-sm font-medium text-foreground">
-        {formatClock(startedAt)} – now
-      </span>
+      <span className="text-sm font-medium text-foreground">{formatClock(startedAt)} to now</span>
       <span className="ml-auto font-mono text-sm tabular-nums text-primary">{elapsed}</span>
     </div>
   );
@@ -146,7 +159,9 @@ export function ActivityTimeline({ step, paths }: ActivityTimelineProps) {
   const updateTimeEntry = useUpdateTimeEntry();
   const deleteTimeEntry = useDeleteTimeEntry();
 
-  const [entryDialog, setEntryDialog] = useState<{ open: boolean; entry?: LocalTimeEntry }>({ open: false });
+  const [entryDialog, setEntryDialog] = useState<{ open: boolean; entry?: LocalTimeEntry }>({
+    open: false,
+  });
   const [deleteTarget, setDeleteTarget] = useState<LocalTimeEntry | null>(null);
 
   const pathsById = useMemo(() => new Map(paths.map((p) => [p._id, p])), [paths]);
@@ -174,7 +189,10 @@ export function ActivityTimeline({ step, paths }: ActivityTimelineProps) {
       if (entryDialog.entry) await updateTimeEntry({ id: entryDialog.entry._id, start, end });
       else await addTimeEntry({ stepId: step._id, start, end });
     } catch (e) {
-      reportError("mutation", e, { action: entryDialog.entry ? "updateTimeEntry" : "addTimeEntry", stepId: step._id });
+      reportError("mutation", e, {
+        action: entryDialog.entry ? "updateTimeEntry" : "addTimeEntry",
+        stepId: step._id,
+      });
       toast.error("Failed to save time entry");
     }
   };
@@ -234,10 +252,12 @@ export function ActivityTimeline({ step, paths }: ActivityTimelineProps) {
                       <div key={e._id} className="group/entry flex items-center gap-2.5 py-1.5">
                         <Timer className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
                         <span className="text-sm text-foreground">
-                          {formatClock(e.start)} – {formatClock(e.end)}
+                          {formatClock(e.start)} to {formatClock(e.end)}
                         </span>
                         {e.source === "manual" && (
-                          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">manual</span>
+                          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                            manual
+                          </span>
                         )}
                         <span className="ml-auto font-mono text-sm tabular-nums text-muted-foreground">
                           {formatDurationHM(e.durationMs)}
@@ -263,24 +283,41 @@ export function ActivityTimeline({ step, paths }: ActivityTimelineProps) {
                   }
                   if (item.kind === "created") {
                     return (
-                      <div key={`created-${i}`} className="flex items-center gap-2.5 py-1.5 text-muted-foreground">
-                        {item.viaRoutine ? <RotateCcw className="w-3.5 h-3.5 shrink-0" /> : <Sparkles className="w-3.5 h-3.5 shrink-0" />}
-                        <span className="text-sm">{item.viaRoutine ? "Created by routine" : "Created"}</span>
+                      <div
+                        key={`created-${i}`}
+                        className="flex items-center gap-2.5 py-1.5 text-muted-foreground"
+                      >
+                        {item.viaRoutine ? (
+                          <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+                        ) : (
+                          <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                        )}
+                        <span className="text-sm">
+                          {item.viaRoutine ? "Created by routine" : "Created"}
+                        </span>
                         <span className="ml-auto text-xs">{formatClock(item.at)}</span>
                       </div>
                     );
                   }
                   if (item.kind === "legacy-time") {
                     return (
-                      <div key={`legacy-${i}`} className="flex items-center gap-2.5 py-1.5 text-muted-foreground">
+                      <div
+                        key={`legacy-${i}`}
+                        className="flex items-center gap-2.5 py-1.5 text-muted-foreground"
+                      >
                         <History className="w-3.5 h-3.5 shrink-0" />
-                        <span className="text-sm">{formatDurationHM(item.ms)} tracked before session history</span>
+                        <span className="text-sm">
+                          {formatDurationHM(item.ms)} tracked before session history
+                        </span>
                       </div>
                     );
                   }
                   const { icon, text } = describeEvent(item.event, pathsById);
                   return (
-                    <div key={item.event._id} className="flex items-center gap-2.5 py-1.5 text-muted-foreground">
+                    <div
+                      key={item.event._id}
+                      className="flex items-center gap-2.5 py-1.5 text-muted-foreground"
+                    >
                       <span className="shrink-0">{icon}</span>
                       <span className="text-sm">{text}</span>
                       <span className="ml-auto text-xs">{formatClock(item.at)}</span>
@@ -296,7 +333,11 @@ export function ActivityTimeline({ step, paths }: ActivityTimelineProps) {
       <TimeEntryDialog
         open={entryDialog.open}
         onOpenChange={(open) => setEntryDialog((prev) => ({ ...prev, open }))}
-        initial={entryDialog.entry ? { start: entryDialog.entry.start, end: entryDialog.entry.end } : undefined}
+        initial={
+          entryDialog.entry
+            ? { start: entryDialog.entry.start, end: entryDialog.entry.end }
+            : undefined
+        }
         onSubmit={handleSubmitEntry}
       />
 

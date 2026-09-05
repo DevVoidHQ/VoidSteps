@@ -20,16 +20,7 @@
  */
 
 export type FocusBackgroundId =
-  | "plain"
-  | "aurora"
-  | "dusk"
-  | "orbit"
-  | "mesh"
-  | "halo"
-  | "vignette"
-  | "tide"
-  | "bands"
-  | "prism";
+  "plain" | "aurora" | "dusk" | "orbit" | "mesh" | "halo" | "vignette" | "tide" | "bands" | "prism";
 
 export interface FocusBackground {
   id: FocusBackgroundId;

@@ -1,7 +1,7 @@
-import { Component } from 'react';
-import type { ReactNode, ErrorInfo } from 'react';
-import { reportError } from '@/lib/error-store';
-import { Button } from '@/components/ui/Button';
+import { Component } from "react";
+import type { ReactNode, ErrorInfo } from "react";
+import { reportError } from "@/lib/error-store";
+import { Button } from "@/components/ui/Button";
 
 interface Props {
   children: ReactNode;
@@ -23,7 +23,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    reportError('render', error, {
+    reportError("render", error, {
       componentStack: info.componentStack ?? undefined,
     });
   }
@@ -39,7 +39,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <div className="max-w-md w-full space-y-4 text-center">
             <h1 className="text-2xl font-bold text-foreground">Something went wrong</h1>
             <p className="text-sm text-muted-foreground">
-              {this.state.error?.message || 'An unexpected error occurred'}
+              {this.state.error?.message || "An unexpected error occurred"}
             </p>
             <Button onClick={this.handleReset}>Try again</Button>
           </div>

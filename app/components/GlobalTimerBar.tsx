@@ -1,6 +1,17 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Timer, Pause, Play, Square, CheckCircle2, Maximize2, X, Minus, Volume2, VolumeX } from "lucide-react";
+import {
+  Timer,
+  Pause,
+  Play,
+  Square,
+  CheckCircle2,
+  Maximize2,
+  X,
+  Minus,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import { useData } from "@/contexts/DataContext";
 import {
   useStartTimer,
@@ -87,7 +98,7 @@ export default function GlobalTimerBar() {
   }, []);
 
   const step = useMemo(
-    () => (focusId ? allSteps?.find((s) => s._id === focusId) ?? null : null),
+    () => (focusId ? (allSteps?.find((s) => s._id === focusId) ?? null) : null),
     [focusId, allSteps]
   );
 
@@ -208,12 +219,16 @@ export default function GlobalTimerBar() {
             aria-label="Expand timer"
             className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-border bg-card/95 px-3 py-1.5 shadow-lg backdrop-blur"
           >
-            <Timer className={`w-4 h-4 shrink-0 ${isRunning ? "text-primary animate-pulse" : "text-muted-foreground"}`} />
+            <Timer
+              className={`w-4 h-4 shrink-0 ${isRunning ? "text-primary animate-pulse" : "text-muted-foreground"}`}
+            />
             <span className="font-mono text-sm tabular-nums text-primary">{elapsed}</span>
           </button>
         ) : (
           <div className="pointer-events-auto flex max-w-full items-center gap-1.5 rounded-xl border border-border bg-card/95 px-2 py-1 shadow-lg backdrop-blur md:gap-2 md:px-3 md:py-1.5">
-            <Timer className={`w-4 h-4 shrink-0 ${isRunning ? "text-primary animate-pulse" : "text-muted-foreground"}`} />
+            <Timer
+              className={`w-4 h-4 shrink-0 ${isRunning ? "text-primary animate-pulse" : "text-muted-foreground"}`}
+            />
             <span className="min-w-0 max-w-[90px] truncate text-sm font-medium text-foreground sm:max-w-[180px]">
               {step.title}
             </span>
@@ -239,7 +254,15 @@ export default function GlobalTimerBar() {
         )}
       </div>
 
-      {fullscreen && <FocusMode step={step} elapsed={elapsed} isRunning={isRunning} controls={controls("lg")} onExit={() => setFullscreen(false)} />}
+      {fullscreen && (
+        <FocusMode
+          step={step}
+          elapsed={elapsed}
+          isRunning={isRunning}
+          controls={controls("lg")}
+          onExit={() => setFullscreen(false)}
+        />
+      )}
     </>
   );
 }
@@ -259,7 +282,11 @@ function FocusMode({
 }) {
   const now = useNow();
   const clock = now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-  const date = now.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+  const date = now.toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
 
   const backgroundId = useFocusBackground();
   const { url: wallpaperUrl } = useFocusMedia("wallpaper");
@@ -267,8 +294,8 @@ function FocusMode({
   const trackId = useFocusTrack();
   const bundled = findBundledTrack(trackId);
   // A bundled track plays from public/; "custom" plays the user's own file.
-  const audioUrl = trackId === CUSTOM_TRACK_ID ? customAudioUrl : bundled?.src ?? null;
-  const nowPlaying = trackId === CUSTOM_TRACK_ID ? null : bundled?.title ?? null;
+  const audioUrl = trackId === CUSTOM_TRACK_ID ? customAudioUrl : (bundled?.src ?? null);
+  const nowPlaying = trackId === CUSTOM_TRACK_ID ? null : (bundled?.title ?? null);
   const audioOn = useFocusAudioOn();
   const audioRef = useRef<HTMLAudioElement>(null);
   const [volume, setVolumeState] = useState(getFocusVolume);

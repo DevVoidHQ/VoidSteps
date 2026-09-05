@@ -58,15 +58,45 @@ const ACTION_ICONS: Partial<Record<keyof KeybindMap, LucideIcon>> = {
 };
 
 // Navigation destinations. Mirrors the sidebar order.
-const NAV: { label: string; path: string; icon: LucideIcon; keybindKey?: keyof KeybindMap; keywords?: string }[] = [
+const NAV: {
+  label: string;
+  path: string;
+  icon: LucideIcon;
+  keybindKey?: keyof KeybindMap;
+  keywords?: string;
+}[] = [
   { label: "Today", path: "/", icon: Calendar, keybindKey: "navToday", keywords: "calendar focus" },
-  { label: "Steps", path: "/steps", icon: ListTodo, keybindKey: "navSteps", keywords: "tasks todo" },
-  { label: "Paths", path: "/paths", icon: Target, keybindKey: "navPaths", keywords: "goals projects" },
+  {
+    label: "Steps",
+    path: "/steps",
+    icon: ListTodo,
+    keybindKey: "navSteps",
+    keywords: "tasks todo",
+  },
+  {
+    label: "Paths",
+    path: "/paths",
+    icon: Target,
+    keybindKey: "navPaths",
+    keywords: "goals projects",
+  },
   { label: "Routines", path: "/routines", icon: Zap, keybindKey: "navRoutines" },
   { label: "Reminders", path: "/reminders", icon: Bell, keybindKey: "navReminders" },
   { label: "Notes", path: "/notes", icon: BookOpen, keybindKey: "navNotes" },
-  { label: "Analytics", path: "/analytics", icon: BarChart3, keybindKey: "navAnalytics", keywords: "stats charts" },
-  { label: "Settings", path: "/settings", icon: Settings, keybindKey: "navSettings", keywords: "preferences keybinds" },
+  {
+    label: "Analytics",
+    path: "/analytics",
+    icon: BarChart3,
+    keybindKey: "navAnalytics",
+    keywords: "stats charts",
+  },
+  {
+    label: "Settings",
+    path: "/settings",
+    icon: Settings,
+    keybindKey: "navSettings",
+    keywords: "preferences keybinds",
+  },
 ];
 
 export default function CommandBar({
@@ -141,7 +171,7 @@ export default function CommandBar({
         .filter((a) => !q || a.label.toLowerCase().includes(q))
         .map<Entry>((a) => ({
           id: a.id,
-          label: armedConfirm === a.id ? `${a.label} — press enter again` : a.label,
+          label: armedConfirm === a.id ? `${a.label}, press enter again` : a.label,
           icon: a.icon,
           group: drilled.title,
           run: () => {
@@ -241,7 +271,10 @@ export default function CommandBar({
       className="fixed inset-0 z-[110] flex items-start justify-center px-4 pt-[15vh]"
       onClick={close}
     >
-      <div className="absolute inset-0 bg-black/60 animate-in fade-in-0 duration-150" aria-hidden="true" />
+      <div
+        className="absolute inset-0 bg-black/60 animate-in fade-in-0 duration-150"
+        aria-hidden="true"
+      />
       <div
         role="dialog"
         aria-modal="true"
@@ -303,7 +336,9 @@ export default function CommandBar({
                     onClick={item.run}
                     onMouseMove={() => setActiveIndex(i)}
                     className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
-                      active ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted"
+                      active
+                        ? "bg-primary text-primary-foreground"
+                        : "text-foreground hover:bg-muted"
                     }`}
                   >
                     <Icon className="h-4 w-4 shrink-0" />

@@ -7,8 +7,12 @@ import { getEdgeParams } from "@/lib/floating-edge-utils";
  * each node facing the other, instead of attaching to fixed handle dots.
  */
 export default function FloatingEdge({ id, source, target, markerEnd, style }: EdgeProps) {
-  const sourceNode = useStore(useCallback((s: ReactFlowState) => s.nodeInternals.get(source), [source]));
-  const targetNode = useStore(useCallback((s: ReactFlowState) => s.nodeInternals.get(target), [target]));
+  const sourceNode = useStore(
+    useCallback((s: ReactFlowState) => s.nodeInternals.get(source), [source])
+  );
+  const targetNode = useStore(
+    useCallback((s: ReactFlowState) => s.nodeInternals.get(target), [target])
+  );
 
   // Wait until both nodes are measured, otherwise endpoints land at (0,0).
   if (!sourceNode || !targetNode || !sourceNode.width || !targetNode.width) return null;
@@ -23,5 +27,13 @@ export default function FloatingEdge({ id, source, target, markerEnd, style }: E
     targetY: ty,
   });
 
-  return <path id={id} className="react-flow__edge-path" d={edgePath} markerEnd={markerEnd} style={style} />;
+  return (
+    <path
+      id={id}
+      className="react-flow__edge-path"
+      d={edgePath}
+      markerEnd={markerEnd}
+      style={style}
+    />
+  );
 }

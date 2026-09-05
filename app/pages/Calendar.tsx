@@ -20,21 +20,12 @@ import { HierarchicalPathSelector } from "@/components/HierarchicalPathSelector"
 import { getDescendantPathIds } from "@/lib/path-utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
-import {
-  addMonths,
-  getMonthGrid,
-  getStartOfDay,
-} from "@/lib/calendar-utils";
+import { addMonths, getMonthGrid, getStartOfDay } from "@/lib/calendar-utils";
 import TodayView from "@/components/calendar/TodayView";
 import MonthView from "@/components/calendar/MonthView";
 import DayLogView from "@/components/calendar/DayLogView";
 import DayDetailPanel from "@/components/calendar/DayDetailPanel";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/Dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/Dialog";
 
 type CalendarView = "today" | "daylog" | "month";
 
@@ -85,13 +76,19 @@ export default function Calendar() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   const [selectedPathFilter, setSelectedPathFilter] = useState<string>(() => {
-    try { return localStorage.getItem(PATH_FILTER_KEY) || ""; } catch { return ""; }
+    try {
+      return localStorage.getItem(PATH_FILTER_KEY) || "";
+    } catch {
+      return "";
+    }
   });
   useEffect(() => {
     try {
       if (selectedPathFilter) localStorage.setItem(PATH_FILTER_KEY, selectedPathFilter);
       else localStorage.removeItem(PATH_FILTER_KEY);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, [selectedPathFilter]);
 
   // Mutations (needed for month/timeline day detail panel)
@@ -106,7 +103,11 @@ export default function Calendar() {
   // URL sync
   const setView = useCallback(
     (view: CalendarView) => {
-      try { localStorage.setItem(VIEW_KEY, view); } catch { /* ignore */ }
+      try {
+        localStorage.setItem(VIEW_KEY, view);
+      } catch {
+        /* ignore */
+      }
       const params = new URLSearchParams(searchParams);
       params.set("view", view);
       if (view === "today") params.delete("date");
@@ -121,7 +122,11 @@ export default function Calendar() {
       const m = String(date.getMonth() + 1).padStart(2, "0");
       const d = String(date.getDate()).padStart(2, "0");
       const iso = `${y}-${m}-${d}`;
-      try { localStorage.setItem(DATE_KEY, iso); } catch { /* ignore */ }
+      try {
+        localStorage.setItem(DATE_KEY, iso);
+      } catch {
+        /* ignore */
+      }
       const params = new URLSearchParams(searchParams);
       params.set("date", iso);
       setSearchParams(params, { replace: true });
@@ -171,9 +176,20 @@ export default function Calendar() {
 
   const monthOptions = useMemo(
     () =>
-      ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"].map(
-        (label, i) => ({ value: String(i), label })
-      ),
+      [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+      ].map((label, i) => ({ value: String(i), label })),
     []
   );
   const yearOptions = useMemo(() => {
@@ -185,54 +201,108 @@ export default function Calendar() {
     for (let y = min; y <= max; y++) arr.push({ value: String(y), label: String(y) });
     return arr;
   }, [viewDate]);
-  const setMonthIndex = useCallback((m: number) => setViewDate(new Date(viewDate.getFullYear(), m, 1)), [viewDate, setViewDate]);
-  const setYear = useCallback((y: number) => setViewDate(new Date(y, viewDate.getMonth(), 1)), [viewDate, setViewDate]);
+  const setMonthIndex = useCallback(
+    (m: number) => setViewDate(new Date(viewDate.getFullYear(), m, 1)),
+    [viewDate, setViewDate]
+  );
+  const setYear = useCallback(
+    (y: number) => setViewDate(new Date(y, viewDate.getMonth(), 1)),
+    [viewDate, setViewDate]
+  );
 
   const handleDayClick = useCallback((date: Date) => setSelectedDate(date), []);
 
   // Step actions for day detail panel
-  const handleToggle = useCallback(async (id: string) => {
-    try { await toggleStepMutation({ id }); }
-    catch (e) { reportError("mutation", e, { action: "toggleStep", stepId: id }); toast.error("Failed to toggle step"); }
-  }, [toggleStepMutation, toast]);
-
-  const handleToggleFailed = useCallback(async (id: string) => {
-    try { await toggleFailedMutation({ id }); }
-    catch (e) { reportError("mutation", e, { action: "toggleFailed", stepId: id }); toast.error("Failed to update step"); }
-  }, [toggleFailedMutation, toast]);
-
-  const handleDelete = useCallback(async (id: string) => {
-    try { await deleteStepMutation({ id }); toast.success("Step deleted"); }
-    catch (e) { reportError("mutation", e, { action: "deleteStep", stepId: id }); toast.error("Failed to delete step"); }
-  }, [deleteStepMutation, toast]);
-
-  const handleSaveEdit = useCallback(async (id: string, updates: Partial<Step>) => {
-    try {
-      const { path, ...cleanUpdates } = updates as Record<string, unknown>;
-      await updateStepMutation({ id, ...cleanUpdates });
-    } catch (e) { reportError("mutation", e, { action: "updateStep", stepId: id }); toast.error("Failed to update step"); }
-  }, [updateStepMutation, toast]);
-
-  const handleTogglePriority = useCallback(async (id: string, current: boolean) => {
-    try { await updateStepMutation({ id, prioritizedToday: !current }); }
-    catch (e) { reportError("mutation", e, { action: "togglePriority", stepId: id }); toast.error("Failed to update priority"); }
-  }, [updateStepMutation, toast]);
-
-  const handleToggleTimer = useCallback(async (id: string) => {
-    try {
-      if (activeTimerStepId === id) {
-        await stopTimerMutation({ id });
-      } else {
-        if (activeTimerStepId) await stopTimerMutation({ id: activeTimerStepId });
-        await startTimerMutation({ id });
+  const handleToggle = useCallback(
+    async (id: string) => {
+      try {
+        await toggleStepMutation({ id });
+      } catch (e) {
+        reportError("mutation", e, { action: "toggleStep", stepId: id });
+        toast.error("Failed to toggle step");
       }
-    } catch (e) { reportError("mutation", e, { action: "toggleTimer", stepId: id }); toast.error("Failed to toggle timer"); }
-  }, [activeTimerStepId, startTimerMutation, stopTimerMutation, toast]);
+    },
+    [toggleStepMutation, toast]
+  );
 
-  const handleSetTotalTime = useCallback(async (id: string, totalTimeSpentMs: number) => {
-    try { await setTotalTimeMutation({ id, totalTimeSpentMs }); }
-    catch (e) { reportError("mutation", e, { action: "setTotalTime", stepId: id }); toast.error("Failed to update time"); }
-  }, [setTotalTimeMutation, toast]);
+  const handleToggleFailed = useCallback(
+    async (id: string) => {
+      try {
+        await toggleFailedMutation({ id });
+      } catch (e) {
+        reportError("mutation", e, { action: "toggleFailed", stepId: id });
+        toast.error("Failed to update step");
+      }
+    },
+    [toggleFailedMutation, toast]
+  );
+
+  const handleDelete = useCallback(
+    async (id: string) => {
+      try {
+        await deleteStepMutation({ id });
+        toast.success("Step deleted");
+      } catch (e) {
+        reportError("mutation", e, { action: "deleteStep", stepId: id });
+        toast.error("Failed to delete step");
+      }
+    },
+    [deleteStepMutation, toast]
+  );
+
+  const handleSaveEdit = useCallback(
+    async (id: string, updates: Partial<Step>) => {
+      try {
+        const { path, ...cleanUpdates } = updates as Record<string, unknown>;
+        await updateStepMutation({ id, ...cleanUpdates });
+      } catch (e) {
+        reportError("mutation", e, { action: "updateStep", stepId: id });
+        toast.error("Failed to update step");
+      }
+    },
+    [updateStepMutation, toast]
+  );
+
+  const handleTogglePriority = useCallback(
+    async (id: string, current: boolean) => {
+      try {
+        await updateStepMutation({ id, prioritizedToday: !current });
+      } catch (e) {
+        reportError("mutation", e, { action: "togglePriority", stepId: id });
+        toast.error("Failed to update priority");
+      }
+    },
+    [updateStepMutation, toast]
+  );
+
+  const handleToggleTimer = useCallback(
+    async (id: string) => {
+      try {
+        if (activeTimerStepId === id) {
+          await stopTimerMutation({ id });
+        } else {
+          if (activeTimerStepId) await stopTimerMutation({ id: activeTimerStepId });
+          await startTimerMutation({ id });
+        }
+      } catch (e) {
+        reportError("mutation", e, { action: "toggleTimer", stepId: id });
+        toast.error("Failed to toggle timer");
+      }
+    },
+    [activeTimerStepId, startTimerMutation, stopTimerMutation, toast]
+  );
+
+  const handleSetTotalTime = useCallback(
+    async (id: string, totalTimeSpentMs: number) => {
+      try {
+        await setTotalTimeMutation({ id, totalTimeSpentMs });
+      } catch (e) {
+        reportError("mutation", e, { action: "setTotalTime", stepId: id });
+        toast.error("Failed to update time");
+      }
+    },
+    [setTotalTimeMutation, toast]
+  );
 
   const stepActions = {
     onToggle: handleToggle,
@@ -251,9 +321,17 @@ export default function Calendar() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold tracking-tight">
-          {currentView === "today" ? "Today's focus" : currentView === "daylog" ? "Day log" : "Calendar"}
+          {currentView === "today"
+            ? "Today's focus"
+            : currentView === "daylog"
+              ? "Day log"
+              : "Calendar"}
         </h1>
-        <Tabs defaultValue="today" value={currentView} onValueChange={(v) => setView(v as CalendarView)}>
+        <Tabs
+          defaultValue="today"
+          value={currentView}
+          onValueChange={(v) => setView(v as CalendarView)}
+        >
           <TabsList>
             <TabsTrigger value="today">Today</TabsTrigger>
             <TabsTrigger value="daylog">Day log</TabsTrigger>
@@ -303,11 +381,7 @@ export default function Calendar() {
       {currentView === "today" && <TodayView />}
       {currentView === "daylog" && <DayLogView viewDate={viewDate} onNavigate={setViewDate} />}
       {currentView === "month" && (
-        <MonthView
-          viewDate={viewDate}
-          calendarDays={calendarDays}
-          onDayClick={handleDayClick}
-        />
+        <MonthView viewDate={viewDate} calendarDays={calendarDays} onDayClick={handleDayClick} />
       )}
 
       {/* Day detail dialog for month click */}

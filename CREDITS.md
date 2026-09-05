@@ -15,13 +15,13 @@ Focus mode ships with five instrumental lofi tracks.
 **Licence:** CC0 1.0 Universal (public domain dedication)
 **Source:** https://freemusicarchive.org/music/holiznacc0/public-domain-lofi
 
-| File | Track | Source page |
-| --- | --- | --- |
-| `frontend/public/audio/tokyo-sunset.mp3` | Tokyo Sunset | https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/tokyo-sunset-lofi-peaceful-soft/ |
-| `frontend/public/audio/calm-currents.mp3` | Calm Currents | https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/calm-currents-lofi-relax-calm/ |
-| `frontend/public/audio/peaceful-drift.mp3` | Peaceful Drift | https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/peaceful-drift-lofi-nostalgic-calm/ |
-| `frontend/public/audio/theta-frequency.mp3` | Theta Frequency | https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/theta-frequency-lofi-chill-calm/ |
-| `frontend/public/audio/ease-into-night.mp3` | Ease into Night | https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/ease-into-night-lofi-relax-chill/ |
+| File                               | Track           | Source page                                                                                          |
+| ---------------------------------- | --------------- | ---------------------------------------------------------------------------------------------------- |
+| `public/audio/tokyo-sunset.mp3`    | Tokyo Sunset    | https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/tokyo-sunset-lofi-peaceful-soft/    |
+| `public/audio/calm-currents.mp3`   | Calm Currents   | https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/calm-currents-lofi-relax-calm/      |
+| `public/audio/peaceful-drift.mp3`  | Peaceful Drift  | https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/peaceful-drift-lofi-nostalgic-calm/ |
+| `public/audio/theta-frequency.mp3` | Theta Frequency | https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/theta-frequency-lofi-chill-calm/    |
+| `public/audio/ease-into-night.mp3` | Ease into Night | https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/ease-into-night-lofi-relax-chill/   |
 
 Each track's page states verbatim that it "is licensed under a CC0 1.0 Universal
 License", and the artist dedicates his whole archive to the public domain.
@@ -31,14 +31,27 @@ giving away work this freely deserves the mention.
 
 Support the artist: https://freemusicarchive.org/music/holiznacc0/
 
+## Fonts
+
+**Font:** Geist
+**Author:** The Geist Project Authors
+**Licence:** SIL Open Font License 1.1
+**Source:** https://github.com/vercel/geist-font
+
+| File                               |
+| ---------------------------------- |
+| `public/fonts/Geist-Regular.woff2` |
+| `public/fonts/Geist-Bold.woff2`    |
+
 ## Images
 
-Focus mode backgrounds are generated at runtime from the active theme rather than
-shipped as image files, so there are no bundled images to credit. Any image you set
-yourself stays on your machine and is never redistributed.
+`public/logo.png` and `public/favicon.svg` are DevVoid's own work,
+so they need no third-party credit. Focus mode backgrounds are generated at runtime
+from the active theme rather than shipped as image files. Any image you set yourself
+stays on your machine and is never redistributed.
 
 ## Adding an asset
 
-Anything added under `frontend/public/` that was not created for this project must
+Anything added under `public/` that was not created for this project must
 be listed above, with its source URL and its licence, before it is committed. An
 asset whose licence has not been checked does not go in.

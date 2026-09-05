@@ -16,9 +16,6 @@ jobs:
   # than only on pull requests.
   verify:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
 
     steps:
       - uses: actions/checkout@v4
@@ -31,7 +28,7 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
       # Three files carry the version and the bundler reads tauri.conf.json,
       # not the tag. Without this check, tagging v0.2.0 ships a dmg named
@@ -40,8 +37,8 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           tag="${GITHUB_REF_NAME#v}"
-          conf=$(node -p "require('./src-tauri/tauri.conf.json').version")
-          crate=$(grep -m1 '^version = ' src-tauri/Cargo.toml | cut -d'"' -f2)
+          conf=$(node -p "require('./desktop/tauri.conf.json').version")
+          crate=$(grep -m1 '^version = ' desktop/Cargo.toml | cut -d'"' -f2)
           pkg=$(node -p "require('./package.json').version")
           echo "tag=$tag tauri.conf.json=$conf Cargo.toml=$crate package.json=$pkg"
           mismatch=0
@@ -61,6 +58,15 @@ jobs:
       - name: Run tests
         run: pnpm test
 
+  # macOS only for now. The Windows build has never been tested on Windows, and
+  # an untested binary on a release page is worse than no binary: it is unsigned,
+  # so SmartScreen already warns about it, and a first-run failure lands on a
+  # user who has no way to tell a packaging bug from a broken app.
+  #
+  # To add Windows back: restore the windows-latest entry below, restore "nsis"
+  # to bundle.targets in desktop/tauri.conf.json, restore the nsis glob in the
+  # Upload bundles step, and update the Install section of README.md. Prove it
+  # with workflow_dispatch before tagging.
   build:
     needs: verify
     strategy:
@@ -71,9 +77,6 @@ jobs:
           - platform: macos-latest
             args: --target universal-apple-darwin
             rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
-          - platform: windows-latest
-            args: ""
-            rust-targets: ""
 
     runs-on: ${{ matrix.platform }}
 
@@ -88,7 +91,7 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -96,10 +99,9 @@ jobs:
 
       - uses: swatinem/rust-cache@v2
         with:
-          workspaces: frontend/src-tauri -> target
+          workspaces: desktop -> target
 
       - run: pnpm install --frozen-lockfile
-        working-directory: frontend
 
       # APPLE_API_KEY is the key ID, not the key material, and the bundler wants
       # a real .p8 on disk (tauri-bundler src/bundle/macos/sign.rs). So the
@@ -130,8 +132,12 @@ jobs:
           # Notarization. APPLE_API_KEY_PATH is set by the step above.
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          # The Rust crate lives in desktop/, not the conventional src-tauri/.
+          # Without this the CLI falls back to walking the tree for a
+          # tauri.conf.json, which is order dependent. Name it instead.
+          TAURI_APP_PATH: desktop
         with:
-          projectPath: frontend
+          projectPath: .
           # Empty on workflow_dispatch, which stops tauri-action creating a
           # release named after the branch.
           tagName: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
@@ -146,13 +152,12 @@ jobs:
       # so without this step a green build still ships an unopenable download.
       - name: Notarize and staple the dmg
         if: runner.os == 'macOS' && env.APPLE_API_KEY_PATH != ''
-        working-directory: frontend
         env:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: |
           set -euo pipefail
-          dmg=$(find src-tauri/target -path "*/bundle/dmg/*.dmg" | head -1)
+          dmg=$(find desktop/target -path "*/bundle/dmg/*.dmg" | head -1)
           if [ -z "$dmg" ]; then
             echo "::error::no dmg found to notarize"
             exit 1
@@ -167,7 +172,7 @@ jobs:
           # Prove it rather than trusting the exit codes above.
           xcrun stapler validate "$dmg"
           spctl -a -vvv -t open --context context:primary-signature "$dmg"
-          echo "DMG_PATH=frontend/$dmg" >> "$GITHUB_ENV"
+          echo "DMG_PATH=$dmg" >> "$GITHUB_ENV"
 
       # tauri-action uploaded the dmg before it was stapled, so the asset on the
       # release is the unopenable one until it is replaced.
@@ -184,6 +189,5 @@ jobs:
         with:
           name: voidsteps-${{ matrix.platform }}
           path: |
-            frontend/src-tauri/target/**/release/bundle/dmg/*.dmg
-            frontend/src-tauri/target/**/release/bundle/nsis/*.exe
+            desktop/target/**/release/bundle/dmg/*.dmg
           if-no-files-found: error

@@ -1,12 +1,21 @@
 import { useState, useCallback, useEffect } from "react";
 import type { Reminder, ReminderRecurrence } from "@/types/index";
-import { useCreateReminder, useUpdateReminder, MAX_TITLE_LENGTH, MAX_DESCRIPTION_LENGTH } from "@/lib/local-mutations";
+import {
+  useCreateReminder,
+  useUpdateReminder,
+  MAX_TITLE_LENGTH,
+  MAX_DESCRIPTION_LENGTH,
+} from "@/lib/local-mutations";
 import { reportError } from "@/lib/error-store";
 import { useToast } from "@/contexts/ToastContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { MONTH_LABELS as MONTH_NAMES, formatDateForInput, parseStartDateInput } from "@/lib/date-utils";
+import {
+  MONTH_LABELS as MONTH_NAMES,
+  formatDateForInput,
+  parseStartDateInput,
+} from "@/lib/date-utils";
 import { DatePicker } from "@/components/ui/DatePicker";
 import {
   Dialog,
@@ -68,7 +77,8 @@ export default function QuickCreateReminderDialog({
       toast.error("Give the reminder a title");
       return;
     }
-    const date = recurrence === "once" ? (dateStr ? parseStartDateInput(dateStr) : undefined) : undefined;
+    const date =
+      recurrence === "once" ? (dateStr ? parseStartDateInput(dateStr) : undefined) : undefined;
     if (recurrence === "once" && !date) {
       toast.error("Pick a date");
       return;
@@ -99,7 +109,19 @@ export default function QuickCreateReminderDialog({
       reportError("mutation", error, { action: reminder ? "updateReminder" : "createReminder" });
       toast.error("Failed to save reminder");
     }
-  }, [title, note, recurrence, dateStr, month, day, reminder, createReminder, updateReminder, toast, onOpenChange]);
+  }, [
+    title,
+    note,
+    recurrence,
+    dateStr,
+    month,
+    day,
+    reminder,
+    createReminder,
+    updateReminder,
+    toast,
+    onOpenChange,
+  ]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -126,7 +148,12 @@ export default function QuickCreateReminderDialog({
             maxLength={MAX_TITLE_LENGTH}
             autoFocus
           />
-          <Input placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} maxLength={MAX_DESCRIPTION_LENGTH} />
+          <Input
+            placeholder="Note (optional)"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            maxLength={MAX_DESCRIPTION_LENGTH}
+          />
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Repeats</label>
             <Select
@@ -144,7 +171,11 @@ export default function QuickCreateReminderDialog({
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Month</label>
-                <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))} options={MONTH_OPTIONS} />
+                <Select
+                  value={String(month)}
+                  onValueChange={(v) => setMonth(Number(v))}
+                  options={MONTH_OPTIONS}
+                />
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Day</label>

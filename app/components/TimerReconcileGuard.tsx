@@ -132,14 +132,19 @@ export default function TimerReconcileGuard() {
   const trimValid = trimEnd !== undefined && trimEnd > startedAt && trimEnd <= Date.now();
 
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) dismiss(); }}>
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) dismiss();
+      }}
+    >
       <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>Timer still running</DialogTitle>
           <DialogDescription>
-            <span className="font-medium text-foreground">“{staleStep.title}”</span> has been timing for{" "}
-            <span className="font-medium text-foreground">{formatDurationHM(elapsedMs)}</span>, since{" "}
-            {formatAbsoluteDateTime(startedAt)}. Keep all of it, trim it, or discard it?
+            <span className="font-medium text-foreground">“{staleStep.title}”</span> has been timing
+            for <span className="font-medium text-foreground">{formatDurationHM(elapsedMs)}</span>,
+            since {formatAbsoluteDateTime(startedAt)}. Keep all of it, trim it, or discard it?
           </DialogDescription>
         </DialogHeader>
 
@@ -169,7 +174,9 @@ export default function TimerReconcileGuard() {
           {trimming ? (
             <Button
               disabled={!trimValid}
-              onClick={() => run(() => stopTimerAt({ id: staleStep._id, end: trimEnd! }), "timerTrim")}
+              onClick={() =>
+                run(() => stopTimerAt({ id: staleStep._id, end: trimEnd! }), "timerTrim")
+              }
             >
               Trim &amp; stop
             </Button>

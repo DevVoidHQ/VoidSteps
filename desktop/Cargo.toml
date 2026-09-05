@@ -4,6 +4,9 @@ version = "0.1.0"
 description = "Local-first tracker for paths, steps and routines"
 authors = ["Aneesh Bhat"]
 edition = "2021"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/DevVoidHQ/voidsteps"
+publish = false
 
 [lib]
 # The `_lib` suffix keeps the lib name distinct from the bin name, which

@@ -6,7 +6,6 @@ import { Position } from "reactflow";
  * connect cleanly without fixed handle points.
  */
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RFNode = any;
 
 function getNodeCenterAndSize(node: RFNode) {

@@ -4,7 +4,8 @@ import { buttonVariants } from "./Button";
 import type { VariantProps } from "class-variance-authority";
 
 export interface IconButtonProps
-  extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "children">,
+  extends
+    Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "children">,
     Omit<VariantProps<typeof buttonVariants>, "size"> {
   icon: React.ReactNode;
   size?: "icon-sm" | "icon";
@@ -21,14 +22,7 @@ const IconSpinner = () => (
     width="18"
     height="18"
   >
-    <circle
-      className="opacity-25"
-      cx="12"
-      cy="12"
-      r="10"
-      stroke="currentColor"
-      strokeWidth="4"
-    />
+    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
     <path
       className="opacity-75"
       fill="currentColor"
@@ -39,15 +33,7 @@ const IconSpinner = () => (
 
 const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
   (
-    {
-      className,
-      variant = "ghost",
-      size = "icon",
-      icon,
-      loading = false,
-      disabled,
-      ...props
-    },
+    { className, variant = "ghost", size = "icon", icon, loading = false, disabled, ...props },
     ref
   ) => {
     const isDisabled = disabled || loading;

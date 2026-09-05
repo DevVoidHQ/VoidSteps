@@ -1,13 +1,10 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
+  content: ["./index.html", "./app/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
       fontFamily: {
-        sans: ["Satoshi", "system-ui", "sans-serif"],
+        sans: ["var(--font-ui)"],
       },
       // Every theme is 6 colors: background, foreground, primary, accent,
       // primaryLight, accentLight. All other UI tokens derive from these

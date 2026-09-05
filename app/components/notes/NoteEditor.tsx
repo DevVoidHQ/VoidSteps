@@ -11,7 +11,10 @@ import "./note-editor.css";
 // Drop media blocks (image/video/audio/file) - embedding/uploading media in
 // notes is more friction than it's worth here.
 const { image, video, audio, file, ...allowedBlockSpecs } = defaultBlockSpecs;
-void image; void video; void audio; void file;
+void image;
+void video;
+void audio;
+void file;
 const schema = BlockNoteSchema.create({ blockSpecs: allowedBlockSpecs });
 
 // Debounce body persistence aggressively. Saves only fire after a 30s typing

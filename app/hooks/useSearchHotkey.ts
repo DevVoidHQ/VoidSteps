@@ -7,7 +7,12 @@ import { useEffect, type RefObject } from "react";
 export function useSearchHotkey(ref: RefObject<HTMLInputElement | null>) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && (e.key === "f" || e.key === "F")) {
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        !e.shiftKey &&
+        !e.altKey &&
+        (e.key === "f" || e.key === "F")
+      ) {
         e.preventDefault();
         ref.current?.focus();
         ref.current?.select();

@@ -1,6 +1,12 @@
 import type { Path } from "@/types/index";
 import { addDays } from "./calendar-utils";
-import { DAY_LABELS, MONTH_LABELS, formatDateForInput, parseLooseDate, parseStartDateInput } from "./date-utils";
+import {
+  DAY_LABELS,
+  MONTH_LABELS,
+  formatDateForInput,
+  parseLooseDate,
+  parseStartDateInput,
+} from "./date-utils";
 
 export type CaptureKind = "step" | "routine" | "path" | "reminder";
 
@@ -119,10 +125,7 @@ function nextWeekday(weekday: number): string {
 /** Splits a run of digits into a date: ddmmyyyy, ddmmyy or ddmm. */
 function parseCompactDigits(digits: string): string | undefined {
   const shape =
-    digits.length === 8 ? 4 :
-    digits.length === 6 ? 2 :
-    digits.length === 4 ? 0 :
-    undefined;
+    digits.length === 8 ? 4 : digits.length === 6 ? 2 : digits.length === 4 ? 0 : undefined;
   if (shape === undefined) return undefined;
 
   const day = digits.slice(0, 2);
@@ -233,7 +236,6 @@ export interface ParsedRoutine {
   scheduleQuery?: string;
 }
 
-
 /** A bare day of the month: 25, 25th, 3rd. */
 function parseDayOfMonth(token: string): number | undefined {
   const match = token.match(/^(\d{1,2})(st|nd|rd|th)?$/);
@@ -342,8 +344,11 @@ export interface ParsedReminder {
 function carriesYear(token: string): boolean {
   if (/^\d{6}$|^\d{8}$/.test(token)) return true;
   if (/\d{4}/.test(token) && !/^\d{4}$/.test(token)) return true;
-  return ["today", "tod", "tomorrow", "tmr", "tom", "yesterday", "nextweek", "weekend"].includes(token) ||
-    weekdayIndex(token) !== -1;
+  return (
+    ["today", "tod", "tomorrow", "tmr", "tom", "yesterday", "nextweek", "weekend"].includes(
+      token
+    ) || weekdayIndex(token) !== -1
+  );
 }
 
 /**

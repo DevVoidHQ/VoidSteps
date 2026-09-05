@@ -12,32 +12,60 @@ prompt.
 
 ## Install
 
-macOS `.dmg` and Windows `.exe`. Builds are not public yet.
+macOS `.dmg`, signed and notarized. Builds are not public yet.
+
+Windows is not built yet. The app has no platform-specific code, so it is a
+packaging and testing gap rather than a porting one, but an untested installer
+is not worth shipping. Build it yourself with `pnpm desktop:build` in the
+meantime.
 
 ## Repository layout
 
 ```
-frontend/          the app: React 19 + Vite + Tailwind, Tauri shell
-  src/lib/db.ts            Dexie schema; version blocks are a migration
-                           history, add a new one, never edit an old one
-  src/lib/local-mutations.ts   every write goes through here
-  src/lib/snapshot.ts      the one backup and restore format
-  src-tauri/               the desktop shell
+app/               the UI: React 19 + Vite + Tailwind
+  lib/db.ts            Dexie schema; version blocks are a migration
+                       history, add a new one, never edit an old one
+  lib/local-mutations.ts   every write goes through here
+  lib/snapshot.ts      the one backup and restore format
+  lib/recurrence.ts    routine scheduling, in a shifted-UTC frame
+desktop/           the Tauri shell (Rust)
+public/            static assets, all credited in CREDITS.md
 ```
 
-See [`frontend/README.md`](frontend/README.md) for running, building and testing.
+Build and tool configuration lives at the repository root, so `pnpm` commands
+run from anywhere in the tree without changing directory first.
 
 ## Development
 
+You need Node 22 (see `.nvmrc`), pnpm 11, and a Rust toolchain for the desktop
+shell.
+
 ```bash
-cd frontend
 pnpm install
 pnpm desktop:dev     # Tauri window, hot reloads the UI
 pnpm test            # pure logic tests
+pnpm lint            # eslint
+pnpm format          # prettier
 ```
 
 `pnpm dev` runs the UI alone in a browser, which is faster for pure UI work but
 does not exercise the desktop shell.
+
+## Building a release
+
+```bash
+pnpm desktop:build
+```
+
+Output lands in `desktop/target/release/bundle/`. macOS builds are unsigned
+unless the Apple Developer ID variables are set, and an unsigned build is
+quarantined on any machine that did not compile it. To test one locally:
+
+```bash
+xattr -dr com.apple.quarantine <path to .app>
+```
+
+CI builds both platforms on a `v*` tag, see `.github/workflows/release.yml`.
 
 ## Storage and privacy
 
@@ -50,7 +78,7 @@ Two consequences worth knowing:
   different origins with different storage backends, so nothing transfers
   between them by itself. Move data with a backup file.
 - **A backup file is your only recovery path.** Settings has backup and restore,
-  and both use the same format described in `src/lib/snapshot.ts`.
+  and both use the same format described in `app/lib/snapshot.ts`.
 
 ## History
 
@@ -70,6 +98,8 @@ First-time contributors agree to the [CLA](CLA.md) in their pull request. You ke
 your copyright; it is a licence grant, not an assignment.
 
 ## Licence
+
+Copyright (C) 2026 Aneesh Bhat
 
 **Code is licensed under GPL-3.0-or-later.** See [LICENSE](LICENSE). You may use,
 modify and redistribute it, including commercially. If you distribute a modified

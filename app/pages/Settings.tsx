@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { collectDiagnostics } from "@/lib/feedback-diagnostics";
+import { clearUserFont, setUserFont, useUserFont } from "@/lib/user-font";
 import { useTheme, PRESET_THEMES } from "@/contexts/ThemeContext";
 import type { ThemeColors } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -10,19 +11,67 @@ import { Input } from "@/components/ui/Input";
 import { Toggle } from "@/components/ui/Toggle";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
-import { getDeferDatesMode, setDeferDatesMode, getDueDatesMode, setDueDatesMode, getPrioritizeDefault, setPrioritizeDefault, getShowStepDates, setShowStepDates, getFontScale, setFontScale, FONT_SCALE_PX, FONT_SCALE_LABELS, FONT_SCALE_ORDER, type FontScale, getStepActions, setStepActionMode, STEP_ACTION_ORDER, STEP_ACTION_LABELS, getStepsClickAction, setStepsClickAction, getTodayClickAction, setTodayClickAction, resetGeneralPreferences, type DeferDatesMode, type StepActionsConfig, type StepClickAction } from "@/lib/preferences";
+import {
+  getDeferDatesMode,
+  setDeferDatesMode,
+  getDueDatesMode,
+  setDueDatesMode,
+  getPrioritizeDefault,
+  setPrioritizeDefault,
+  getShowStepDates,
+  setShowStepDates,
+  getFontScale,
+  setFontScale,
+  FONT_SCALE_PX,
+  FONT_SCALE_LABELS,
+  FONT_SCALE_ORDER,
+  type FontScale,
+  getStepActions,
+  setStepActionMode,
+  STEP_ACTION_ORDER,
+  STEP_ACTION_LABELS,
+  getStepsClickAction,
+  setStepsClickAction,
+  getTodayClickAction,
+  setTodayClickAction,
+  resetGeneralPreferences,
+  type DeferDatesMode,
+  type StepActionsConfig,
+  type StepClickAction,
+} from "@/lib/preferences";
 import { useData } from "@/contexts/DataContext";
 import { useUpdateDaySettings } from "@/lib/local-mutations";
 import { formatMinutesAsTime } from "@/lib/day-settings";
 import { reportError } from "@/lib/error-store";
 import { openExternal } from "@/lib/platform";
-import { getZoom, setZoom, stepZoom, resetZoom, formatZoom, zoomSupported, ZOOM_LEVELS, DEFAULT_ZOOM } from "@/lib/zoom";
+import {
+  getZoom,
+  setZoom,
+  stepZoom,
+  resetZoom,
+  formatZoom,
+  zoomSupported,
+  ZOOM_LEVELS,
+  DEFAULT_ZOOM,
+} from "@/lib/zoom";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
 import DataSettings from "@/components/DataSettings";
 import BackupCard from "@/components/BackupCard";
 import FocusSettings from "@/components/FocusSettings";
-import { Copy, Sparkles, Save, RotateCcw, Shuffle, Dices, Check, Trash2, Minus, Plus } from "lucide-react";
+import {
+  Copy,
+  Sparkles,
+  Save,
+  RotateCcw,
+  Shuffle,
+  Dices,
+  Check,
+  Trash2,
+  Minus,
+  Plus,
+  Type,
+} from "lucide-react";
 import {
   getKeybinds,
   setKeybind,
@@ -47,7 +96,7 @@ const COLOR_LABELS: Record<keyof ThemeColors, string> = {
 
 // Helper to convert HSL string to hex for color input
 const hslToHex = (hsl: string): string => {
-  const parts = hsl.split(' ');
+  const parts = hsl.split(" ");
   const h = parseFloat(parts[0]) || 0;
   const s = parseFloat(parts[1]) || 0;
   const l = parseFloat(parts[2]) || 0;
@@ -70,7 +119,8 @@ const hslToHex = (hsl: string): string => {
       return p;
     };
 
-    const q = lDecimal < 0.5 ? lDecimal * (1 + sDecimal) : lDecimal + sDecimal - lDecimal * sDecimal;
+    const q =
+      lDecimal < 0.5 ? lDecimal * (1 + sDecimal) : lDecimal + sDecimal - lDecimal * sDecimal;
     const p = 2 * lDecimal - q;
 
     r = hue2rgb(p, q, hDecimal + 1 / 3);
@@ -80,7 +130,7 @@ const hslToHex = (hsl: string): string => {
 
   const toHex = (x: number) => {
     const hex = Math.round(x * 255).toString(16);
-    return hex.length === 1 ? '0' + hex : hex;
+    return hex.length === 1 ? "0" + hex : hex;
   };
 
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
@@ -89,24 +139,32 @@ const hslToHex = (hsl: string): string => {
 // Helper to convert hex to HSL string
 const hexToHsl = (hex: string): string => {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  if (!result) return '0 0% 0%';
+  if (!result) return "0 0% 0%";
 
-  let r = parseInt(result[1], 16) / 255;
-  let g = parseInt(result[2], 16) / 255;
-  let b = parseInt(result[3], 16) / 255;
+  const r = parseInt(result[1], 16) / 255;
+  const g = parseInt(result[2], 16) / 255;
+  const b = parseInt(result[3], 16) / 255;
 
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
-  let h = 0, s = 0, l = (max + min) / 2;
+  let h = 0,
+    s = 0,
+    l = (max + min) / 2;
 
   if (max !== min) {
     const d = max - min;
     s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
 
     switch (max) {
-      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
-      case g: h = ((b - r) / d + 2) / 6; break;
-      case b: h = ((r - g) / d + 4) / 6; break;
+      case r:
+        h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+        break;
+      case g:
+        h = ((b - r) / d + 2) / 6;
+        break;
+      case b:
+        h = ((r - g) / d + 4) / 6;
+        break;
     }
   }
 
@@ -116,6 +174,65 @@ const hexToHsl = (hex: string): string => {
 
   return `${h} ${s}% ${l}%`;
 };
+
+function FontSettings() {
+  const toast = useToast();
+  const { name, family } = useUserFont();
+  const fontInput = useRef<HTMLInputElement>(null);
+
+  const pick = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      await setUserFont(file);
+      toast.success("Font set");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not read that file");
+    }
+  };
+
+  const clear = async () => {
+    await clearUserFont();
+    toast.success("Back to Geist");
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <label className="text-sm font-medium">UI font</label>
+      <p className="text-sm text-muted-foreground">
+        VoidSteps ships Geist by default. Import a font file you own and the whole app renders in
+        it. One file is used at every weight, so pick a regular rather than a bold. It stays on this
+        machine and is never uploaded.
+      </p>
+      <div className="flex flex-wrap items-center gap-2 pt-1">
+        <input
+          ref={fontInput}
+          type="file"
+          accept=".woff2,.woff,.ttf,.otf"
+          className="hidden"
+          onChange={(e) => {
+            pick(e.target.files?.[0]);
+            e.target.value = "";
+          }}
+        />
+        <Button variant="outline" size="sm" onClick={() => fontInput.current?.click()}>
+          <Type className="w-4 h-4 mr-2" />
+          {name ? "Replace font" : "Import your own font"}
+        </Button>
+        {name && (
+          <>
+            <span className="max-w-[16rem] truncate text-sm text-muted-foreground">
+              {name}
+              {family && family !== name ? ` (${family})` : ""}
+            </span>
+            <Button variant="ghost" size="sm" onClick={clear}>
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function GeneralSettings() {
   const [deferMode, setDeferMode] = useState<DeferDatesMode>(getDeferDatesMode());
@@ -167,8 +284,8 @@ function GeneralSettings() {
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Text size</label>
             <p className="text-sm text-muted-foreground">
-              The base type size, which scales layout with it so nothing gets
-              cramped. Independent of zoom. Applies immediately.
+              The base type size, which scales layout with it so nothing gets cramped. Independent
+              of zoom. Applies immediately.
             </p>
             <div className="flex flex-wrap items-end gap-2 pt-1">
               {FONT_SCALE_ORDER.map((scale) => {
@@ -177,7 +294,10 @@ function GeneralSettings() {
                   <button
                     key={scale}
                     type="button"
-                    onClick={() => { setFontScaleState(scale); setFontScale(scale); }}
+                    onClick={() => {
+                      setFontScaleState(scale);
+                      setFontScale(scale);
+                    }}
                     aria-pressed={active}
                     className={`flex flex-col items-center gap-1 rounded-lg border-2 px-4 py-2 transition-colors ${
                       active
@@ -186,22 +306,27 @@ function GeneralSettings() {
                     }`}
                   >
                     {/* Rendered at the size it sets, so the control shows what it does. */}
-                    <span style={{ fontSize: `${FONT_SCALE_PX[scale]}px`, lineHeight: 1.2 }}>Aa</span>
-                    <span className="text-xs text-muted-foreground">{FONT_SCALE_LABELS[scale]}</span>
+                    <span style={{ fontSize: `${FONT_SCALE_PX[scale]}px`, lineHeight: 1.2 }}>
+                      Aa
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {FONT_SCALE_LABELS[scale]}
+                    </span>
                   </button>
                 );
               })}
             </div>
           </div>
 
+          <FontSettings />
+
           {/* Desktop only: in a browser, Cmd +/- is the browser's own zoom. */}
           {canZoom && (
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Zoom</label>
               <p className="text-sm text-muted-foreground">
-                Scales the entire app the way browser zoom does, notes and path
-                canvas included. Use ⌘ + and ⌘ - to change it, ⌘ 0 to reset, or
-                hold ⌘ while scrolling.
+                Scales the entire app the way browser zoom does, notes and path canvas included. Use
+                ⌘ + and ⌘ - to change it, ⌘ 0 to reset, or hold ⌘ while scrolling.
               </p>
               <div className="flex items-center gap-2 pt-1">
                 <Button
@@ -240,7 +365,10 @@ function GeneralSettings() {
           <Toggle
             size="sm"
             checked={prioritizeDefault}
-            onChange={(e) => { setPrioritizeDefaultState(e.target.checked); setPrioritizeDefault(e.target.checked); }}
+            onChange={(e) => {
+              setPrioritizeDefaultState(e.target.checked);
+              setPrioritizeDefault(e.target.checked);
+            }}
             label="Prioritize new steps for today by default"
             description="Pre-checks 'Prioritize for today' when creating a step. Off by default."
           />
@@ -248,7 +376,10 @@ function GeneralSettings() {
           <Toggle
             size="sm"
             checked={showStepDates}
-            onChange={(e) => { setShowStepDatesState(e.target.checked); setShowStepDates(e.target.checked); }}
+            onChange={(e) => {
+              setShowStepDatesState(e.target.checked);
+              setShowStepDates(e.target.checked);
+            }}
             label="Show created & updated dates on steps"
             description="Adds a small footer to each step with when it was created and last updated. On by default."
           />
@@ -261,7 +392,11 @@ function GeneralSettings() {
             <Select
               className="max-w-xs"
               value={stepsClick}
-              onValueChange={(v) => { const a = v as StepClickAction; setStepsClick(a); setStepsClickAction(a); }}
+              onValueChange={(v) => {
+                const a = v as StepClickAction;
+                setStepsClick(a);
+                setStepsClickAction(a);
+              }}
               options={clickOptions}
             />
           </div>
@@ -274,7 +409,11 @@ function GeneralSettings() {
             <Select
               className="max-w-xs"
               value={todayClick}
-              onValueChange={(v) => { const a = v as StepClickAction; setTodayClick(a); setTodayClickAction(a); }}
+              onValueChange={(v) => {
+                const a = v as StepClickAction;
+                setTodayClick(a);
+                setTodayClickAction(a);
+              }}
               options={clickOptions}
             />
           </div>
@@ -283,7 +422,8 @@ function GeneralSettings() {
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Step actions</label>
               <p className="text-sm text-muted-foreground">
-                Each action shows as its own inline button when on, or moves into the step's "more" menu when off.
+                Each action shows as its own inline button when on, or moves into the step's "more"
+                menu when off.
               </p>
             </div>
             {STEP_ACTION_ORDER.map((key) => (
@@ -309,7 +449,11 @@ function GeneralSettings() {
             <Select
               className="max-w-xs"
               value={dueMode}
-              onValueChange={(v) => { const m = v as DeferDatesMode; setDueMode(m); setDueDatesMode(m); }}
+              onValueChange={(v) => {
+                const m = v as DeferDatesMode;
+                setDueMode(m);
+                setDueDatesMode(m);
+              }}
               options={modeOptions}
             />
           </div>
@@ -322,7 +466,11 @@ function GeneralSettings() {
             <Select
               className="max-w-xs"
               value={deferMode}
-              onValueChange={(v) => { const m = v as DeferDatesMode; setDeferMode(m); setDeferDatesMode(m); }}
+              onValueChange={(v) => {
+                const m = v as DeferDatesMode;
+                setDeferMode(m);
+                setDeferDatesMode(m);
+              }}
               options={modeOptions}
             />
           </div>
@@ -373,17 +521,16 @@ function DayRoutineSettings() {
         <div className="space-y-1">
           <h2 className="text-xl font-semibold">Day &amp; Routines</h2>
           <p className="text-sm text-muted-foreground">
-            When your day rolls over and when routines appear. Changing these
-            reschedules all routines immediately.
+            When your day rolls over and when routines appear. Changing these reschedules all
+            routines immediately.
           </p>
         </div>
 
         <div className="space-y-1.5">
           <label className="text-sm font-medium">End of day</label>
           <p className="text-sm text-muted-foreground">
-            When "today" becomes tomorrow. With 3:00 AM, work at 1 AM still counts
-            toward the previous day - deferred steps arrive and due-today
-            prioritization runs at this time.
+            When "today" becomes tomorrow. With 3:00 AM, work at 1 AM still counts toward the
+            previous day - deferred steps arrive and due-today prioritization runs at this time.
           </p>
           <Select
             className="max-w-xs"
@@ -396,8 +543,8 @@ function DayRoutineSettings() {
         <div className="space-y-1.5">
           <label className="text-sm font-medium">Start of day (routines spawn)</label>
           <p className="text-sm text-muted-foreground">
-            The time your routines materialize on their scheduled day. Can't be
-            earlier than the end-of-day rollover.
+            The time your routines materialize on their scheduled day. Can't be earlier than the
+            end-of-day rollover.
           </p>
           <Select
             className="max-w-xs"
@@ -499,11 +646,21 @@ function KeybindSettings() {
                     )}
                     {!isEditing && (
                       <>
-                        <Button variant="ghost" size="icon-sm" onClick={() => handleStartEdit(action)} title="Edit">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => handleStartEdit(action)}
+                          title="Edit"
+                        >
                           <span className="text-xs">Edit</span>
                         </Button>
                         {isCustom && (
-                          <Button variant="ghost" size="icon-sm" onClick={() => handleReset(action)} title="Reset to default">
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => handleReset(action)}
+                            title="Reset to default"
+                          >
                             <RotateCcw className="w-3 h-3" />
                           </Button>
                         )}
@@ -566,8 +723,8 @@ function FeedbackSettings() {
         <div>
           <h2 className="text-xl font-semibold">Feedback</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Found a bug or have an idea? This opens a draft in your mail app.
-            Nothing is sent from VoidSteps itself.
+            Found a bug or have an idea? This opens a draft in your mail app. Nothing is sent from
+            VoidSteps itself.
           </p>
         </div>
 
@@ -630,9 +787,7 @@ export default function Settings() {
 
   const activePresetName = presetNames.find((name) => {
     const preset = PRESET_THEMES[name];
-    return (Object.keys(preset) as Array<keyof ThemeColors>).every(
-      (k) => preset[k] === theme[k],
-    );
+    return (Object.keys(preset) as Array<keyof ThemeColors>).every((k) => preset[k] === theme[k]);
   });
 
   const applyRandomPreset = useCallback(() => {
@@ -650,9 +805,13 @@ export default function Settings() {
     const bgL = isDark ? 3 + Math.floor(Math.random() * 8) : 95 + Math.floor(Math.random() * 5);
     const fgL = isDark ? 90 + Math.floor(Math.random() * 8) : 3 + Math.floor(Math.random() * 8);
     const primaryS = 60 + Math.floor(Math.random() * 40);
-    const primaryL = isDark ? 55 + Math.floor(Math.random() * 20) : 35 + Math.floor(Math.random() * 20);
+    const primaryL = isDark
+      ? 55 + Math.floor(Math.random() * 20)
+      : 35 + Math.floor(Math.random() * 20);
     const accentS = 50 + Math.floor(Math.random() * 40);
-    const accentL = isDark ? 55 + Math.floor(Math.random() * 20) : 45 + Math.floor(Math.random() * 20);
+    const accentL = isDark
+      ? 55 + Math.floor(Math.random() * 20)
+      : 45 + Math.floor(Math.random() * 20);
     const lightL = isDark ? 14 + Math.floor(Math.random() * 6) : 94 + Math.floor(Math.random() * 4);
 
     setTheme({
@@ -702,7 +861,10 @@ export default function Settings() {
       setSeedArmed(true);
       setSeedStatus("Click again to confirm - this wipes ALL current data, then seeds.");
       if (armRef.current) clearTimeout(armRef.current);
-      armRef.current = setTimeout(() => { setSeedArmed(false); setSeedStatus(""); }, 5000);
+      armRef.current = setTimeout(() => {
+        setSeedArmed(false);
+        setSeedStatus("");
+      }, 5000);
       return;
     }
     if (armRef.current) clearTimeout(armRef.current);
@@ -773,252 +935,274 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="theme">
-        <div className="space-y-6">
-
-      {/* Preset Themes */}
-      <Card>
-        <CardContent className="p-6 space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Preset Themes</h2>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={generateRandomTheme}>
-                <Dices className="w-4 h-4 mr-2" />
-                Random Colors
-              </Button>
-              <Button variant="outline" size="sm" onClick={applyRandomPreset}>
-                <Shuffle className="w-4 h-4 mr-2" />
-                Shuffle
-              </Button>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {presetNames.map((presetName) => {
-              const preset = PRESET_THEMES[presetName];
-              const isActive = presetName === activePresetName;
-              return (
-                <button
-                  key={presetName}
-                  onClick={() => applyPreset(presetName)}
-                  className={`group relative rounded-lg border-2 p-3 text-left transition-all hover:scale-[1.02] ${
-                    isActive
-                      ? "border-primary ring-2 ring-primary/30"
-                      : "border-border hover:border-muted-foreground/40"
-                  }`}
-                  style={{ backgroundColor: `hsl(${preset.background})` }}
-                >
-                  {/* 4 brand swatches: primary, accent + their lights */}
-                  <div className="flex gap-1 mb-2">
-                    {(["primary", "accent", "primaryLight", "accentLight"] as const).map((token) => (
-                      <div
-                        key={token}
-                        className="h-4 flex-1 rounded-sm"
-                        style={{ backgroundColor: `hsl(${preset[token]})` }}
-                      />
-                    ))}
+          <div className="space-y-6">
+            {/* Preset Themes */}
+            <Card>
+              <CardContent className="p-6 space-y-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold">Preset Themes</h2>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={generateRandomTheme}>
+                      <Dices className="w-4 h-4 mr-2" />
+                      Random Colors
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={applyRandomPreset}>
+                      <Shuffle className="w-4 h-4 mr-2" />
+                      Shuffle
+                    </Button>
                   </div>
-                  {/* Foreground tone line */}
-                  <div
-                    className="h-1.5 mb-2 rounded-sm"
-                    style={{ backgroundColor: `hsl(${preset.foreground} / 0.15)` }}
-                  />
-                  {/* Label */}
-                  <div className="flex items-center justify-between">
-                    <span
-                      className="text-xs font-medium capitalize truncate"
-                      style={{ color: `hsl(${preset.foreground})` }}
-                    >
-                      {presetName.replace(/([A-Z])/g, " $1").trim()}
-                    </span>
-                    {isActive && (
-                      <Check className="w-3.5 h-3.5 shrink-0" style={{ color: `hsl(${preset.primary})` }} />
-                    )}
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {presetNames.map((presetName) => {
+                    const preset = PRESET_THEMES[presetName];
+                    const isActive = presetName === activePresetName;
+                    return (
+                      <button
+                        key={presetName}
+                        onClick={() => applyPreset(presetName)}
+                        className={`group relative rounded-lg border-2 p-3 text-left transition-all hover:scale-[1.02] ${
+                          isActive
+                            ? "border-primary ring-2 ring-primary/30"
+                            : "border-border hover:border-muted-foreground/40"
+                        }`}
+                        style={{ backgroundColor: `hsl(${preset.background})` }}
+                      >
+                        {/* 4 brand swatches: primary, accent + their lights */}
+                        <div className="flex gap-1 mb-2">
+                          {(["primary", "accent", "primaryLight", "accentLight"] as const).map(
+                            (token) => (
+                              <div
+                                key={token}
+                                className="h-4 flex-1 rounded-sm"
+                                style={{ backgroundColor: `hsl(${preset[token]})` }}
+                              />
+                            )
+                          )}
+                        </div>
+                        {/* Foreground tone line */}
+                        <div
+                          className="h-1.5 mb-2 rounded-sm"
+                          style={{ backgroundColor: `hsl(${preset.foreground} / 0.15)` }}
+                        />
+                        {/* Label */}
+                        <div className="flex items-center justify-between">
+                          <span
+                            className="text-xs font-medium capitalize truncate"
+                            style={{ color: `hsl(${preset.foreground})` }}
+                          >
+                            {presetName.replace(/([A-Z])/g, " $1").trim()}
+                          </span>
+                          {isActive && (
+                            <Check
+                              className="w-3.5 h-3.5 shrink-0"
+                              style={{ color: `hsl(${preset.primary})` }}
+                            />
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Custom Colors - Tab-grouped */}
+            <Card>
+              <CardContent className="p-6 space-y-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold">Custom Colors</h2>
+                  <Button variant="outline" size="sm" onClick={resetToDefault}>
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    Reset
+                  </Button>
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                  Pick your colors. Everything else in the app adjusts to match.
+                </p>
+                <ColorGroup
+                  keys={[
+                    "background",
+                    "foreground",
+                    "primary",
+                    "accent",
+                    "primaryLight",
+                    "accentLight",
+                  ]}
+                  theme={theme}
+                  labels={COLOR_LABELS}
+                  onColorChange={handleColorChange}
+                  onHslChange={(key, val) => setTheme({ ...theme, [key]: val })}
+                />
+
+                <div className="flex flex-col gap-2 border-t border-border pt-4 sm:flex-row sm:items-center">
+                  <div className="flex-1">
+                    <Input
+                      value={saveName}
+                      onChange={(e) => setSaveName(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleSaveTheme()}
+                      placeholder="Name this theme to save it"
+                    />
                   </div>
-                </button>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Custom Colors - Tab-grouped */}
-      <Card>
-        <CardContent className="p-6 space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Custom Colors</h2>
-            <Button variant="outline" size="sm" onClick={resetToDefault}>
-              <RotateCcw className="w-4 h-4 mr-2" />
-              Reset
-            </Button>
-          </div>
-
-          <p className="text-xs text-muted-foreground">
-            Pick your colors. Everything else in the app adjusts to match.
-          </p>
-          <ColorGroup
-            keys={["background", "foreground", "primary", "accent", "primaryLight", "accentLight"]}
-            theme={theme}
-            labels={COLOR_LABELS}
-            onColorChange={handleColorChange}
-            onHslChange={(key, val) => setTheme({ ...theme, [key]: val })}
-          />
-
-          <div className="flex flex-col gap-2 border-t border-border pt-4 sm:flex-row sm:items-center">
-            <div className="flex-1">
-              <Input
-                value={saveName}
-                onChange={(e) => setSaveName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSaveTheme()}
-                placeholder="Name this theme to save it"
-              />
-            </div>
-            <Button onClick={handleSaveTheme} disabled={!saveName.trim()} className="shrink-0">
-              <Save className="mr-2 h-4 w-4" />
-              Save theme
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* My Themes - saved custom themes */}
-      {savedThemes.length > 0 && (
-        <Card>
-          <CardContent className="p-6 space-y-6">
-            <h2 className="text-xl font-semibold">My Themes</h2>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-              {savedThemes.map((saved) => {
-                const c = saved.colors;
-                const isActive = (Object.keys(c) as Array<keyof ThemeColors>).every(
-                  (k) => c[k] === theme[k],
-                );
-                return (
-                  <div
-                    key={saved.id}
-                    className={`group relative rounded-lg border-2 p-3 transition-all ${
-                      isActive
-                        ? "border-primary ring-2 ring-primary/30"
-                        : "border-border hover:border-muted-foreground/40"
-                    }`}
-                    style={{ backgroundColor: `hsl(${c.background})` }}
+                  <Button
+                    onClick={handleSaveTheme}
+                    disabled={!saveName.trim()}
+                    className="shrink-0"
                   >
-                    <button
-                      onClick={() => setTheme(c)}
-                      className="block w-full text-left transition-transform hover:scale-[1.02]"
-                    >
-                      <div className="mb-2 flex gap-1">
-                        {(["primary", "accent", "primaryLight", "accentLight"] as const).map((token) => (
-                          <div
-                            key={token}
-                            className="h-4 flex-1 rounded-sm"
-                            style={{ backgroundColor: `hsl(${c[token]})` }}
-                          />
-                        ))}
-                      </div>
-                      <div
-                        className="mb-2 h-1.5 rounded-sm"
-                        style={{ backgroundColor: `hsl(${c.foreground} / 0.15)` }}
-                      />
-                      <div className="flex items-center justify-between">
-                        <span
-                          className="truncate text-xs font-medium"
-                          style={{ color: `hsl(${c.foreground})` }}
+                    <Save className="mr-2 h-4 w-4" />
+                    Save theme
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* My Themes - saved custom themes */}
+            {savedThemes.length > 0 && (
+              <Card>
+                <CardContent className="p-6 space-y-6">
+                  <h2 className="text-xl font-semibold">My Themes</h2>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                    {savedThemes.map((saved) => {
+                      const c = saved.colors;
+                      const isActive = (Object.keys(c) as Array<keyof ThemeColors>).every(
+                        (k) => c[k] === theme[k]
+                      );
+                      return (
+                        <div
+                          key={saved.id}
+                          className={`group relative rounded-lg border-2 p-3 transition-all ${
+                            isActive
+                              ? "border-primary ring-2 ring-primary/30"
+                              : "border-border hover:border-muted-foreground/40"
+                          }`}
+                          style={{ backgroundColor: `hsl(${c.background})` }}
                         >
-                          {saved.name}
-                        </span>
-                        {isActive && (
-                          <Check className="h-3.5 w-3.5 shrink-0" style={{ color: `hsl(${c.primary})` }} />
-                        )}
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => deleteSavedTheme(saved.id)}
-                      aria-label={`Delete ${saved.name}`}
-                      className="absolute right-1.5 top-1.5 rounded-md bg-background/80 p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                          <button
+                            onClick={() => setTheme(c)}
+                            className="block w-full text-left transition-transform hover:scale-[1.02]"
+                          >
+                            <div className="mb-2 flex gap-1">
+                              {(["primary", "accent", "primaryLight", "accentLight"] as const).map(
+                                (token) => (
+                                  <div
+                                    key={token}
+                                    className="h-4 flex-1 rounded-sm"
+                                    style={{ backgroundColor: `hsl(${c[token]})` }}
+                                  />
+                                )
+                              )}
+                            </div>
+                            <div
+                              className="mb-2 h-1.5 rounded-sm"
+                              style={{ backgroundColor: `hsl(${c.foreground} / 0.15)` }}
+                            />
+                            <div className="flex items-center justify-between">
+                              <span
+                                className="truncate text-xs font-medium"
+                                style={{ color: `hsl(${c.foreground})` }}
+                              >
+                                {saved.name}
+                              </span>
+                              {isActive && (
+                                <Check
+                                  className="h-3.5 w-3.5 shrink-0"
+                                  style={{ color: `hsl(${c.primary})` }}
+                                />
+                              )}
+                            </div>
+                          </button>
+                          <button
+                            onClick={() => deleteSavedTheme(saved.id)}
+                            aria-label={`Delete ${saved.name}`}
+                            className="absolute right-1.5 top-1.5 rounded-md bg-background/80 p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* AI Theme Designer */}
-      <Card>
-        <CardContent className="p-6 space-y-6">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            <h2 className="text-xl font-semibold">Design a theme with AI</h2>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Copy the prompt below, paste it into your favorite AI (ChatGPT, Claude, Gemini),
-            describe the vibe you want, then paste its JSON answer here to apply.
-          </p>
-
-          {/* Step 1 - copy prompt */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">1. Copy this prompt</span>
-              <Button variant="outline" size="sm" onClick={handleCopyPrompt}>
-                {promptCopied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
-                {promptCopied ? "Copied" : "Copy prompt"}
-              </Button>
-            </div>
-            <pre className="max-h-40 overflow-auto rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground whitespace-pre-wrap">
-              {THEME_AI_PROMPT}
-            </pre>
-          </div>
-
-          {/* Step 2 - paste result */}
-          <div className="space-y-2">
-            <span className="text-sm font-medium">2. Paste the AI's answer</span>
-            <textarea
-              value={importText}
-              onChange={(e) => {
-                setImportText(e.target.value);
-                setImportError("");
-              }}
-              placeholder='{ "background": "...", "foreground": "...", "primary": "..." }'
-              className="h-32 w-full resize-none rounded-md border border-input bg-background p-3 font-mono text-sm"
-            />
-            {importError && <p className="text-sm text-destructive">{importError}</p>}
-            <Button
-              onClick={handleApplyPasted}
-              disabled={!importText.trim()}
-              className="w-full"
-            >
-              <Sparkles className="mr-2 h-4 w-4" />
-              Apply theme
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-      {/* Demo data - dev builds only, for screenshots */}
-      {import.meta.env.DEV && (
-        <Card>
-          <CardContent className="p-6 space-y-6">
-            <h2 className="text-xl font-semibold">Demo data</h2>
-            <p className="text-sm text-muted-foreground">
-              Wipes everything, then populates the app with a polished set of paths, steps,
-              routines, and notes (with 30 days of history for analytics) for screenshots.
-            </p>
-            <Button
-              variant={seedArmed ? "destructive" : "outline"}
-              onClick={handleSeed}
-              loading={seeding}
-              disabled={seeding}
-            >
-              <Sparkles className="mr-2 h-4 w-4" />
-              {seeding ? "Seeding…" : seedArmed ? "Click again to confirm" : "Seed demo data"}
-            </Button>
-            {seedStatus && (
-              <p className="text-sm text-muted-foreground">{seedStatus}</p>
+                </CardContent>
+              </Card>
             )}
-          </CardContent>
-        </Card>
-      )}
-        </div>
+
+            {/* AI Theme Designer */}
+            <Card>
+              <CardContent className="p-6 space-y-6">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  <h2 className="text-xl font-semibold">Design a theme with AI</h2>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Copy the prompt below, paste it into your favorite AI (ChatGPT, Claude, Gemini),
+                  describe the vibe you want, then paste its JSON answer here to apply.
+                </p>
+
+                {/* Step 1 - copy prompt */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">1. Copy this prompt</span>
+                    <Button variant="outline" size="sm" onClick={handleCopyPrompt}>
+                      {promptCopied ? (
+                        <Check className="mr-2 h-4 w-4" />
+                      ) : (
+                        <Copy className="mr-2 h-4 w-4" />
+                      )}
+                      {promptCopied ? "Copied" : "Copy prompt"}
+                    </Button>
+                  </div>
+                  <pre className="max-h-40 overflow-auto rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground whitespace-pre-wrap">
+                    {THEME_AI_PROMPT}
+                  </pre>
+                </div>
+
+                {/* Step 2 - paste result */}
+                <div className="space-y-2">
+                  <span className="text-sm font-medium">2. Paste the AI's answer</span>
+                  <textarea
+                    value={importText}
+                    onChange={(e) => {
+                      setImportText(e.target.value);
+                      setImportError("");
+                    }}
+                    placeholder='{ "background": "...", "foreground": "...", "primary": "..." }'
+                    className="h-32 w-full resize-none rounded-md border border-input bg-background p-3 font-mono text-sm"
+                  />
+                  {importError && <p className="text-sm text-destructive">{importError}</p>}
+                  <Button
+                    onClick={handleApplyPasted}
+                    disabled={!importText.trim()}
+                    className="w-full"
+                  >
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Apply theme
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+            {/* Demo data - dev builds only, for screenshots */}
+            {import.meta.env.DEV && (
+              <Card>
+                <CardContent className="p-6 space-y-6">
+                  <h2 className="text-xl font-semibold">Demo data</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Wipes everything, then populates the app with a polished set of paths, steps,
+                    routines, and notes (with 30 days of history for analytics) for screenshots.
+                  </p>
+                  <Button
+                    variant={seedArmed ? "destructive" : "outline"}
+                    onClick={handleSeed}
+                    loading={seeding}
+                    disabled={seeding}
+                  >
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    {seeding ? "Seeding…" : seedArmed ? "Click again to confirm" : "Seed demo data"}
+                  </Button>
+                  {seedStatus && <p className="text-sm text-muted-foreground">{seedStatus}</p>}
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
     </div>

@@ -125,9 +125,7 @@ function Select({
                     className={cn(
                       "flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors",
                       "disabled:cursor-not-allowed disabled:opacity-50",
-                      isSelected
-                        ? "bg-primary-light text-primary font-medium"
-                        : "hover:bg-muted"
+                      isSelected ? "bg-primary-light text-primary font-medium" : "hover:bg-muted"
                     )}
                   >
                     <span className="truncate">{option.label}</span>

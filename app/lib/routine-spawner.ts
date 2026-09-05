@@ -1,7 +1,7 @@
-import { db } from './db';
-import type { LocalStep } from './db';
-import { calculateNextOccurrence, getLogicalDayStart } from './calculate-next-occurrence';
-import { getDaySettings, toDayBoundaryOpts } from './day-settings';
+import { db } from "./db";
+import type { LocalStep } from "./db";
+import { calculateNextOccurrence, getLogicalDayStart } from "./calculate-next-occurrence";
+import { getDaySettings, toDayBoundaryOpts } from "./day-settings";
 
 const SPAWN_INTERVAL = 15 * 60 * 1000; // 15 minutes
 
@@ -18,14 +18,15 @@ async function prioritizeDueSteps() {
     const startOfTomorrow = startOfToday + 24 * 60 * 60 * 1000;
 
     const stepsToPrioritize = await db.steps
-      .filter(s =>
-        !s.completed &&
-        !s.failed &&
-        !s.archived &&
-        !s.prioritizedToday &&
-        s.dueDate !== undefined &&
-        s.dueDate >= startOfToday &&
-        s.dueDate < startOfTomorrow
+      .filter(
+        (s) =>
+          !s.completed &&
+          !s.failed &&
+          !s.archived &&
+          !s.prioritizedToday &&
+          s.dueDate !== undefined &&
+          s.dueDate >= startOfToday &&
+          s.dueDate < startOfTomorrow
       )
       .toArray();
 
@@ -34,16 +35,14 @@ async function prioritizeDueSteps() {
       await db.steps.update(step._id, { prioritizedToday: true, updatedAt: now });
     }
   } catch (error) {
-    console.error('Due date prioritizer error:', error);
+    console.error("Due date prioritizer error:", error);
   }
 }
 
 async function spawnDueRoutines() {
   try {
     const now = Date.now();
-    const routines = await db.routines
-      .filter(r => r.nextOccurrence <= now)
-      .toArray();
+    const routines = await db.routines.filter((r) => r.nextOccurrence <= now).toArray();
 
     // Dedup window = the user's current logical day (configured turnover
     // boundary - must match the server cron's window or routines double-spawn).
@@ -57,10 +56,7 @@ async function spawnDueRoutines() {
       // day is checked many times per day and across restarts. `isRunning` guards
       // overlapping runs within one session; this check guards everything else.
       const existingToday = await db.steps
-        .filter(s =>
-          s.routineId === routine._id &&
-          s.createdAt >= startOfToday
-        )
+        .filter((s) => s.routineId === routine._id && s.createdAt >= startOfToday)
         .first();
 
       if (existingToday) continue;
@@ -101,7 +97,7 @@ async function spawnDueRoutines() {
       });
     }
   } catch (error) {
-    console.error('Routine spawner error:', error);
+    console.error("Routine spawner error:", error);
   }
 }
 
@@ -125,15 +121,15 @@ export function startRoutineSpawner(): () => void {
 
   // Run on visibility change (app resume)
   const handleVisibility = () => {
-    if (document.visibilityState === 'visible') {
+    if (document.visibilityState === "visible") {
       runScheduledTasks();
     }
   };
-  document.addEventListener('visibilitychange', handleVisibility);
+  document.addEventListener("visibilitychange", handleVisibility);
 
   // Return cleanup function
   return () => {
     clearInterval(intervalId);
-    document.removeEventListener('visibilitychange', handleVisibility);
+    document.removeEventListener("visibilitychange", handleVisibility);
   };
 }

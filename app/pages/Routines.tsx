@@ -6,64 +6,68 @@ import { reportError } from "@/lib/error-store";
 import { useToast } from "@/contexts/ToastContext";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
-import {
-  Plus,
-  X,
-  Star,
-  Target,
-  Pencil,
-  Repeat,
-  Calendar,
-} from "lucide-react";
+import { Plus, X, Star, Target, Pencil, Repeat, Calendar } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import QuickCreateRoutineDialog from "@/components/QuickCreateRoutineDialog";
 import { getKeybinds, formatKeybindDisplay } from "@/lib/keybind-config";
 
-
 const DAYS_OF_WEEK = [
-  { value: 0, label: 'Sun' },
-  { value: 1, label: 'Mon' },
-  { value: 2, label: 'Tue' },
-  { value: 3, label: 'Wed' },
-  { value: 4, label: 'Thu' },
-  { value: 5, label: 'Fri' },
-  { value: 6, label: 'Sat' },
+  { value: 0, label: "Sun" },
+  { value: 1, label: "Mon" },
+  { value: 2, label: "Tue" },
+  { value: 3, label: "Wed" },
+  { value: 4, label: "Thu" },
+  { value: 5, label: "Fri" },
+  { value: 6, label: "Sat" },
 ];
 
 function formatSchedule(routine: Routine): string {
   switch (routine.frequency) {
-    case 'daily':
-      return 'Every day';
-    case 'weekdays':
-      return 'Weekdays (Mon-Fri)';
-    case 'weekly': {
+    case "daily":
+      return "Every day";
+    case "weekdays":
+      return "Weekdays (Mon-Fri)";
+    case "weekly": {
       if (!routine.daysOfWeek || routine.daysOfWeek.length === 0) {
-        return 'Weekly';
+        return "Weekly";
       }
       const days = routine.daysOfWeek
         .sort((a, b) => a - b)
-        .map(d => DAYS_OF_WEEK.find(day => day.value === d)?.label)
-        .join(', ');
+        .map((d) => DAYS_OF_WEEK.find((day) => day.value === d)?.label)
+        .join(", ");
       return `Every ${days}`;
     }
-    case 'monthly': {
+    case "monthly": {
       const day = routine.dayOfMonth || 1;
-      const suffix = day === 1 ? 'st' : day === 2 ? 'nd' : day === 3 ? 'rd' : 'th';
+      const suffix = day === 1 ? "st" : day === 2 ? "nd" : day === 3 ? "rd" : "th";
       return `Monthly on the ${day}${suffix}`;
     }
-    case 'yearly': {
+    case "yearly": {
       const month = routine.month || 1;
       const day = routine.dayOfYear || 1;
-      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const monthNames = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+      ];
       return `Yearly on ${monthNames[month - 1]} ${day}`;
     }
     default:
-      return '';
+      return "";
   }
 }
 
 function formatNextOccurrence(timestamp: number | string | null | undefined): string {
-  if (!timestamp) return '';
+  if (!timestamp) return "";
   const date = new Date(Number(timestamp));
   const now = new Date();
   const tomorrow = new Date(now);
@@ -75,14 +79,13 @@ function formatNextOccurrence(timestamp: number | string | null | undefined): st
   const tomorrowOnly = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate());
 
   if (dateOnly.getTime() === todayOnly.getTime()) {
-    return 'Today';
+    return "Today";
   } else if (dateOnly.getTime() === tomorrowOnly.getTime()) {
-    return 'Tomorrow';
+    return "Tomorrow";
   } else {
-    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
   }
 }
-
 
 export default function Routines() {
   const toast = useToast();
@@ -103,14 +106,17 @@ export default function Routines() {
     setIsDialogOpen(true);
   }, []);
 
-  const handleDelete = useCallback(async (id: string) => {
-    try {
-      await deleteRoutineMutation({ id });
-    } catch (error) {
-      reportError('mutation', error, { action: 'deleteRoutine', routineId: id });
-      toast.error("Failed to delete routine");
-    }
-  }, [deleteRoutineMutation, toast]);
+  const handleDelete = useCallback(
+    async (id: string) => {
+      try {
+        await deleteRoutineMutation({ id });
+      } catch (error) {
+        reportError("mutation", error, { action: "deleteRoutine", routineId: id });
+        toast.error("Failed to delete routine");
+      }
+    },
+    [deleteRoutineMutation, toast]
+  );
 
   return (
     <div className="space-y-6">
@@ -129,10 +135,7 @@ export default function Routines() {
       {routines && routines.length > 0 ? (
         <div className="space-y-3">
           {routines.map((routine: Routine) => (
-            <Card
-              key={routine._id}
-              className="hover:border-primary/50 transition-colors"
-            >
+            <Card key={routine._id} className="hover:border-primary/50 transition-colors">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
@@ -154,9 +157,7 @@ export default function Routines() {
                         {formatSchedule(routine)}
                       </span>
                       {routine.nextOccurrence && (
-                        <span>
-                          Next: {formatNextOccurrence(routine.nextOccurrence)}
-                        </span>
+                        <span>Next: {formatNextOccurrence(routine.nextOccurrence)}</span>
                       )}
                       {routine.path && (
                         <span className="flex items-center gap-1 text-primary">

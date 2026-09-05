@@ -2,7 +2,6 @@ import type { CalendarDay } from "@/hooks/useCalendarEvents";
 import { getMonthGrid, getStartOfDay } from "@/lib/calendar-utils";
 import { DAY_LABELS as DAY_NAMES } from "@/lib/date-utils";
 
-
 const EVENT_COLORS: Record<string, string> = {
   due: "bg-primary",
   "due-overdue": "bg-destructive",

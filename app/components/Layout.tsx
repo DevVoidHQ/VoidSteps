@@ -7,7 +7,18 @@ import GlobalTimerBar from "./GlobalTimerBar";
 import TimerReconcileGuard from "./TimerReconcileGuard";
 import CommandBar from "./CommandBar";
 import { Button } from "@/components/ui/Button";
-import { CalendarClock, Check, Clock, History, Menu, Pencil, Play, Star, Trash2, XCircle } from "lucide-react";
+import {
+  CalendarClock,
+  Check,
+  Clock,
+  History,
+  Menu,
+  Pencil,
+  Play,
+  Star,
+  Trash2,
+  XCircle,
+} from "lucide-react";
 import { POSTPONE_TARGETS, resolvePostponeDate } from "@/lib/postpone";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { StepDialog, type StepDialogTab } from "./StepDialog";
@@ -54,7 +65,10 @@ export default function Layout({
   const [isQuickCreateReminderOpen, setIsQuickCreateReminderOpen] = useState(false);
   const [isCommandBarOpen, setIsCommandBarOpen] = useState(false);
   // A step reached through the command bar, and which of its dialogs is open.
-  const [paletteStep, setPaletteStep] = useState<{ step: Step; view: StepDialogTab | "time" } | null>(null);
+  const [paletteStep, setPaletteStep] = useState<{
+    step: Step;
+    view: StepDialogTab | "time";
+  } | null>(null);
 
   const { activeSteps, activePaths } = useData();
   const toast = useToast();
@@ -88,15 +102,23 @@ export default function Layout({
           id: "complete",
           label: step.completed ? "Mark not done" : "Complete",
           icon: Check,
-          run: () => run("toggleStep", () => toggleCompletion({ id: step._id }), step.completed ? "Step reopened" : "Step completed"),
+          run: () =>
+            run(
+              "toggleStep",
+              () => toggleCompletion({ id: step._id }),
+              step.completed ? "Step reopened" : "Step completed"
+            ),
         },
         {
           id: "priority",
           label: step.prioritizedToday ? "Remove from today" : "Prioritize for today",
           icon: Star,
           run: () =>
-            run("togglePriority", () => updateStep({ id: step._id, prioritizedToday: !step.prioritizedToday }),
-              step.prioritizedToday ? "Removed from today" : "Prioritized for today"),
+            run(
+              "togglePriority",
+              () => updateStep({ id: step._id, prioritizedToday: !step.prioritizedToday }),
+              step.prioritizedToday ? "Removed from today" : "Prioritized for today"
+            ),
         },
         // One entry per target rather than a nested date picker: the palette
         // filters on label, so typing "postpone" surfaces all of them and
@@ -110,7 +132,11 @@ export default function Layout({
               run: () => {
                 const dueDate = resolvePostponeDate(token);
                 if (dueDate === undefined) return;
-                run("postponeStep", () => updateStep({ id: step._id, dueDate }), `Postponed to ${label.toLowerCase()}`);
+                run(
+                  "postponeStep",
+                  () => updateStep({ id: step._id, dueDate }),
+                  `Postponed to ${label.toLowerCase()}`
+                );
               },
             }))),
         {
@@ -118,18 +144,41 @@ export default function Layout({
           label: timerRunning ? "Stop timer" : "Start timer",
           icon: Play,
           run: () =>
-            run("toggleTimer", () => (timerRunning ? stopTimer({ id: step._id }) : startTimer({ id: step._id })),
-              timerRunning ? "Timer stopped" : "Timer started"),
+            run(
+              "toggleTimer",
+              () => (timerRunning ? stopTimer({ id: step._id }) : startTimer({ id: step._id })),
+              timerRunning ? "Timer stopped" : "Timer started"
+            ),
         },
-        { id: "time", label: "Edit time tracked", icon: Clock, run: () => setPaletteStep({ step, view: "time" }) },
-        { id: "edit", label: "Edit step", icon: Pencil, run: () => setPaletteStep({ step, view: "details" }) },
-        { id: "activity", label: "Activity", icon: History, run: () => setPaletteStep({ step, view: "activity" }) },
+        {
+          id: "time",
+          label: "Edit time tracked",
+          icon: Clock,
+          run: () => setPaletteStep({ step, view: "time" }),
+        },
+        {
+          id: "edit",
+          label: "Edit step",
+          icon: Pencil,
+          run: () => setPaletteStep({ step, view: "details" }),
+        },
+        {
+          id: "activity",
+          label: "Activity",
+          icon: History,
+          run: () => setPaletteStep({ step, view: "activity" }),
+        },
         {
           id: "failed",
           label: step.failed ? "Unmark failed" : "Mark failed",
           icon: XCircle,
           confirm: !step.failed,
-          run: () => run("toggleFailed", () => toggleFailed({ id: step._id }), step.failed ? "Unmarked" : "Marked failed"),
+          run: () =>
+            run(
+              "toggleFailed",
+              () => toggleFailed({ id: step._id }),
+              step.failed ? "Unmarked" : "Marked failed"
+            ),
         },
         {
           id: "delete",
@@ -194,9 +243,21 @@ export default function Layout({
         buildStepActions={buildStepActions}
         actions={[
           { label: "New step", keybindKey: "quickCreate", run: () => setIsQuickCreateOpen(true) },
-          { label: "New routine", keybindKey: "quickCreateRoutine", run: () => setIsQuickCreateRoutineOpen(true) },
-          { label: "New path", keybindKey: "quickCreatePath", run: () => setIsQuickCreatePathOpen(true) },
-          { label: "New reminder", keybindKey: "quickCreateReminder", run: () => setIsQuickCreateReminderOpen(true) },
+          {
+            label: "New routine",
+            keybindKey: "quickCreateRoutine",
+            run: () => setIsQuickCreateRoutineOpen(true),
+          },
+          {
+            label: "New path",
+            keybindKey: "quickCreatePath",
+            run: () => setIsQuickCreatePathOpen(true),
+          },
+          {
+            label: "New reminder",
+            keybindKey: "quickCreateReminder",
+            run: () => setIsQuickCreateReminderOpen(true),
+          },
           { label: "Toggle sidebar", keybindKey: "toggleSidebar", run: toggleCollapse },
         ]}
       />
@@ -226,9 +287,7 @@ export default function Layout({
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
             className={
-              fullWidth
-                ? "w-full h-screen"
-                : "container mx-auto px-3 md:px-8 py-6 pb-24 md:py-6"
+              fullWidth ? "w-full h-screen" : "container mx-auto px-3 md:px-8 py-6 pb-24 md:py-6"
             }
           >
             {children}
@@ -236,12 +295,23 @@ export default function Layout({
         </AnimatePresence>
       </main>
 
-
       {/* Quick Create Dialogs */}
       <QuickCapture open={isQuickCreateOpen} onOpenChange={setIsQuickCreateOpen} />
-      <QuickCapture kind="routine" open={isQuickCreateRoutineOpen} onOpenChange={setIsQuickCreateRoutineOpen} />
-      <QuickCapture kind="path" open={isQuickCreatePathOpen} onOpenChange={setIsQuickCreatePathOpen} />
-      <QuickCapture kind="reminder" open={isQuickCreateReminderOpen} onOpenChange={setIsQuickCreateReminderOpen} />
+      <QuickCapture
+        kind="routine"
+        open={isQuickCreateRoutineOpen}
+        onOpenChange={setIsQuickCreateRoutineOpen}
+      />
+      <QuickCapture
+        kind="path"
+        open={isQuickCreatePathOpen}
+        onOpenChange={setIsQuickCreatePathOpen}
+      />
+      <QuickCapture
+        kind="reminder"
+        open={isQuickCreateReminderOpen}
+        onOpenChange={setIsQuickCreateReminderOpen}
+      />
 
       {/* Detail and time dialogs for a step reached through the command bar. */}
       {paletteStep && paletteStep.view !== "time" && (
@@ -254,7 +324,11 @@ export default function Layout({
             if (!open) setPaletteStep(null);
           }}
           onSaveEdit={(id, updates) =>
-            run("updateStep", () => updateStep({ id, ...updates } as Parameters<typeof updateStep>[0]), "Step updated")
+            run(
+              "updateStep",
+              () => updateStep({ id, ...updates } as Parameters<typeof updateStep>[0]),
+              "Step updated"
+            )
           }
         />
       )}
@@ -268,7 +342,11 @@ export default function Layout({
           currentTimeMs={paletteStep.step.totalTimeSpentMs || 0}
           isTimerRunning={paletteStep.step.timerStartedAt != null}
           onApply={(totalMs) =>
-            run("setTotalTime", () => setTotalTime({ id: paletteStep.step._id, totalTimeSpentMs: totalMs }), "Time updated")
+            run(
+              "setTotalTime",
+              () => setTotalTime({ id: paletteStep.step._id, totalTimeSpentMs: totalMs }),
+              "Time updated"
+            )
           }
         />
       )}

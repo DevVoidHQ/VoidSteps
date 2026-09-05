@@ -33,7 +33,13 @@ import {
   formatRelativePast,
   formatAbsoluteDateTime,
 } from "@/lib/date-utils";
-import { useShowStepDates, useStepActions, STEP_ACTION_ORDER, type StepActionKey, type StepClickAction } from "@/lib/preferences";
+import {
+  useShowStepDates,
+  useStepActions,
+  STEP_ACTION_ORDER,
+  type StepActionKey,
+  type StepClickAction,
+} from "@/lib/preferences";
 import type { ReactNode } from "react";
 
 export interface StepCardProps {
@@ -74,7 +80,10 @@ function StepCardComponent({
   const actionCfg = useStepActions();
 
   // The step's detail dialog (Details edit form | Activity timeline).
-  const [dialog, setDialog] = useState<{ open: boolean; tab: StepDialogTab }>({ open: false, tab: "details" });
+  const [dialog, setDialog] = useState<{ open: boolean; tab: StepDialogTab }>({
+    open: false,
+    tab: "details",
+  });
 
   // Delete confirmation state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -102,7 +111,12 @@ function StepCardComponent({
     if (confirmTimer.current) clearTimeout(confirmTimer.current);
     confirmTimer.current = setTimeout(() => setConfirmAction(null), 3000);
   }, []);
-  useEffect(() => () => { if (confirmTimer.current) clearTimeout(confirmTimer.current); }, []);
+  useEffect(
+    () => () => {
+      if (confirmTimer.current) clearTimeout(confirmTimer.current);
+    },
+    []
+  );
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -150,11 +164,20 @@ function StepCardComponent({
   const cardClasses = [
     "group hover:bg-muted/30 transition-all",
     step.failed === true ? "border-destructive/50" : "",
-  ].filter(Boolean).join(" ");
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   // Per-action descriptors. Each action is placed inline ("open") or inside the
   // "more" menu ("compact") per the user's Settings, independently.
-  type ActionDesc = { key: StepActionKey; available: boolean; label: string; icon: ReactNode; onClick: () => void; confirm?: boolean };
+  type ActionDesc = {
+    key: StepActionKey;
+    available: boolean;
+    label: string;
+    icon: ReactNode;
+    onClick: () => void;
+    confirm?: boolean;
+  };
   const descriptors: ActionDesc[] = [
     {
       key: "failed",
@@ -173,7 +196,11 @@ function StepCardComponent({
       key: "timer",
       available: !!onToggleTimer && !step.completed,
       label: isTimerActive ? "Stop timer" : "Start timer",
-      icon: isTimerActive ? <Pause className="w-4 h-4 text-primary" /> : <Play className="w-4 h-4" />,
+      icon: isTimerActive ? (
+        <Pause className="w-4 h-4 text-primary" />
+      ) : (
+        <Play className="w-4 h-4" />
+      ),
       onClick: () => onToggleTimer?.(step._id),
     },
     {
@@ -230,7 +257,9 @@ function StepCardComponent({
       onClick: () => setShowDeleteConfirm(true),
     },
   ];
-  const ordered = STEP_ACTION_ORDER.map((k) => descriptors.find((d) => d.key === k)!).filter((d) => d.available);
+  const ordered = STEP_ACTION_ORDER.map((k) => descriptors.find((d) => d.key === k)!).filter(
+    (d) => d.available
+  );
   const inlineActions = ordered.filter((d) => actionCfg[d.key] === "open");
   const menuActions = ordered.filter((d) => actionCfg[d.key] === "compact");
 
@@ -247,14 +276,16 @@ function StepCardComponent({
   };
 
   // Clicking the step body runs the page-configured action.
-  const handleStepClick = clickAction && clickAction !== "none"
-    ? () => {
-        if (clickAction === "prioritize") onTogglePriority(step._id, step.prioritizedToday);
-        else if (clickAction === "play") { if (onToggleTimer && !step.completed) onToggleTimer(step._id); }
-        else if (clickAction === "complete") onToggle(step._id);
-        else if (clickAction === "open") handleOpenActivity();
-      }
-    : undefined;
+  const handleStepClick =
+    clickAction && clickAction !== "none"
+      ? () => {
+          if (clickAction === "prioritize") onTogglePriority(step._id, step.prioritizedToday);
+          else if (clickAction === "play") {
+            if (onToggleTimer && !step.completed) onToggleTimer(step._id);
+          } else if (clickAction === "complete") onToggle(step._id);
+          else if (clickAction === "open") handleOpenActivity();
+        }
+      : undefined;
 
   return (
     <>
@@ -262,17 +293,14 @@ function StepCardComponent({
         <CardContent className="p-3">
           <div className="flex items-center space-x-3">
             {/* Checkbox - larger, vertically centered */}
-            <button
-              onClick={() => onToggle(step._id)}
-              className="flex-shrink-0"
-            >
+            <button onClick={() => onToggle(step._id)} className="flex-shrink-0">
               <div
                 className={`w-6 h-6 rounded border-2 flex items-center justify-center ${
                   step.completed
                     ? "bg-accent border-accent"
                     : step.failed === true
-                    ? "bg-destructive border-destructive"
-                    : "border-muted-foreground hover:border-accent"
+                      ? "bg-destructive border-destructive"
+                      : "border-muted-foreground hover:border-accent"
                 }`}
               >
                 {step.completed && <Check className="w-4 h-4 text-accent-foreground" />}
@@ -293,8 +321,8 @@ function StepCardComponent({
                     step.completed
                       ? "line-through text-muted-foreground"
                       : step.failed === true
-                      ? "line-through text-destructive"
-                      : ""
+                        ? "line-through text-destructive"
+                        : ""
                   }`}
                 >
                   {step.title}
@@ -309,12 +337,21 @@ function StepCardComponent({
               )}
 
               {/* Badges row - all metadata tags in one wrapping line */}
-              {(step.pathId || step.path || step.routineId || (!step.completed && (step.dueDate || (showStartDateBadge && step.startDate) || (onToggleTimer && (isTimerActive || (step.totalTimeSpentMs && step.totalTimeSpentMs > 0)))))) && (
+              {(step.pathId ||
+                step.path ||
+                step.routineId ||
+                (!step.completed &&
+                  (step.dueDate ||
+                    (showStartDateBadge && step.startDate) ||
+                    (onToggleTimer &&
+                      (isTimerActive ||
+                        (step.totalTimeSpentMs && step.totalTimeSpentMs > 0)))))) && (
                 <div className="flex flex-wrap items-center gap-1.5 mt-1">
                   {/* Path badge */}
                   {(step.pathId || step.path) && (
                     <Badge variant="secondary" size="sm" icon={<Target className="w-3 h-3" />}>
-                      {step.path?.title || (typeof step.pathId === "object" && step.pathId ? step.pathId.title : "")}
+                      {step.path?.title ||
+                        (typeof step.pathId === "object" && step.pathId ? step.pathId.title : "")}
                     </Badge>
                   )}
                   {/* Routine badge */}
@@ -324,17 +361,17 @@ function StepCardComponent({
                     </Badge>
                   )}
                   {/* Due date badges (only when not completed) */}
-                  {!step.completed && step.dueDate && dueDateStatus === 'overdue' && (
+                  {!step.completed && step.dueDate && dueDateStatus === "overdue" && (
                     <Badge variant="destructive" size="sm" icon={<Clock className="w-3 h-3" />}>
                       {formatRelativeDate(step.dueDate)}
                     </Badge>
                   )}
-                  {!step.completed && step.dueDate && dueDateStatus === 'due-soon' && (
+                  {!step.completed && step.dueDate && dueDateStatus === "due-soon" && (
                     <Badge variant="warning" size="sm" icon={<Clock className="w-3 h-3" />}>
                       Due {formatRelativeDate(step.dueDate).toLowerCase()}
                     </Badge>
                   )}
-                  {!step.completed && step.dueDate && dueDateStatus === 'upcoming' && (
+                  {!step.completed && step.dueDate && dueDateStatus === "upcoming" && (
                     <Badge variant="secondary" size="sm" icon={<Clock className="w-3 h-3" />}>
                       Due {formatRelativeDate(step.dueDate).toLowerCase()}
                     </Badge>
@@ -346,11 +383,17 @@ function StepCardComponent({
                     </Badge>
                   )}
                   {/* Timer badge - clickable to open time edit dialog */}
-                  {!step.completed && onToggleTimer && (isTimerActive || (step.totalTimeSpentMs && step.totalTimeSpentMs > 0)) && (
-                    onSetTotalTime ? (
+                  {!step.completed &&
+                    onToggleTimer &&
+                    (isTimerActive || (step.totalTimeSpentMs && step.totalTimeSpentMs > 0)) &&
+                    (onSetTotalTime ? (
                       <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); setShowTimeEdit(true); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          setShowTimeEdit(true);
+                        }}
                         className="cursor-pointer hover:opacity-80 transition-opacity"
                       >
                         <Badge variant="secondary" size="sm" icon={<Timer className="w-3 h-3" />}>
@@ -361,34 +404,34 @@ function StepCardComponent({
                       <Badge variant="secondary" size="sm" icon={<Timer className="w-3 h-3" />}>
                         {isTimerActive ? elapsedTime : formatDuration(step.totalTimeSpentMs || 0)}
                       </Badge>
-                    )
-                  )}
+                    ))}
                 </div>
               )}
 
               {/* Footer: created / last-updated metadata. Toggle in Settings. */}
-              {showStepDates && step.createdAt != null && (() => {
-                const created = Number(step.createdAt);
-                const updated = Number(step.updatedAt);
-                // Only surface "Updated" when it's meaningfully after creation.
-                const showUpdated =
-                  Number.isFinite(updated) && updated - created > 60_000;
-                return (
-                  <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 text-[11px] leading-tight text-muted-foreground">
-                    <span title={formatAbsoluteDateTime(created)}>
-                      Created {formatRelativePast(created)}
-                    </span>
-                    {showUpdated && (
-                      <>
-                        <span aria-hidden="true">·</span>
-                        <span title={formatAbsoluteDateTime(updated)}>
-                          Updated {formatRelativePast(updated)}
-                        </span>
-                      </>
-                    )}
-                  </div>
-                );
-              })()}
+              {showStepDates &&
+                step.createdAt != null &&
+                (() => {
+                  const created = Number(step.createdAt);
+                  const updated = Number(step.updatedAt);
+                  // Only surface "Updated" when it's meaningfully after creation.
+                  const showUpdated = Number.isFinite(updated) && updated - created > 60_000;
+                  return (
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 text-[11px] leading-tight text-muted-foreground">
+                      <span title={formatAbsoluteDateTime(created)}>
+                        Created {formatRelativePast(created)}
+                      </span>
+                      {showUpdated && (
+                        <>
+                          <span aria-hidden="true">·</span>
+                          <span title={formatAbsoluteDateTime(updated)}>
+                            Updated {formatRelativePast(updated)}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
             </div>
 
             {/* Right: Action buttons. Each action is inline or in the "more"
@@ -398,13 +441,7 @@ function StepCardComponent({
                 const armed = confirmAction === d.key;
                 const btn = (
                   <IconButton
-                    icon={
-                      armed ? (
-                        <Check className="w-4 h-4 text-destructive" />
-                      ) : (
-                        d.icon
-                      )
-                    }
+                    icon={armed ? <Check className="w-4 h-4 text-destructive" /> : d.icon}
                     aria-label={armed ? "Click again to confirm" : d.label}
                     title={armed ? "Click again to confirm" : undefined}
                     variant="ghost"
@@ -413,7 +450,11 @@ function StepCardComponent({
                     onClick={() => runAction(d, false)}
                   />
                 );
-                return <span key={d.key} className="inline-flex">{btn}</span>;
+                return (
+                  <span key={d.key} className="inline-flex">
+                    {btn}
+                  </span>
+                );
               })}
 
               {menuActions.length > 0 && (
@@ -434,10 +475,14 @@ function StepCardComponent({
                             key={d.key}
                             onClick={() => runAction(d, true)}
                             className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-sm outline-none transition-colors focus-visible:bg-muted ${
-                              armed ? "text-destructive hover:bg-destructive/10" : "text-foreground hover:bg-muted"
+                              armed
+                                ? "text-destructive hover:bg-destructive/10"
+                                : "text-foreground hover:bg-muted"
                             }`}
                           >
-                            <span className="flex h-4 w-4 items-center justify-center">{d.icon}</span>
+                            <span className="flex h-4 w-4 items-center justify-center">
+                              {d.icon}
+                            </span>
                             {armed ? "Click again to fail" : d.label}
                           </button>
                         );

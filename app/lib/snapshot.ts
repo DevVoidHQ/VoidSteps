@@ -8,19 +8,32 @@
  *
  * `errorLog` is deliberately excluded: it is diagnostic, not content.
  */
-import { db } from './db';
+import { db } from "./db";
 import type {
-  LocalStep, LocalPath, LocalRoutine, LocalReminder,
-  LocalNotebook, LocalNote, LocalUserSettings,
-  LocalTimeEntry, LocalActivityEvent,
-} from './db';
+  LocalStep,
+  LocalPath,
+  LocalRoutine,
+  LocalReminder,
+  LocalNotebook,
+  LocalNote,
+  LocalUserSettings,
+  LocalTimeEntry,
+  LocalActivityEvent,
+} from "./db";
 
-export const SNAPSHOT_FORMAT = 'voidsteps-snapshot';
+export const SNAPSHOT_FORMAT = "voidsteps-snapshot";
 export const SNAPSHOT_VERSION = 1;
 
 export const SNAPSHOT_TABLES = [
-  'steps', 'paths', 'routines', 'reminders',
-  'notebooks', 'notes', 'userSettings', 'timeEntries', 'activityEvents',
+  "steps",
+  "paths",
+  "routines",
+  "reminders",
+  "notebooks",
+  "notes",
+  "userSettings",
+  "timeEntries",
+  "activityEvents",
 ] as const;
 
 export type SnapshotTable = (typeof SNAPSHOT_TABLES)[number];
@@ -49,9 +62,7 @@ export interface Snapshot {
 export type SnapshotCounts = Record<SnapshotTable, number>;
 
 export function countRows(data: SnapshotData): SnapshotCounts {
-  return Object.fromEntries(
-    SNAPSHOT_TABLES.map((t) => [t, data[t].length])
-  ) as SnapshotCounts;
+  return Object.fromEntries(SNAPSHOT_TABLES.map((t) => [t, data[t].length])) as SnapshotCounts;
 }
 
 export function totalRows(counts: SnapshotCounts): number {
@@ -75,7 +86,7 @@ export function parseSnapshot(raw: string): Snapshot {
     throw new Error("That file isn't valid JSON.");
   }
 
-  if (typeof parsed !== 'object' || parsed === null) {
+  if (typeof parsed !== "object" || parsed === null) {
     throw new Error("That file isn't a VoidSteps snapshot.");
   }
   const obj = parsed as Record<string, unknown>;
@@ -83,16 +94,16 @@ export function parseSnapshot(raw: string): Snapshot {
   if (obj.format !== SNAPSHOT_FORMAT) {
     throw new Error("That file isn't a VoidSteps snapshot.");
   }
-  if (typeof obj.version !== 'number' || !Number.isInteger(obj.version)) {
-    throw new Error('That snapshot has no version and cannot be read.');
+  if (typeof obj.version !== "number" || !Number.isInteger(obj.version)) {
+    throw new Error("That snapshot has no version and cannot be read.");
   }
   if (obj.version > SNAPSHOT_VERSION) {
     throw new Error(
       `That snapshot was written by a newer version of VoidSteps (format ${obj.version}, this build reads ${SNAPSHOT_VERSION}). Update the app first.`
     );
   }
-  if (typeof obj.data !== 'object' || obj.data === null) {
-    throw new Error('That snapshot has no data in it.');
+  if (typeof obj.data !== "object" || obj.data === null) {
+    throw new Error("That snapshot has no data in it.");
   }
 
   const rawData = obj.data as Record<string, unknown>;
@@ -108,7 +119,11 @@ export function parseSnapshot(raw: string): Snapshot {
       throw new Error(`That snapshot's "${table}" section is malformed.`);
     }
     for (const row of rows) {
-      if (typeof row !== 'object' || row === null || typeof (row as { _id?: unknown })._id !== 'string') {
+      if (
+        typeof row !== "object" ||
+        row === null ||
+        typeof (row as { _id?: unknown })._id !== "string"
+      ) {
         throw new Error(`That snapshot has a row in "${table}" with no id.`);
       }
     }
@@ -118,33 +133,52 @@ export function parseSnapshot(raw: string): Snapshot {
   return {
     format: SNAPSHOT_FORMAT,
     version: obj.version,
-    createdAt: typeof obj.createdAt === 'number' ? obj.createdAt : 0,
-    source: typeof obj.source === 'string' ? obj.source : 'unknown',
+    createdAt: typeof obj.createdAt === "number" ? obj.createdAt : 0,
+    source: typeof obj.source === "string" ? obj.source : "unknown",
     data,
   };
 }
 
 /** Read the whole local database into a snapshot envelope. */
-export async function buildSnapshot(source = 'manual export'): Promise<Snapshot> {
-  const [steps, paths, routines, reminders, notebooks, notes, userSettings, timeEntries, activityEvents] =
-    await Promise.all([
-      db.steps.toArray(),
-      db.paths.toArray(),
-      db.routines.toArray(),
-      db.reminders.toArray(),
-      db.notebooks.toArray(),
-      db.notes.toArray(),
-      db.userSettings.toArray(),
-      db.timeEntries.toArray(),
-      db.activityEvents.toArray(),
-    ]);
+export async function buildSnapshot(source = "manual export"): Promise<Snapshot> {
+  const [
+    steps,
+    paths,
+    routines,
+    reminders,
+    notebooks,
+    notes,
+    userSettings,
+    timeEntries,
+    activityEvents,
+  ] = await Promise.all([
+    db.steps.toArray(),
+    db.paths.toArray(),
+    db.routines.toArray(),
+    db.reminders.toArray(),
+    db.notebooks.toArray(),
+    db.notes.toArray(),
+    db.userSettings.toArray(),
+    db.timeEntries.toArray(),
+    db.activityEvents.toArray(),
+  ]);
 
   return {
     format: SNAPSHOT_FORMAT,
     version: SNAPSHOT_VERSION,
     createdAt: Date.now(),
     source,
-    data: { steps, paths, routines, reminders, notebooks, notes, userSettings, timeEntries, activityEvents },
+    data: {
+      steps,
+      paths,
+      routines,
+      reminders,
+      notebooks,
+      notes,
+      userSettings,
+      timeEntries,
+      activityEvents,
+    },
   };
 }
 
@@ -160,8 +194,18 @@ export async function restoreSnapshot(snapshot: Snapshot): Promise<SnapshotCount
   const { data } = snapshot;
 
   await db.transaction(
-    'rw',
-    [db.steps, db.paths, db.routines, db.reminders, db.notebooks, db.notes, db.userSettings, db.timeEntries, db.activityEvents],
+    "rw",
+    [
+      db.steps,
+      db.paths,
+      db.routines,
+      db.reminders,
+      db.notebooks,
+      db.notes,
+      db.userSettings,
+      db.timeEntries,
+      db.activityEvents,
+    ],
     async () => {
       // Written out per table rather than looped: Dexie's bulkAdd overloads
       // don't resolve across a union of differently-typed tables.
@@ -193,6 +237,6 @@ export async function restoreSnapshot(snapshot: Snapshot): Promise<SnapshotCount
 /** Filename for a downloaded snapshot: stable prefix, sortable date. */
 export function snapshotFilename(at = Date.now()): string {
   const d = new Date(at);
-  const pad = (n: number) => String(n).padStart(2, '0');
+  const pad = (n: number) => String(n).padStart(2, "0");
   return `voidsteps-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.json`;
 }

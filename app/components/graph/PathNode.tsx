@@ -1,5 +1,5 @@
-import { Target, CheckCircle2, XCircle, Circle } from 'lucide-react';
-import HiddenHandles from './HiddenHandles';
+import { Target, CheckCircle2, XCircle, Circle } from "lucide-react";
+import HiddenHandles from "./HiddenHandles";
 
 interface PathNodeData {
   label: string;
@@ -13,7 +13,7 @@ interface PathNodeData {
 export default function PathNode({ data }: { data: PathNodeData }) {
   const truncateText = (text: string, maxLength: number) => {
     if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + '...';
+    return text.substring(0, maxLength) + "...";
   };
 
   // Root paths get thicker border styling (similar to old PathwayNode)
@@ -22,7 +22,7 @@ export default function PathNode({ data }: { data: PathNodeData }) {
     : "px-4 py-3 rounded-md border border-primary shadow-md min-w-[180px]";
 
   return (
-    <div className={borderClass} style={{ backgroundColor: 'hsl(var(--background))' }}>
+    <div className={borderClass} style={{ backgroundColor: "hsl(var(--background))" }}>
       <HiddenHandles />
 
       <div className="flex items-start space-x-2">

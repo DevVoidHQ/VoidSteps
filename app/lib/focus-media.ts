@@ -50,7 +50,10 @@ export async function getFocusMedia(kind: FocusMediaKind): Promise<LocalFocusMed
  * and closed many times a day.
  */
 export function useFocusMedia(kind: FocusMediaKind): { url: string | null; name: string | null } {
-  const [state, setState] = useState<{ url: string | null; name: string | null }>({ url: null, name: null });
+  const [state, setState] = useState<{ url: string | null; name: string | null }>({
+    url: null,
+    name: null,
+  });
 
   useEffect(() => {
     let cancelled = false;
