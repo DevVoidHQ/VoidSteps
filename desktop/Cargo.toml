@@ -1,6 +1,6 @@
 [package]
 name = "voidsteps"
-version = "0.1.0"
+version = "0.2.0"
 description = "Local-first tracker for paths, steps and routines"
 authors = ["Aneesh Bhat"]
 edition = "2021"
