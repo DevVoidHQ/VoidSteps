@@ -55,7 +55,7 @@ function persistedDate(): string | null {
 
 export default function Calendar() {
   const toast = useToast();
-  const { allSteps, reminders, activePaths, activeTimerStepId } = useData();
+  const { allSteps, reminders, activePaths, runningTimerStepIds } = useData();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const urlView = searchParams.get("view") as CalendarView | null;
@@ -278,10 +278,11 @@ export default function Calendar() {
   const handleToggleTimer = useCallback(
     async (id: string) => {
       try {
-        if (activeTimerStepId === id) {
+        // Timers run in parallel, so this only ever touches the step you
+        // clicked: no other running timer is stopped on its behalf.
+        if (runningTimerStepIds.includes(id)) {
           await stopTimerMutation({ id });
         } else {
-          if (activeTimerStepId) await stopTimerMutation({ id: activeTimerStepId });
           await startTimerMutation({ id });
         }
       } catch (e) {
@@ -289,7 +290,7 @@ export default function Calendar() {
         toast.error("Failed to toggle timer");
       }
     },
-    [activeTimerStepId, startTimerMutation, stopTimerMutation, toast]
+    [runningTimerStepIds, startTimerMutation, stopTimerMutation, toast]
   );
 
   const handleSetTotalTime = useCallback(
@@ -311,7 +312,6 @@ export default function Calendar() {
     onSaveEdit: handleSaveEdit,
     onTogglePriority: handleTogglePriority,
     onToggleTimer: handleToggleTimer,
-    activeTimerStepId: activeTimerStepId ?? null,
     onSetTotalTime: handleSetTotalTime,
     paths: activePaths ?? [],
   };

@@ -32,7 +32,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 
 export default function Steps() {
   const toast = useToast();
-  const { activePaths, activeSteps, allSteps, failedSteps, upcomingSteps, activeTimerStepId } =
+  const { activePaths, activeSteps, allSteps, failedSteps, upcomingSteps, runningTimerStepIds } =
     useData();
 
   // Mutations
@@ -48,10 +48,11 @@ export default function Steps() {
   const toggleTimer = useCallback(
     async (id: string) => {
       try {
-        if (activeTimerStepId === id) {
+        // Timers run in parallel, so this only ever touches the step you
+        // clicked: no other running timer is stopped on its behalf.
+        if (runningTimerStepIds.includes(id)) {
           await stopTimerMutation({ id });
         } else {
-          if (activeTimerStepId) await stopTimerMutation({ id: activeTimerStepId });
           await startTimerMutation({ id });
         }
       } catch (error) {
@@ -59,7 +60,7 @@ export default function Steps() {
         toast.error("Failed to toggle timer");
       }
     },
-    [activeTimerStepId, startTimerMutation, stopTimerMutation, toast]
+    [runningTimerStepIds, startTimerMutation, stopTimerMutation, toast]
   );
 
   const setTotalTime = useCallback(
@@ -342,7 +343,6 @@ export default function Steps() {
                 onTogglePriority={togglePriority}
                 onSaveEdit={updateStep}
                 onToggleTimer={toggleTimer}
-                activeTimerStepId={activeTimerStepId}
                 onSetTotalTime={setTotalTime}
                 clickAction={stepsClickAction}
               />
@@ -369,7 +369,6 @@ export default function Steps() {
             onTogglePriority={togglePriority}
             onSaveEdit={updateStep}
             onToggleTimer={toggleTimer}
-            activeTimerStepId={activeTimerStepId}
             onSetTotalTime={setTotalTime}
             clickAction={stepsClickAction}
           />
@@ -391,7 +390,6 @@ export default function Steps() {
             onTogglePriority={togglePriority}
             onSaveEdit={updateStep}
             onToggleTimer={toggleTimer}
-            activeTimerStepId={activeTimerStepId}
             onSetTotalTime={setTotalTime}
             clickAction={stepsClickAction}
           />
@@ -443,7 +441,6 @@ export default function Steps() {
                   onTogglePriority={togglePriority}
                   onSaveEdit={updateStep}
                   onToggleTimer={toggleTimer}
-                  activeTimerStepId={activeTimerStepId}
                   onSetTotalTime={setTotalTime}
                   clickAction={stepsClickAction}
                   showStartDateBadge
@@ -493,7 +490,6 @@ export default function Steps() {
                 onTogglePriority={togglePriority}
                 onSaveEdit={updateStep}
                 onToggleTimer={toggleTimer}
-                activeTimerStepId={activeTimerStepId}
                 onSetTotalTime={setTotalTime}
                 clickAction={stepsClickAction}
               />
@@ -521,7 +517,6 @@ export default function Steps() {
                 onTogglePriority={togglePriority}
                 onSaveEdit={updateStep}
                 onToggleTimer={toggleTimer}
-                activeTimerStepId={activeTimerStepId}
                 onSetTotalTime={setTotalTime}
                 clickAction={stepsClickAction}
               />

@@ -32,6 +32,13 @@ export interface DayInterval {
   clippedEnd?: boolean;
   /** The step no longer exists - rendered from the entry's denormalized title. */
   deletedStep?: boolean;
+  /** Untracked time before this interval, measured from the furthest point any
+   * earlier interval reached rather than from the previous row's end. With
+   * timers running in parallel the previous row can end long before the one
+   * above it does, and subtracting the wrong end invents gaps. */
+  gapBefore?: number;
+  /** This interval starts while an earlier one is still open. */
+  overlapsPrevious?: boolean;
 }
 
 export interface StepForTimeline {
@@ -58,12 +65,14 @@ export function clipToDay(
 
 /**
  * Build the chronological interval list for one day: stored entries clipped to
- * the day plus the live running session (when it overlaps). Sorted by start.
+ * the day plus every live running session that overlaps it. Sorted by start,
+ * then annotated with gaps and overlap, which cannot be derived row by row
+ * once sessions can run at the same time.
  */
 export function buildDayIntervals(
   entries: LocalTimeEntry[],
   stepsById: Map<string, StepForTimeline>,
-  runningStep: StepForTimeline | null,
+  runningSteps: StepForTimeline[],
   dayStart: number,
   now: number
 ): DayInterval[] {
@@ -88,25 +97,59 @@ export function buildDayIntervals(
     });
   }
 
-  if (runningStep?.timerStartedAt != null && runningStep.timerStartedAt < now) {
+  for (const runningStep of runningSteps) {
+    if (runningStep.timerStartedAt == null || runningStep.timerStartedAt >= now) continue;
     const clipped = clipToDay(runningStep.timerStartedAt, now, dayStart);
-    if (clipped) {
-      intervals.push({
-        stepId: runningStep._id,
-        title: runningStep.title,
-        pathTitle: runningStep.pathTitle,
-        source: "timer",
-        start: clipped.start,
-        end: clipped.end,
-        durationMs: clipped.end - clipped.start,
-        running: true,
-        clippedStart: clipped.clippedStart,
-        clippedEnd: false,
-      });
-    }
+    if (!clipped) continue;
+    intervals.push({
+      stepId: runningStep._id,
+      title: runningStep.title,
+      pathTitle: runningStep.pathTitle,
+      source: "timer",
+      start: clipped.start,
+      end: clipped.end,
+      durationMs: clipped.end - clipped.start,
+      running: true,
+      clippedStart: clipped.clippedStart,
+      clippedEnd: false,
+    });
   }
 
-  return intervals.sort((a, b) => a.start - b.start || a.end - b.end);
+  intervals.sort((a, b) => a.start - b.start || a.end - b.end);
+
+  let reached = -Infinity;
+  for (const iv of intervals) {
+    if (reached > -Infinity) {
+      if (iv.start < reached) iv.overlapsPrevious = true;
+      else if (iv.start > reached) iv.gapBefore = iv.start - reached;
+    }
+    reached = Math.max(reached, iv.end);
+  }
+
+  return intervals;
+}
+
+/**
+ * Wall-clock time the day's intervals actually cover, merging overlaps. Summing
+ * durations answers "how much effort", this answers "how much of the day", and
+ * with parallel timers the first can exceed 24 hours while the second cannot.
+ */
+export function unionCoverageMs(intervals: DayInterval[]): number {
+  if (intervals.length === 0) return 0;
+  const sorted = [...intervals].sort((a, b) => a.start - b.start);
+  let total = 0;
+  let spanStart = sorted[0].start;
+  let spanEnd = sorted[0].end;
+  for (const iv of sorted.slice(1)) {
+    if (iv.start > spanEnd) {
+      total += spanEnd - spanStart;
+      spanStart = iv.start;
+      spanEnd = iv.end;
+    } else if (iv.end > spanEnd) {
+      spanEnd = iv.end;
+    }
+  }
+  return total + (spanEnd - spanStart);
 }
 
 export interface DaySummarySegment {

@@ -36,7 +36,6 @@ interface DraggableStepListProps {
   showStartDateBadge?: boolean;
   // Timer props
   onToggleTimer?: (id: string) => void;
-  activeTimerStepId?: string | null;
   onSetTotalTime?: (id: string, totalTimeMs: number) => void;
   clickAction?: StepCardProps["clickAction"];
 }
@@ -110,7 +109,6 @@ export function DraggableStepList({
   onSaveEdit,
   showStartDateBadge,
   onToggleTimer,
-  activeTimerStepId,
   onSetTotalTime,
   clickAction,
 }: DraggableStepListProps) {
@@ -165,7 +163,6 @@ export function DraggableStepList({
               isDragging={activeId === step._id}
               showStartDateBadge={showStartDateBadge}
               onToggleTimer={onToggleTimer}
-              activeTimerStepId={activeTimerStepId}
               onSetTotalTime={onSetTotalTime}
               clickAction={clickAction}
             />

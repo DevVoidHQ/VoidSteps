@@ -15,6 +15,8 @@ import {
   setFocusBackground,
   setFocusTrack,
   setOpenFocusOnPlay,
+  setTimerBarHidden,
+  useTimerBarHidden,
   useFocusBackground,
   useFocusTrack,
   useOpenFocusOnPlay,
@@ -40,6 +42,7 @@ export default function FocusSettings() {
   const { url: customAudioUrl, name: audioName } = useFocusMedia("audio");
   // Reactive, so resetting preferences elsewhere updates this toggle too.
   const openOnPlay = useOpenFocusOnPlay();
+  const timerBarHidden = useTimerBarHidden();
 
   const imageInput = useRef<HTMLInputElement>(null);
   const audioInput = useRef<HTMLInputElement>(null);
@@ -252,6 +255,13 @@ export default function FocusSettings() {
           onChange={(e) => setOpenFocusOnPlay(e.target.checked)}
           label="Open focus view when starting a timer"
           description="Starting a step's timer opens the fullscreen focus view. On by default."
+        />
+        <Toggle
+          size="sm"
+          checked={!timerBarHidden}
+          onChange={(e) => setTimerBarHidden(!e.target.checked)}
+          label="Show the running timer bar"
+          description="The floating bar with the live clock. Turning it off hides the bar and the focus view, and does not stop anything: timers keep running and still show on their step cards."
         />
         <p className="text-sm text-muted-foreground">
           Your own image and track are not included in backups, because they would add tens of

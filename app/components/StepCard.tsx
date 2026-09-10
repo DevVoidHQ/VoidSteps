@@ -55,7 +55,6 @@ export interface StepCardProps {
   showStartDateBadge?: boolean;
   // Timer props
   onToggleTimer?: (id: string) => void;
-  activeTimerStepId?: string | null;
   onSetTotalTime?: (id: string, totalTimeMs: number) => void;
   // What clicking the step's title/body does (page-configurable). Undefined = no-op.
   clickAction?: StepClickAction;
@@ -71,7 +70,6 @@ function StepCardComponent({
   onSaveEdit,
   showStartDateBadge = false,
   onToggleTimer,
-  activeTimerStepId,
   onSetTotalTime,
   clickAction,
 }: StepCardProps) {
@@ -154,8 +152,9 @@ function StepCardComponent({
   // Compute date status for display
   const dueDateStatus = getDueDateStatus(step.dueDate);
 
-  // Timer state
-  const isTimerActive = step._id === activeTimerStepId && step.timerStartedAt != null;
+  // Timer state. Read from the step itself: timers run in parallel, so there
+  // is no single active id to compare against.
+  const isTimerActive = step.timerStartedAt != null;
   const elapsedTime = useElapsedTime(
     isTimerActive ? step.timerStartedAt : undefined,
     step.totalTimeSpentMs || 0
@@ -557,7 +556,6 @@ export const StepCard = memo(StepCardComponent, (prevProps, nextProps) => {
     prevProps.showStartDateBadge === nextProps.showStartDateBadge &&
     // Timer props
     prevProps.onToggleTimer === nextProps.onToggleTimer &&
-    prevProps.activeTimerStepId === nextProps.activeTimerStepId &&
     prevProps.onSetTotalTime === nextProps.onSetTotalTime &&
     prevProps.clickAction === nextProps.clickAction
   );

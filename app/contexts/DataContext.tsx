@@ -26,8 +26,9 @@ interface DataContextType {
   clearOptimisticDelete: (id: string) => void;
   // Helpers
   isStepUpcoming: (step: Step) => boolean;
-  // Timer
-  activeTimerStepId: string | null;
+  // Timer. Several steps can run at once, so this is a set rather than an id.
+  // Ordered newest start first, which makes [0] the one the timer bar adopts.
+  runningTimerStepIds: string[];
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -212,11 +213,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isLoading =
     localSteps === undefined || localPaths === undefined || localRoutines === undefined;
 
-  // Active timer step ID
-  const activeTimerStepId = useMemo(() => {
-    if (!allSteps) return null;
-    const stepWithTimer = allSteps.find((s) => s.timerStartedAt != null);
-    return stepWithTimer?._id ?? null;
+  // Every step with a running timer, newest start first. Per-card state reads
+  // step.timerStartedAt directly, so this exists for the surfaces that need to
+  // know about the whole set: the timer bar, focus mode and the Day Log.
+  const runningTimerStepIds = useMemo(() => {
+    if (!allSteps) return [];
+    return allSteps
+      .filter((s) => s.timerStartedAt != null)
+      .sort((a, b) => (b.timerStartedAt ?? 0) - (a.timerStartedAt ?? 0))
+      .map((s) => s._id);
   }, [allSteps]);
 
   // isStepUpcoming helper - same turnover boundary as activeSteps/upcomingSteps
@@ -254,7 +259,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       clearOptimisticUpdate,
       clearOptimisticDelete,
       isStepUpcoming,
-      activeTimerStepId,
+      runningTimerStepIds,
     }),
     [
       paths,
@@ -275,7 +280,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       clearOptimisticUpdate,
       clearOptimisticDelete,
       isStepUpcoming,
-      activeTimerStepId,
+      runningTimerStepIds,
     ]
   );
 

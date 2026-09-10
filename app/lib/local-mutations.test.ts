@@ -127,6 +127,69 @@ describe("completing a step stops a running timer atomically", () => {
   });
 });
 
+describe("timers run in parallel", () => {
+  it("starting one leaves the others running and mints no entry for them", async () => {
+    const { result: create } = renderHook(() => useCreateStep());
+    let first: LocalStep | undefined;
+    let second: LocalStep | undefined;
+    await act(async () => {
+      first = await create.current({ title: "Build running" });
+      second = await create.current({ title: "Write notes" });
+    });
+
+    const { result: start } = renderHook(() => useStartTimer());
+    await act(async () => {
+      await start.current({ id: first!._id });
+    });
+    // Back-date it: the old auto-stop would have minted a session here, and a
+    // start inside the 5s double-tap floor would hide that.
+    const firstStartedAt = Date.now() - 60_000;
+    await db.steps.update(first!._id, { timerStartedAt: firstStartedAt });
+
+    await act(async () => {
+      await start.current({ id: second!._id });
+    });
+
+    const one = await db.steps.get(first!._id);
+    const two = await db.steps.get(second!._id);
+    expect(one?.timerStartedAt).toBe(firstStartedAt);
+    expect(two?.timerStartedAt).toBeDefined();
+    expect(one?.totalTimeSpentMs ?? 0).toBe(0);
+    expect(await db.timeEntries.toArray()).toHaveLength(0);
+  });
+
+  it("stopping one does not disturb the other", async () => {
+    const { result: create } = renderHook(() => useCreateStep());
+    let first: LocalStep | undefined;
+    let second: LocalStep | undefined;
+    await act(async () => {
+      first = await create.current({ title: "Call" });
+      second = await create.current({ title: "Notes during the call" });
+    });
+
+    const { result: start } = renderHook(() => useStartTimer());
+    await act(async () => {
+      await start.current({ id: first!._id });
+      await start.current({ id: second!._id });
+    });
+    const secondStartedAt = Date.now() - 60_000;
+    await db.steps.update(first!._id, { timerStartedAt: Date.now() - 120_000 });
+    await db.steps.update(second!._id, { timerStartedAt: secondStartedAt });
+
+    const { result: stop } = renderHook(() => useStopTimer());
+    await act(async () => {
+      await stop.current({ id: first!._id });
+    });
+
+    const stopped = await db.steps.get(first!._id);
+    const untouched = await db.steps.get(second!._id);
+    expect(stopped?.timerStartedAt).toBeUndefined();
+    expect(stopped?.totalTimeSpentMs).toBeGreaterThan(0);
+    expect(untouched?.timerStartedAt).toBe(secondStartedAt);
+    expect(untouched?.totalTimeSpentMs ?? 0).toBe(0);
+  });
+});
+
 describe("path archive/unarchive cascade", () => {
   async function seedTree() {
     const { result: createPath } = renderHook(() => useCreatePath());

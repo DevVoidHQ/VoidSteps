@@ -29,7 +29,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 
 export default function TodayView() {
   const toast = useToast();
-  const { activePaths, activeSteps, completedStepsToday, activeTimerStepId } = useData();
+  const { activePaths, activeSteps, completedStepsToday, runningTimerStepIds } = useData();
 
   const updateStepMutation = useUpdateStep();
   const deleteStepMutation = useDeleteStep();
@@ -212,10 +212,11 @@ export default function TodayView() {
   const toggleTimer = useCallback(
     async (id: string) => {
       try {
-        if (activeTimerStepId === id) {
+        // Timers run in parallel, so this only ever touches the step you
+        // clicked: no other running timer is stopped on its behalf.
+        if (runningTimerStepIds.includes(id)) {
           await stopTimerMutation({ id });
         } else {
-          if (activeTimerStepId) await stopTimerMutation({ id: activeTimerStepId });
           await startTimerMutation({ id });
         }
       } catch (error) {
@@ -223,7 +224,7 @@ export default function TodayView() {
         toast.error("Failed to toggle timer");
       }
     },
-    [activeTimerStepId, startTimerMutation, stopTimerMutation, toast]
+    [runningTimerStepIds, startTimerMutation, stopTimerMutation, toast]
   );
 
   const setTotalTime = useCallback(
@@ -281,7 +282,6 @@ export default function TodayView() {
                 onTogglePriority={togglePriority}
                 onSaveEdit={updateStep}
                 onToggleTimer={toggleTimer}
-                activeTimerStepId={activeTimerStepId}
                 onSetTotalTime={setTotalTime}
                 clickAction={todayClickAction}
               />
@@ -302,7 +302,6 @@ export default function TodayView() {
           onTogglePriority={togglePriority}
           onSaveEdit={updateStep}
           onToggleTimer={toggleTimer}
-          activeTimerStepId={activeTimerStepId}
           onSetTotalTime={setTotalTime}
           clickAction={todayClickAction}
         />

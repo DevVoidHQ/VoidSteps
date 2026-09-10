@@ -35,11 +35,11 @@ const promptedStepIds = new Set<string>();
  * longer exists. What it did in a local-only app was invent time: stopping a
  * three-week-old timer at yesterday's start mints a three-week session and
  * adds it to totalTimeSpentMs, with no prompt, bypassing the 8h guard directly
- * below it. Removed rather than kept as a backstop, because useStartTimer
- * already enforces the single-active-timer invariant inside a transaction, so
- * ordinary use cannot produce a second running step. Only a snapshot restore
- * can, and that now surfaces through the prompt below like any other forgotten
- * timer rather than resolving itself behind the user's back.
+ * below it.
+ *
+ * Several running steps is now the ordinary case rather than a corruption to
+ * heal: timers run in parallel by design. So this prompts for stale ones one
+ * at a time and leaves every other running timer alone.
  */
 export default function TimerReconcileGuard() {
   const { allSteps } = useData();

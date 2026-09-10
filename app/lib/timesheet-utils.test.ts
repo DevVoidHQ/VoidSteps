@@ -3,6 +3,7 @@ import {
   clipToDay,
   buildDayIntervals,
   summarizeDay,
+  unionCoverageMs,
   assignColorSlots,
   buildActivityFeed,
   DAY_MS,
@@ -66,7 +67,7 @@ describe("buildDayIntervals", () => {
       entry({ stepId: "s1", start: DAY + 11 * H, end: DAY + 12 * H }),
       entry({ stepId: "ghost", stepTitle: "Old task", start: DAY + 9 * H, end: DAY + 10 * H }),
     ];
-    const result = buildDayIntervals(entries, stepsById, null, DAY, DAY + 13 * H);
+    const result = buildDayIntervals(entries, stepsById, [], DAY, DAY + 13 * H);
     expect(result.map((r) => r.title)).toEqual(["Old task", "Task one"]);
     expect(result[0].deletedStep).toBe(true);
     expect(result[1].pathTitle).toBe("Work");
@@ -74,7 +75,7 @@ describe("buildDayIntervals", () => {
 
   it("appends the running session clipped to now", () => {
     const running: StepForTimeline = { _id: "s2", title: "Task two", timerStartedAt: DAY + 12 * H };
-    const result = buildDayIntervals([], stepsById, running, DAY, DAY + 12.5 * H);
+    const result = buildDayIntervals([], stepsById, [running], DAY, DAY + 12.5 * H);
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({
       running: true,
@@ -84,15 +85,87 @@ describe("buildDayIntervals", () => {
     });
   });
 
+  it("keeps every running session, not just the first", () => {
+    const running: StepForTimeline[] = [
+      { _id: "s2", title: "Task two", timerStartedAt: DAY + 12 * H },
+      { _id: "s1", title: "Task one", timerStartedAt: DAY + 11 * H },
+    ];
+    const result = buildDayIntervals([], stepsById, running, DAY, DAY + 13 * H);
+    expect(result.map((r) => r.stepId)).toEqual(["s1", "s2"]);
+    expect(result.every((r) => r.running)).toBe(true);
+  });
+
+  it("flags an overlap instead of reporting a gap", () => {
+    // s2 starts while s1 is still open, so there is no untracked time between
+    // them even though s2 begins after s1's row.
+    const result = buildDayIntervals(
+      [
+        entry({ stepId: "s1", start: DAY + 9 * H, end: DAY + 12 * H, durationMs: 3 * H }),
+        entry({ stepId: "s2", start: DAY + 10 * H, end: DAY + 11 * H }),
+      ],
+      stepsById,
+      [],
+      DAY,
+      DAY + 13 * H
+    );
+    expect(result[1].overlapsPrevious).toBe(true);
+    expect(result[1].gapBefore).toBeUndefined();
+  });
+
+  it("measures a gap from the furthest point reached, not the previous row", () => {
+    // The regression: s2 ends at 11:00 but s1 runs to 12:00, so a 12:30 start
+    // is 30 minutes of untracked time, not 90.
+    const result = buildDayIntervals(
+      [
+        entry({ stepId: "s1", start: DAY + 9 * H, end: DAY + 12 * H, durationMs: 3 * H }),
+        entry({ stepId: "s2", start: DAY + 10 * H, end: DAY + 11 * H }),
+        entry({ stepId: "s1", start: DAY + 12.5 * H, end: DAY + 13 * H, durationMs: 0.5 * H }),
+      ],
+      stepsById,
+      [],
+      DAY,
+      DAY + 14 * H
+    );
+    expect(result[2].gapBefore).toBe(0.5 * H);
+  });
+
   it("shows an overnight running session from midnight on today", () => {
     const running: StepForTimeline = { _id: "s2", title: "Task two", timerStartedAt: DAY - 2 * H };
-    const result = buildDayIntervals([], stepsById, running, DAY, DAY + H);
+    const result = buildDayIntervals([], stepsById, [running], DAY, DAY + H);
     expect(result[0]).toMatchObject({
       running: true,
       start: DAY,
       clippedStart: true,
       durationMs: H,
     });
+  });
+});
+
+describe("unionCoverageMs", () => {
+  const iv = (stepId: string, startH: number, endH: number) => ({
+    stepId,
+    title: stepId,
+    source: "timer" as const,
+    start: DAY + startH * H,
+    end: DAY + endH * H,
+    durationMs: (endH - startH) * H,
+  });
+
+  it("is the plain sum when nothing overlaps", () => {
+    expect(unionCoverageMs([iv("s1", 9, 10), iv("s2", 11, 12)])).toBe(2 * H);
+  });
+
+  it("counts time once when two timers ran together", () => {
+    // 3h of effort across 2h of the day.
+    expect(unionCoverageMs([iv("s1", 9, 11), iv("s2", 10, 11)])).toBe(2 * H);
+  });
+
+  it("merges a chain of overlaps rather than only adjacent pairs", () => {
+    expect(unionCoverageMs([iv("s1", 9, 11), iv("s2", 10, 13), iv("s3", 12, 14)])).toBe(5 * H);
+  });
+
+  it("is zero for an empty day", () => {
+    expect(unionCoverageMs([])).toBe(0);
   });
 });
 
@@ -105,7 +178,7 @@ describe("summarizeDay", () => {
         entry({ stepId: "s1", start: DAY + 14 * H, end: DAY + 15 * H }),
       ],
       stepsById,
-      null,
+      [],
       DAY,
       DAY + 16 * H
     );
@@ -140,7 +213,7 @@ describe("assignColorSlots", () => {
         entry({ stepId: "s2", start: DAY + 11 * H, end: DAY + 12 * H }),
       ],
       stepsById,
-      null,
+      [],
       DAY,
       DAY + 13 * H
     );

@@ -9,6 +9,7 @@ const DUE_DATES_KEY = "voidsteps-due-dates";
 const PRIORITIZE_DEFAULT_KEY = "voidsteps-prioritize-default";
 const STEP_ACTIONS_KEY = "voidsteps-step-actions";
 const OPEN_FOCUS_ON_PLAY_KEY = "voidsteps-open-focus-on-play";
+const TIMER_BAR_HIDDEN_KEY = "voidsteps-timer-bar-hidden";
 const SHOW_STEP_DATES_KEY = "voidsteps-show-step-dates";
 const FONT_SCALE_KEY = "voidsteps-font-scale";
 const FOCUS_BACKGROUND_KEY = "voidsteps-focus-background";
@@ -194,6 +195,42 @@ export function useOpenFocusOnPlay(): boolean {
   const [value, setValue] = useState(getOpenFocusOnPlay);
   useEffect(() => {
     const handler = () => setValue(getOpenFocusOnPlay());
+    window.addEventListener(PREFS_EVENT, handler);
+    window.addEventListener("storage", handler);
+    return () => {
+      window.removeEventListener(PREFS_EVENT, handler);
+      window.removeEventListener("storage", handler);
+    };
+  }, []);
+  return value;
+}
+
+// Whether the running-timer bar is hidden outright. Distinct from collapsing
+// it to a pill: this removes it from the screen entirely, for the case where a
+// timer should run without anything on top of the work. The timers keep
+// running and the step cards still show them; only the floating bar goes.
+// Off by default, and reachable again from Settings so it cannot be lost.
+export function getTimerBarHidden(): boolean {
+  try {
+    return localStorage.getItem(TIMER_BAR_HIDDEN_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function setTimerBarHidden(hidden: boolean): void {
+  try {
+    localStorage.setItem(TIMER_BAR_HIDDEN_KEY, String(hidden));
+  } catch {
+    /* ignore */
+  }
+  window.dispatchEvent(new Event(PREFS_EVENT));
+}
+
+export function useTimerBarHidden(): boolean {
+  const [value, setValue] = useState(getTimerBarHidden);
+  useEffect(() => {
+    const handler = () => setValue(getTimerBarHidden());
     window.addEventListener(PREFS_EVENT, handler);
     window.addEventListener("storage", handler);
     return () => {

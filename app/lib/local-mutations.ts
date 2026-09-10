@@ -341,16 +341,10 @@ export function useStartTimer() {
       if (!step) throw new Error("Step not found");
       if (step.timerStartedAt) return; // already running
 
-      // Single-active-timer invariant enforced at the data layer: starting
-      // here auto-stops any other running step, minting its session entry
-      // (call sites also pre-stop, which is then a harmless no-op here).
-      const running = await db.steps
-        .filter((s) => s.timerStartedAt != null && s._id !== args.id)
-        .toArray();
-      for (const other of running) {
-        await stopTimerOnStep(other, now, now);
-      }
-
+      // Timers run in parallel: starting one leaves every other running step
+      // alone. Work overlaps (a build runs while you write notes), and the app
+      // stopping a timer nobody asked it to stop loses real tracked time.
+      // Sessions are per step, so nothing downstream assumes a single one.
       await db.steps.update(args.id, { timerStartedAt: now, updatedAt: now });
     });
     window.dispatchEvent(new CustomEvent(TIMER_STARTED_EVENT, { detail: { id: args.id } }));

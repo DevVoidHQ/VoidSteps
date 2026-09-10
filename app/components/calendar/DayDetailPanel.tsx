@@ -21,7 +21,6 @@ export interface StepActions {
   onSaveEdit: (id: string, updates: Partial<Step>) => void;
   onTogglePriority: (id: string, current: boolean) => void;
   onToggleTimer: (id: string) => void;
-  activeTimerStepId: string | null;
   onSetTotalTime: (id: string, totalTimeSpentMs: number) => void;
   paths: Path[];
 }
@@ -76,7 +75,6 @@ function EventSection({
                 stepActions.onTogglePriority(event.step!._id, event.step!.prioritizedToday)
               }
               onToggleTimer={() => stepActions.onToggleTimer(event.step!._id)}
-              activeTimerStepId={stepActions.activeTimerStepId}
               onSetTotalTime={(id, ms) => stepActions.onSetTotalTime(id, ms)}
             />
           ) : event.type === "reminder" ? (
