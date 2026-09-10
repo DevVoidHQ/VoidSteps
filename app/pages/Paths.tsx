@@ -372,7 +372,13 @@ export default function Paths() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingPath, setEditingPath] = useState<string | null>(null);
   const [editPathForm, setEditPathForm] = useState({ title: "", description: "" });
-  const [showArchived, setShowArchived] = useState(false);
+  // Derived, not raw state. Unarchiving the last path empties this view while
+  // the toggle that got you here is conditional on something being archived,
+  // so a raw flag strands you on "No archived paths" with no way back except a
+  // reload. Reading the flag through the count means the view cannot outlive
+  // the control that leaves it.
+  const [archivedRequested, setShowArchived] = useState(false);
+  const showArchived = archivedRequested && (archivedPaths?.length ?? 0) > 0;
   const [deleteDialogPath, setDeleteDialogPath] = useState<Path | null>(null);
   const [showList, setShowList] = useState<boolean>(() => {
     try {
