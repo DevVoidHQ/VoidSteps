@@ -3,9 +3,11 @@
 A local-only desktop task tracker. Paths, steps, routines and reminders, with a
 focus timer, notes, analytics and a graph view.
 
-Everything lives on your machine. There is no account, no server, and no network
-call. A backup file is the only way your data leaves the device, and you make it
-yourself.
+Everything lives on your machine. There is no account and no server. The app
+makes exactly one kind of network request, a version check against its own
+GitHub releases, which you can switch off in Settings. Nothing about you or your
+data is ever sent. A backup file is the only way your data leaves the device,
+and you make it yourself.
 
 Free, and complete. Nothing is gated, greyed out, or waiting behind an upgrade
 prompt.

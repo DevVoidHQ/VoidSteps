@@ -56,6 +56,7 @@ import {
 } from "@/lib/zoom";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
+import UpdateSettings from "@/components/UpdateSettings";
 import DataSettings from "@/components/DataSettings";
 import BackupCard from "@/components/BackupCard";
 import FocusSettings from "@/components/FocusSettings";
@@ -908,6 +909,7 @@ export default function Settings() {
           <div className="space-y-6">
             {/* Install card removed for now; PWA plumbing kept in vite.config. */}
             <GeneralSettings />
+            <UpdateSettings />
           </div>
         </TabsContent>
 

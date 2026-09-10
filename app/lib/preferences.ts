@@ -10,6 +10,7 @@ const PRIORITIZE_DEFAULT_KEY = "voidsteps-prioritize-default";
 const STEP_ACTIONS_KEY = "voidsteps-step-actions";
 const OPEN_FOCUS_ON_PLAY_KEY = "voidsteps-open-focus-on-play";
 const TIMER_BAR_HIDDEN_KEY = "voidsteps-timer-bar-hidden";
+const AUTO_UPDATE_CHECK_KEY = "voidsteps-auto-update-check";
 const SHOW_STEP_DATES_KEY = "voidsteps-show-step-dates";
 const FONT_SCALE_KEY = "voidsteps-font-scale";
 const FOCUS_BACKGROUND_KEY = "voidsteps-focus-background";
@@ -231,6 +232,42 @@ export function useTimerBarHidden(): boolean {
   const [value, setValue] = useState(getTimerBarHidden);
   useEffect(() => {
     const handler = () => setValue(getTimerBarHidden());
+    window.addEventListener(PREFS_EVENT, handler);
+    window.addEventListener("storage", handler);
+    return () => {
+      window.removeEventListener(PREFS_EVENT, handler);
+      window.removeEventListener("storage", handler);
+    };
+  }, []);
+  return value;
+}
+
+// Whether the app checks GitHub for a new release on its own. Default on: an
+// install that never hears about a fix drifts to whatever version it shipped
+// with. This is the only network call VoidSteps makes, so turning it off makes
+// the app entirely offline again, which is why the switch exists at all.
+export function getAutoUpdateCheck(): boolean {
+  try {
+    const v = localStorage.getItem(AUTO_UPDATE_CHECK_KEY);
+    return v === null ? true : v === "true";
+  } catch {
+    return true;
+  }
+}
+
+export function setAutoUpdateCheck(on: boolean): void {
+  try {
+    localStorage.setItem(AUTO_UPDATE_CHECK_KEY, String(on));
+  } catch {
+    /* ignore */
+  }
+  window.dispatchEvent(new Event(PREFS_EVENT));
+}
+
+export function useAutoUpdateCheck(): boolean {
+  const [value, setValue] = useState(getAutoUpdateCheck);
+  useEffect(() => {
+    const handler = () => setValue(getAutoUpdateCheck());
     window.addEventListener(PREFS_EVENT, handler);
     window.addEventListener("storage", handler);
     return () => {

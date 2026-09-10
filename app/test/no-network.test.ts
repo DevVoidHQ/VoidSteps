@@ -3,8 +3,13 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, extname } from "node:path";
 
 // VoidSteps' headline privacy claim (README.md, CONTRIBUTING.md, SECURITY.md)
-// is that it makes zero network calls: everything lives in local IndexedDB.
-// Nothing else in the build enforces that, so this is the guard.
+// is that the webview makes zero network calls: everything lives in local
+// IndexedDB. Nothing else in the build enforces that, so this is the guard.
+//
+// The one exception is the update check, and it is an exception that does not
+// weaken this test: tauri-plugin-updater fetches from Rust, over IPC, so no
+// network API appears in app/ and the CSP below stays closed to every origin.
+// A `fetch` in this directory is still a bug.
 //
 // What it covers: a text sweep of app/ source and stylesheets for the APIs
 // that reach the network, plus remote url() and @import in CSS. The CSS half

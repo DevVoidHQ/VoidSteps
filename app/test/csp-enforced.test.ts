@@ -73,3 +73,26 @@ describe("Tauri CSP is configured and closed to the network", () => {
     expect(security.csp as string).not.toMatch(/localhost:\d+/);
   });
 });
+
+describe("updater configuration", () => {
+  const config = JSON.parse(readFileSync(CONFIG_PATH, "utf8")) as {
+    bundle?: { createUpdaterArtifacts?: boolean };
+    plugins?: { updater?: { endpoints?: string[]; pubkey?: string } };
+  };
+  const updater = config.plugins?.updater;
+
+  it("points at VoidSteps' own GitHub releases and nowhere else", () => {
+    expect(updater?.endpoints ?? []).toHaveLength(1);
+    expect(updater?.endpoints?.[0]).toMatch(
+      /^https:\/\/github\.com\/DevVoidHQ\/VoidSteps\/releases\//
+    );
+  });
+
+  it("carries a public key, without which every update is refused", () => {
+    expect(updater?.pubkey, "no updater public key: signature checks cannot pass").toBeTruthy();
+  });
+
+  it("builds the update artifact, without which a release has nothing to serve", () => {
+    expect(config.bundle?.createUpdaterArtifacts).toBe(true);
+  });
+});

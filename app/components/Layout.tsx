@@ -5,6 +5,7 @@ import Sidebar from "./Sidebar";
 import QuickCapture from "./QuickCapture";
 import GlobalTimerBar from "./GlobalTimerBar";
 import TimerReconcileGuard from "./TimerReconcileGuard";
+import UpdateBanner from "./UpdateBanner";
 import CommandBar from "./CommandBar";
 import { Button } from "@/components/ui/Button";
 import {
@@ -265,8 +266,11 @@ export default function Layout({
       {/* Global running-timer bar (central, persists across pages) */}
       <GlobalTimerBar />
 
-      {/* Forgotten-timer reconcile + cross-device single-timer convergence */}
+      {/* Forgotten-timer reconcile: prompts on a session left running for 8h+ */}
       <TimerReconcileGuard />
+
+      {/* New-release prompt. Renders nothing unless an update is waiting. */}
+      <UpdateBanner />
 
       {/* Sidebar */}
       <Sidebar
