@@ -14,9 +14,21 @@ import { join, extname } from "node:path";
 //
 // What it deliberately does NOT cover, so nobody mistakes green for proof:
 // index.html (outside app/), the Rust in desktop/, and third-party packages.
-// The Tauri CSP is the backstop for dependencies. Indirect forms such as
-// aliasing globalThis.fetch, or assigning a remote URL to an Image src, also
-// slip past a text scan. This raises the cost of a mistake; it is not a sandbox.
+// Indirect forms such as aliasing globalThis.fetch, or assigning a remote URL
+// to an Image src, also slip past a text scan. This raises the cost of a
+// mistake; it is not a sandbox.
+//
+// The backstop for everything above is the Content-Security-Policy in
+// desktop/tauri.conf.json, which the webview enforces at runtime over our code
+// and every dependency alike. It was `null` (i.e. absent) until this comment
+// said otherwise; see csp-enforced.test.ts, which fails if it goes missing
+// again. The policy's shape is dictated by what the app actually loads:
+// blob: for focus wallpapers/audio and the backup download, data: for the
+// themed SVG cursor and favicon, and 'unsafe-inline' styles for BlockNote,
+// Mantine and framer-motion, which inject style tags and style attributes at
+// runtime. Imported user fonts need no directive: user-font.ts builds a
+// FontFace from an ArrayBuffer, which CSP does not govern. Nothing in the
+// policy permits an outbound request to any origin.
 
 const SRC_ROOT = join(__dirname, "..");
 
