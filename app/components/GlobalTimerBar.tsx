@@ -24,8 +24,8 @@ import { useToast } from "@/contexts/ToastContext";
 import { useElapsedTime } from "@/hooks/useTimer";
 import {
   getOpenFocusOnPlay,
-  getFocusVolume,
   setFocusVolume,
+  useFocusVolume,
   useFocusAudioOn,
   setFocusAudioOn,
   useFocusBackground,
@@ -33,7 +33,12 @@ import {
 } from "@/lib/preferences";
 import { FOCUS_IMAGE_SCRIM, focusBackgroundCss } from "@/lib/focus-background";
 import { useFocusMedia } from "@/lib/focus-media";
-import { CUSTOM_TRACK_ID, TRACK_ARTIST, findBundledTrack } from "@/lib/focus-tracks";
+import {
+  CUSTOM_TRACK_ID,
+  TRACK_ARTIST,
+  findBundledTrack,
+  shouldPlayFocusAudio,
+} from "@/lib/focus-tracks";
 import { IconButton } from "@/components/ui/IconButton";
 import type { Step } from "@/types/index";
 
@@ -107,6 +112,40 @@ export default function GlobalTimerBar() {
     isRunning ? step?.timerStartedAt : undefined,
     step?.totalTimeSpentMs || 0
   );
+
+  // Focus audio is owned here, not by FocusMode, because FocusMode unmounts the
+  // moment you leave fullscreen and an unmounted <audio> stops playing. The bar
+  // is mounted for as long as there is a timer at all, so the track survives
+  // exiting fullscreen and keeps playing while the work does.
+  const audioOn = useFocusAudioOn();
+  const volume = useFocusVolume();
+  const trackId = useFocusTrack();
+  const { url: customAudioUrl } = useFocusMedia("audio");
+  const bundledTrack = findBundledTrack(trackId);
+  // A bundled track plays from public/; "custom" plays the user's own file.
+  const audioUrl = trackId === CUSTOM_TRACK_ID ? customAudioUrl : (bundledTrack?.src ?? null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  const audioShouldPlay = shouldPlayFocusAudio({
+    audioOn,
+    hasTrack: !!audioUrl,
+    fullscreen,
+    timerRunning: isRunning,
+  });
+
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el) return;
+    el.volume = volume;
+    if (audioShouldPlay) {
+      // Autoplay can still be refused; starting a timer or opening focus mode
+      // is a user gesture, but never let a rejected promise surface as an
+      // unhandled rejection.
+      el.play().catch(() => {});
+    } else {
+      el.pause();
+    }
+  }, [audioShouldPlay, volume, audioUrl]);
 
   // Surface the running timer in the tab title so a backgrounded PWA tab still
   // shows it (there's no service-worker notification channel).
@@ -210,6 +249,10 @@ export default function GlobalTimerBar() {
 
   return (
     <>
+      {/* Rendered here rather than inside FocusMode so leaving fullscreen does
+          not unmount it mid-track. */}
+      {audioUrl && <audio ref={audioRef} src={audioUrl} loop />}
+
       {/* Compact running-timer bar. Bottom-center on mobile (clears the header /
           menu button), top-center on md+. */}
       <div className="fixed z-40 bottom-4 left-4 right-20 flex justify-start pointer-events-none md:left-1/2 md:right-auto md:bottom-auto md:top-3 md:-translate-x-1/2 md:justify-center">
@@ -297,8 +340,10 @@ function FocusMode({
   const audioUrl = trackId === CUSTOM_TRACK_ID ? customAudioUrl : (bundled?.src ?? null);
   const nowPlaying = trackId === CUSTOM_TRACK_ID ? null : (bundled?.title ?? null);
   const audioOn = useFocusAudioOn();
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [volume, setVolumeState] = useState(getFocusVolume);
+  // These controls only read and write the shared preference. The <audio>
+  // element they drive belongs to GlobalTimerBar, so that leaving fullscreen
+  // does not stop the track.
+  const volume = useFocusVolume();
 
   // A picked image wins over a generated background; the scrim keeps the timer
   // readable over a bright photo without assuming the theme is dark.
@@ -307,25 +352,11 @@ function FocusMode({
     ? `${FOCUS_IMAGE_SCRIM}, url("${wallpaperUrl}")`
     : focusBackgroundCss(backgroundId);
 
-  useEffect(() => {
-    const el = audioRef.current;
-    if (!el) return;
-    el.volume = volume;
-    if (audioOn && audioUrl) {
-      // Autoplay can still be refused; the user has interacted to get here,
-      // but never let a rejected promise surface as an unhandled rejection.
-      el.play().catch(() => {});
-    } else {
-      el.pause();
-    }
-  }, [audioOn, audioUrl, volume]);
-
   return createPortal(
     <div
       className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background bg-cover bg-center"
       style={{ backgroundImage }}
     >
-      {audioUrl && <audio ref={audioRef} src={audioUrl} loop />}
       {/* Top bar: wall clock + exit */}
       <div className="absolute inset-x-0 top-0 flex items-center justify-between px-6 py-5">
         <div className="text-sm text-muted-foreground">
@@ -362,9 +393,7 @@ function FocusMode({
                   aria-label="Volume"
                   className="w-20 accent-primary"
                   onChange={(e) => {
-                    const v = Number(e.target.value);
-                    setVolumeState(v);
-                    setFocusVolume(v);
+                    setFocusVolume(Number(e.target.value));
                   }}
                 />
               )}

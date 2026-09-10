@@ -38,3 +38,24 @@ export const CUSTOM_TRACK_ID = "custom";
 export function findBundledTrack(id: string | null | undefined): BundledTrack | undefined {
   return BUNDLED_TRACKS.find((t) => t.id === id);
 }
+
+/**
+ * Whether the focus track should be sounding right now.
+ *
+ * The <audio> element lives in GlobalTimerBar rather than in the fullscreen
+ * overlay, because the overlay unmounts on exit and takes the playing track
+ * with it. That leaves the question of when it should play once it can outlive
+ * fullscreen, and the answer is: inside fullscreen whenever it is switched on
+ * (unchanged), and outside it, only while the timer is actually running. Pause
+ * the timer and the music pauses with it, which is also the only way to
+ * silence it without reopening focus mode.
+ */
+export function shouldPlayFocusAudio(opts: {
+  audioOn: boolean;
+  hasTrack: boolean;
+  fullscreen: boolean;
+  timerRunning: boolean;
+}): boolean {
+  if (!opts.audioOn || !opts.hasTrack) return false;
+  return opts.fullscreen || opts.timerRunning;
+}

@@ -481,6 +481,22 @@ export function setFocusVolume(v: number): void {
   window.dispatchEvent(new Event(PREFS_EVENT));
 }
 
+/** Reactive volume. The <audio> element and the fullscreen slider that drives
+ * it live in different components, so the element needs to hear the change. */
+export function useFocusVolume(): number {
+  const [value, setValue] = useState(getFocusVolume);
+  useEffect(() => {
+    const handler = () => setValue(getFocusVolume());
+    window.addEventListener(PREFS_EVENT, handler);
+    window.addEventListener("storage", handler);
+    return () => {
+      window.removeEventListener(PREFS_EVENT, handler);
+      window.removeEventListener("storage", handler);
+    };
+  }, []);
+  return value;
+}
+
 /** Which track focus mode plays: a bundled track id, or "custom" for the file
  * the user picked. Defaults to the first bundled track so a fresh install has
  * sound available without picking anything. */

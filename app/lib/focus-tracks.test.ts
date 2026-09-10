@@ -7,6 +7,7 @@ import {
   TRACK_ARTIST,
   TRACK_LICENCE,
   findBundledTrack,
+  shouldPlayFocusAudio,
 } from "./focus-tracks";
 
 const REPO = join(__dirname, "..", "..");
@@ -99,5 +100,32 @@ describe("bundled assets", () => {
       const relativePath = file.slice(REPO.length + 1).replace(/\\/g, "/");
       expect(CREDITS, `${relativePath} is not credited in CREDITS.md`).toContain(relativePath);
     }
+  });
+});
+
+describe("shouldPlayFocusAudio", () => {
+  const base = { audioOn: true, hasTrack: true, fullscreen: false, timerRunning: false };
+
+  it("stays silent when audio is switched off, whatever else is true", () => {
+    expect(shouldPlayFocusAudio({ ...base, audioOn: false, fullscreen: true })).toBe(false);
+    expect(shouldPlayFocusAudio({ ...base, audioOn: false, timerRunning: true })).toBe(false);
+  });
+
+  it("stays silent when there is no track to play", () => {
+    expect(shouldPlayFocusAudio({ ...base, hasTrack: false, fullscreen: true })).toBe(false);
+  });
+
+  it("plays in fullscreen even with the timer paused, as focus mode always did", () => {
+    expect(shouldPlayFocusAudio({ ...base, fullscreen: true, timerRunning: false })).toBe(true);
+  });
+
+  // The regression this rule exists for: the track used to die the instant the
+  // fullscreen overlay unmounted.
+  it("keeps playing outside fullscreen while the timer runs", () => {
+    expect(shouldPlayFocusAudio({ ...base, fullscreen: false, timerRunning: true })).toBe(true);
+  });
+
+  it("follows the timer outside fullscreen: paused is silent", () => {
+    expect(shouldPlayFocusAudio({ ...base, fullscreen: false, timerRunning: false })).toBe(false);
   });
 });
