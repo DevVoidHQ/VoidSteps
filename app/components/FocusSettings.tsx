@@ -15,6 +15,11 @@ import {
   setFocusBackground,
   setFocusTrack,
   setOpenFocusOnPlay,
+  setTimerBarHidden,
+  useTimerBarHidden,
+  getFocusVolume,
+  setFocusVolume,
+  useFocusVolume,
   useFocusBackground,
   useFocusTrack,
   useOpenFocusOnPlay,
@@ -40,6 +45,8 @@ export default function FocusSettings() {
   const { url: customAudioUrl, name: audioName } = useFocusMedia("audio");
   // Reactive, so resetting preferences elsewhere updates this toggle too.
   const openOnPlay = useOpenFocusOnPlay();
+  const timerBarHidden = useTimerBarHidden();
+  const volume = useFocusVolume();
 
   const imageInput = useRef<HTMLInputElement>(null);
   const audioInput = useRef<HTMLInputElement>(null);
@@ -63,7 +70,8 @@ export default function FocusSettings() {
     stopAudition();
     const el = new Audio(src);
     el.loop = true;
-    el.volume = 0.6;
+    // Audition at the volume the app will actually play at, not a fixed 0.6.
+    el.volume = getFocusVolume();
     el.play().catch(() => {});
     auditionRef.current = el;
     setAuditioning(id);
@@ -197,9 +205,28 @@ export default function FocusSettings() {
       <div className="space-y-2">
         <label className="text-sm font-medium">Sound</label>
         <p className="text-sm text-muted-foreground">
-          Looped while focus mode is open. Volume and mute live in the focus view. The tracks ship
-          with the app, so nothing streams and nothing is fetched.
+          Plays while a step timer is running, and in the focus view. The tracks ship with the app,
+          so nothing streams and nothing is fetched.
         </p>
+
+        <div className="flex max-w-2xl items-center gap-3 pt-1">
+          <label htmlFor="focus-volume" className="text-sm text-muted-foreground">
+            Volume
+          </label>
+          <input
+            id="focus-volume"
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={volume}
+            className="w-40 accent-primary"
+            onChange={(e) => setFocusVolume(Number(e.target.value))}
+          />
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">
+            {Math.round(volume * 100)}%
+          </span>
+        </div>
 
         <ul className="max-w-2xl divide-y divide-border/50 pt-1">
           {BUNDLED_TRACKS.map((t) => (
@@ -252,6 +279,13 @@ export default function FocusSettings() {
           onChange={(e) => setOpenFocusOnPlay(e.target.checked)}
           label="Open focus view when starting a timer"
           description="Starting a step's timer opens the fullscreen focus view. On by default."
+        />
+        <Toggle
+          size="sm"
+          checked={!timerBarHidden}
+          onChange={(e) => setTimerBarHidden(!e.target.checked)}
+          label="Show the running timer bar"
+          description="The floating bar with the live clock. Turning it off hides the bar and the focus view, and does not stop anything: timers keep running and still show on their step cards."
         />
         <p className="text-sm text-muted-foreground">
           Your own image and track are not included in backups, because they would add tens of

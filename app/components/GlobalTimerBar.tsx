@@ -9,6 +9,7 @@ import {
   Maximize2,
   X,
   Minus,
+  EyeOff,
   Volume2,
   VolumeX,
 } from "lucide-react";
@@ -24,8 +25,10 @@ import { useToast } from "@/contexts/ToastContext";
 import { useElapsedTime } from "@/hooks/useTimer";
 import {
   getOpenFocusOnPlay,
-  getFocusVolume,
+  setTimerBarHidden,
+  useTimerBarHidden,
   setFocusVolume,
+  useFocusVolume,
   useFocusAudioOn,
   setFocusAudioOn,
   useFocusBackground,
@@ -33,7 +36,12 @@ import {
 } from "@/lib/preferences";
 import { FOCUS_IMAGE_SCRIM, focusBackgroundCss } from "@/lib/focus-background";
 import { useFocusMedia } from "@/lib/focus-media";
-import { CUSTOM_TRACK_ID, TRACK_ARTIST, findBundledTrack } from "@/lib/focus-tracks";
+import {
+  CUSTOM_TRACK_ID,
+  TRACK_ARTIST,
+  findBundledTrack,
+  shouldPlayFocusAudio,
+} from "@/lib/focus-tracks";
 import { IconButton } from "@/components/ui/IconButton";
 import type { Step } from "@/types/index";
 
@@ -67,7 +75,7 @@ function useNow(): Date {
 }
 
 export default function GlobalTimerBar() {
-  const { allSteps, activeTimerStepId } = useData();
+  const { allSteps, runningTimerStepIds } = useData();
   const startTimer = useStartTimer();
   const stopTimer = useStopTimer();
   const toggleCompletion = useToggleStepCompletion();
@@ -79,12 +87,29 @@ export default function GlobalTimerBar() {
   const [fullscreen, setFullscreen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
+  const hidden = useTimerBarHidden();
+
+  // Every running step, newest first. The bar puts one in front and keeps the
+  // rest one click away rather than stacking live clocks on top of the app.
+  const runningSteps = useMemo(
+    () =>
+      runningTimerStepIds
+        .map((id) => allSteps?.find((s) => s._id === id))
+        .filter((s): s is Step => !!s),
+    [runningTimerStepIds, allSteps]
+  );
+  const newestRunningId = runningTimerStepIds[0] ?? null;
+
+  // Adopt the most recently started timer. Keyed on the newest id rather than
+  // the whole set, so switching by hand sticks: starting another timer moves
+  // the bar, stopping one falls back to the next newest, and nothing else
+  // overrides a deliberate choice.
   useEffect(() => {
-    if (activeTimerStepId) {
-      setFocusId(activeTimerStepId);
-      writeFocusId(activeTimerStepId);
+    if (newestRunningId) {
+      setFocusId(newestRunningId);
+      writeFocusId(newestRunningId);
     }
-  }, [activeTimerStepId]);
+  }, [newestRunningId]);
 
   // Open focus mode on a user-initiated timer start (play / resume) when the
   // pref is on. Event-driven so a page reload with a running timer does not
@@ -108,16 +133,69 @@ export default function GlobalTimerBar() {
     step?.totalTimeSpentMs || 0
   );
 
+  // Focus audio is owned here, not by FocusMode, because FocusMode unmounts the
+  // moment you leave fullscreen and an unmounted <audio> stops playing. The bar
+  // is mounted for as long as there is a timer at all, so the track survives
+  // exiting fullscreen and keeps playing while the work does.
+  const audioOn = useFocusAudioOn();
+  const volume = useFocusVolume();
+  const trackId = useFocusTrack();
+  const { url: customAudioUrl } = useFocusMedia("audio");
+  const bundledTrack = findBundledTrack(trackId);
+  // A bundled track plays from public/; "custom" plays the user's own file.
+  const audioUrl = trackId === CUSTOM_TRACK_ID ? customAudioUrl : (bundledTrack?.src ?? null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  const audioShouldPlay = shouldPlayFocusAudio({
+    audioOn,
+    hasTrack: !!audioUrl,
+    fullscreen,
+    timerRunning: isRunning,
+  });
+
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el) return;
+    el.volume = volume;
+    if (audioShouldPlay) {
+      // Autoplay can still be refused; starting a timer or opening focus mode
+      // is a user gesture, but never let a rejected promise surface as an
+      // unhandled rejection.
+      el.play().catch(() => {});
+    } else {
+      el.pause();
+    }
+  }, [audioShouldPlay, volume, audioUrl]);
+
   // Surface the running timer in the tab title so a backgrounded PWA tab still
   // shows it (there's no service-worker notification channel).
+  const otherRunningCount = runningSteps.filter((s) => s._id !== focusId).length;
+
   useEffect(() => {
     if (!isRunning) return;
     const base = "VoidSteps";
-    document.title = `▶ ${elapsed} · ${base}`;
+    const extra = otherRunningCount > 0 ? ` +${otherRunningCount}` : "";
+    document.title = `▶ ${elapsed}${extra} · ${base}`;
     return () => {
       document.title = base;
     };
-  }, [isRunning, elapsed]);
+  }, [isRunning, elapsed, otherRunningCount]);
+
+  // Move the bar to the next running timer, oldest-to-newest and wrapping.
+  const switchToNext = useCallback(() => {
+    if (runningSteps.length < 2) return;
+    const index = runningSteps.findIndex((s) => s._id === focusId);
+    const next = runningSteps[(index + 1) % runningSteps.length];
+    if (!next) return;
+    setFocusId(next._id);
+    writeFocusId(next._id);
+  }, [runningSteps, focusId]);
+
+  const hide = useCallback(() => {
+    setTimerBarHidden(true);
+    setFullscreen(false);
+    toast.success("Timer bar hidden. Bring it back in Settings, under Focus.");
+  }, [toast]);
 
   const clear = useCallback(() => {
     setFocusId(null);
@@ -210,9 +288,18 @@ export default function GlobalTimerBar() {
 
   return (
     <>
+      {/* Rendered here rather than inside FocusMode so leaving fullscreen does
+          not unmount it mid-track. */}
+      {audioUrl && <audio ref={audioRef} src={audioUrl} loop />}
+
       {/* Compact running-timer bar. Bottom-center on mobile (clears the header /
-          menu button), top-center on md+. */}
-      <div className="fixed z-40 bottom-4 left-4 right-20 flex justify-start pointer-events-none md:left-1/2 md:right-auto md:bottom-auto md:top-3 md:-translate-x-1/2 md:justify-center">
+          menu button), top-center on md+. Hidden removes the bar and the focus
+          view, never the timers: they keep running, keep their music, and stay
+          visible on the step cards themselves. */}
+      <div
+        hidden={hidden}
+        className="fixed z-40 bottom-4 left-4 right-20 flex justify-start pointer-events-none md:left-1/2 md:right-auto md:bottom-auto md:top-3 md:-translate-x-1/2 md:justify-center"
+      >
         {collapsed ? (
           <button
             onClick={() => setCollapsed(false)}
@@ -223,6 +310,11 @@ export default function GlobalTimerBar() {
               className={`w-4 h-4 shrink-0 ${isRunning ? "text-primary animate-pulse" : "text-muted-foreground"}`}
             />
             <span className="font-mono text-sm tabular-nums text-primary">{elapsed}</span>
+            {otherRunningCount > 0 && (
+              <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                +{otherRunningCount}
+              </span>
+            )}
           </button>
         ) : (
           <div className="pointer-events-auto flex max-w-full items-center gap-1.5 rounded-xl border border-border bg-card/95 px-2 py-1 shadow-lg backdrop-blur md:gap-2 md:px-3 md:py-1.5">
@@ -233,6 +325,17 @@ export default function GlobalTimerBar() {
               {step.title}
             </span>
             <span className="shrink-0 font-mono text-sm tabular-nums text-primary">{elapsed}</span>
+            {otherRunningCount > 0 && (
+              <button
+                type="button"
+                onClick={switchToNext}
+                title={`${otherRunningCount} more running. Click to switch.`}
+                aria-label="Switch to the next running timer"
+                className="shrink-0 rounded-full border border-border px-1.5 py-0.5 font-mono text-xs tabular-nums text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                +{otherRunningCount}
+              </button>
+            )}
             <div className="mx-1 h-4 w-px shrink-0 bg-border" />
             {controls("sm")}
             <IconButton
@@ -250,20 +353,52 @@ export default function GlobalTimerBar() {
               className="hidden md:inline-flex"
               onClick={() => setCollapsed(true)}
             />
+            <IconButton
+              icon={<EyeOff className="w-4 h-4 text-muted-foreground" />}
+              aria-label="Hide the timer bar"
+              variant="ghost"
+              size="icon-sm"
+              onClick={hide}
+            />
           </div>
         )}
       </div>
 
-      {fullscreen && (
+      {fullscreen && !hidden && (
         <FocusMode
           step={step}
           elapsed={elapsed}
           isRunning={isRunning}
           controls={controls("lg")}
+          runningSteps={runningSteps}
+          onSwitch={(id) => {
+            setFocusId(id);
+            writeFocusId(id);
+          }}
           onExit={() => setFullscreen(false)}
         />
       )}
     </>
+  );
+}
+
+/** One other running timer, as a switchable chip under the main clock. Its own
+ * component because each needs its own live elapsed tick. */
+function RunningChip({ step, onSelect }: { step: Step; onSelect: () => void }) {
+  const elapsed = useElapsedTime(step.timerStartedAt, step.totalTimeSpentMs || 0);
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className="flex items-center gap-2 rounded-full border border-border/60 bg-background/40 px-3 py-1.5 text-sm text-muted-foreground backdrop-blur transition-colors hover:border-border hover:text-foreground"
+    >
+      <span className="relative flex h-1.5 w-1.5 shrink-0">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
+        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
+      </span>
+      <span className="max-w-[12rem] truncate">{step.title}</span>
+      <span className="font-mono tabular-nums text-primary">{elapsed}</span>
+    </button>
   );
 }
 
@@ -272,12 +407,16 @@ function FocusMode({
   elapsed,
   isRunning,
   controls,
+  runningSteps,
+  onSwitch,
   onExit,
 }: {
   step: Step;
   elapsed: string;
   isRunning: boolean;
   controls: React.ReactNode;
+  runningSteps: Step[];
+  onSwitch: (id: string) => void;
   onExit: () => void;
 }) {
   const now = useNow();
@@ -297,8 +436,11 @@ function FocusMode({
   const audioUrl = trackId === CUSTOM_TRACK_ID ? customAudioUrl : (bundled?.src ?? null);
   const nowPlaying = trackId === CUSTOM_TRACK_ID ? null : (bundled?.title ?? null);
   const audioOn = useFocusAudioOn();
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [volume, setVolumeState] = useState(getFocusVolume);
+  // These controls only read and write the shared preference. The <audio>
+  // element they drive belongs to GlobalTimerBar, so that leaving fullscreen
+  // does not stop the track.
+  const volume = useFocusVolume();
+  const others = runningSteps.filter((s) => s._id !== step._id);
 
   // A picked image wins over a generated background; the scrim keeps the timer
   // readable over a bright photo without assuming the theme is dark.
@@ -307,25 +449,11 @@ function FocusMode({
     ? `${FOCUS_IMAGE_SCRIM}, url("${wallpaperUrl}")`
     : focusBackgroundCss(backgroundId);
 
-  useEffect(() => {
-    const el = audioRef.current;
-    if (!el) return;
-    el.volume = volume;
-    if (audioOn && audioUrl) {
-      // Autoplay can still be refused; the user has interacted to get here,
-      // but never let a rejected promise surface as an unhandled rejection.
-      el.play().catch(() => {});
-    } else {
-      el.pause();
-    }
-  }, [audioOn, audioUrl, volume]);
-
   return createPortal(
     <div
       className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background bg-cover bg-center"
       style={{ backgroundImage }}
     >
-      {audioUrl && <audio ref={audioRef} src={audioUrl} loop />}
       {/* Top bar: wall clock + exit */}
       <div className="absolute inset-x-0 top-0 flex items-center justify-between px-6 py-5">
         <div className="text-sm text-muted-foreground">
@@ -362,9 +490,7 @@ function FocusMode({
                   aria-label="Volume"
                   className="w-20 accent-primary"
                   onChange={(e) => {
-                    const v = Number(e.target.value);
-                    setVolumeState(v);
-                    setFocusVolume(v);
+                    setFocusVolume(Number(e.target.value));
                   }}
                 />
               )}
@@ -396,6 +522,23 @@ function FocusMode({
           {elapsed}
         </div>
         <div className="mt-2">{controls}</div>
+
+        {/* The other timers still running behind this one. Focus mode is about
+            one thing at a time, so they stay small and out of the way, but
+            hiding them entirely would make focus mode the one place in the app
+            that lies about what is running. */}
+        {others.length > 0 && (
+          <div className="mt-6 flex flex-col items-center gap-2">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground/70">
+              Also running
+            </span>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {others.map((other) => (
+                <RunningChip key={other._id} step={other} onSelect={() => onSwitch(other._id)} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>,
     document.body

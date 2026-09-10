@@ -4,8 +4,9 @@ dist
 dist-ssr
 coverage
 
-# Local environment overrides. `.env` is committed and is deliberately empty:
-# the app needs no configuration to build or run.
+# Local environment overrides. The app needs no configuration to build or run,
+# so anything here is a personal override and never belongs in the repo.
+.env
 .env.local
 *.local
 

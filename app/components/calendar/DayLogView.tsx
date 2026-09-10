@@ -8,6 +8,7 @@ import { useDayTimeEntries } from "@/hooks/useTimesheet";
 import {
   buildDayIntervals,
   summarizeDay,
+  unionCoverageMs,
   assignColorSlots,
   formatClock,
   MIN_GAP_MS,
@@ -80,7 +81,7 @@ interface DayLogViewProps {
 }
 
 export default function DayLogView({ viewDate, onNavigate }: DayLogViewProps) {
-  const { allSteps, activePaths, activeTimerStepId } = useData();
+  const { allSteps, activePaths, runningTimerStepIds } = useData();
   const seriesColors = useSeriesColors();
   const toast = useToast();
   const updateStepMutation = useUpdateStep();
@@ -117,13 +118,17 @@ export default function DayLogView({ viewDate, onNavigate }: DayLogViewProps) {
     return map;
   }, [allSteps]);
 
-  const runningStep = activeTimerStepId ? (stepsById.get(activeTimerStepId) ?? null) : null;
+  const runningSteps = useMemo(
+    () => runningTimerStepIds.map((id) => stepsById.get(id)).filter((s) => s !== undefined),
+    [runningTimerStepIds, stepsById]
+  );
   // Live-tick only while a session is running on the viewed day (today).
-  const now = useTick(!!runningStep && isToday, 1000);
+  const now = useTick(runningSteps.length > 0 && isToday, 1000);
 
   const intervals = useMemo(
-    () => (entries ? buildDayIntervals(entries, stepsById, runningStep, dayStart, now) : undefined),
-    [entries, stepsById, runningStep, dayStart, now]
+    () =>
+      entries ? buildDayIntervals(entries, stepsById, runningSteps, dayStart, now) : undefined,
+    [entries, stepsById, runningSteps, dayStart, now]
   );
 
   const segments = useMemo(() => (intervals ? summarizeDay(intervals) : []), [intervals]);
@@ -140,10 +145,15 @@ export default function DayLogView({ viewDate, onNavigate }: DayLogViewProps) {
       : seriesColors[slot];
   };
 
+  // Two different questions, and with parallel timers they stop agreeing:
+  // totalMs is effort (sessions summed, a day can exceed 24h), coveredMs is
+  // how much of the day was spent working at all (overlaps merged).
   const totalMs = useMemo(
     () => (intervals ?? []).reduce((sum, iv) => sum + iv.durationMs, 0),
     [intervals]
   );
+  const coveredMs = useMemo(() => unionCoverageMs(intervals ?? []), [intervals]);
+  const hasOverlap = coveredMs > 0 && totalMs - coveredMs > 60_000;
   const taskCount =
     segments.filter((s) => !s.other).length + (segments.some((s) => s.other) ? 1 : 0);
 
@@ -171,7 +181,9 @@ export default function DayLogView({ viewDate, onNavigate }: DayLogViewProps) {
   if (!intervals) return null;
 
   const first = intervals[0];
-  const last = intervals[intervals.length - 1];
+  // The furthest the day reached, which is not the last row: intervals sort by
+  // start, and with parallel timers a session begun earlier can end later.
+  const last = intervals.reduce((a, b) => (b.end > a.end ? b : a), intervals[0]);
 
   return (
     <div className="space-y-4">
@@ -207,6 +219,12 @@ export default function DayLogView({ viewDate, onNavigate }: DayLogViewProps) {
         {intervals.length > 0 && (
           <p className="text-sm text-muted-foreground">
             Tracked <span className="font-medium text-foreground">{formatDurationHM(totalMs)}</span>
+            {hasOverlap && (
+              <span title="Timers that ran at the same time are counted once here">
+                {" across "}
+                <span className="font-medium text-foreground">{formatDurationHM(coveredMs)}</span>
+              </span>
+            )}
             {" · "}
             {taskCount} {taskCount === 1 ? "task" : "tasks"}
             {" · "}
@@ -267,12 +285,11 @@ export default function DayLogView({ viewDate, onNavigate }: DayLogViewProps) {
 
           {/* Chronological timeline with untracked gaps */}
           <div className="rounded-lg border border-border bg-card">
-            {intervals.map((iv, i) => {
-              const prev = intervals[i - 1];
-              const gap = prev ? iv.start - prev.end : 0;
+            {intervals.map((iv) => {
+              const gap = iv.gapBefore ?? 0;
               return (
                 <div key={iv.entryId ?? `running-${iv.stepId}`}>
-                  {prev && gap >= MIN_GAP_MS && (
+                  {gap >= MIN_GAP_MS && (
                     <div className="flex items-center gap-2 px-4 py-1 text-[11px] text-muted-foreground/70">
                       <span className="h-px flex-1 border-t border-dashed border-border" />
                       {formatDurationHM(gap)} untracked

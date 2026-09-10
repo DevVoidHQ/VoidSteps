@@ -10,15 +10,21 @@ You will get a reply. This is a small project, so expect days rather than hours.
 
 ## What the attack surface actually is
 
-VoidSteps is a local desktop application. It has **no server, no accounts, no
-authentication and no network requests**. There is no backend to attack, no
-session to steal and no data in transit, because there is no transit.
+VoidSteps is a local desktop application. It has **no server, no accounts and
+no authentication**. There is no backend to attack and no session to steal.
+
+It makes **one** network request, and only one: a version check against its own
+GitHub releases, made from the Rust side, carrying nothing but the request
+itself. It can be switched off in Settings, and an update is only installed
+after its signature is verified against a key compiled into the app.
 
 That makes most of a normal threat model inapplicable, and it would be dishonest
 to pad this file into one. What is left, and genuinely worth reporting:
 
-- **Anything that causes a network request.** The privacy claim is the product.
-  A build that phones anywhere, for any reason, is a serious bug.
+- **Any network request other than the update check.** The privacy claim is the
+  product. A build that phones anywhere else, for any reason, is a serious bug.
+- **Anything that weakens update verification**, since that path can replace the
+  binary on someone's machine.
 - **Data loss or corruption**, particularly in the Dexie migration path
   (`app/lib/db.ts`) or in backup and restore (`app/lib/snapshot.ts`). A restore
   that silently drops rows is worse than one that refuses.

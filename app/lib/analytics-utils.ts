@@ -1,13 +1,16 @@
 // Analytics utility functions
 
-/** Default duration for steps without tracked time (15 minutes) */
-const DEFAULT_STEP_DURATION_MS = 15 * 60 * 1000;
-
 /**
- * Returns actual time spent if tracked, otherwise the 15-min default.
+ * Time spent on a step, which is zero when nothing was tracked.
+ *
+ * This used to credit an untracked step with 15 minutes. That padding made
+ * every total part measurement and part guess, and it scaled with how many
+ * steps you completed rather than how long anything took: finish 40 untracked
+ * steps and Analytics reports 10 hours of work that never happened. Now every
+ * minute the charts show is a minute a timer actually ran.
  */
 export function getEffectiveTimeMs(totalTimeSpentMs: number | undefined): number {
-  return totalTimeSpentMs && totalTimeSpentMs > 0 ? totalTimeSpentMs : DEFAULT_STEP_DURATION_MS;
+  return totalTimeSpentMs && totalTimeSpentMs > 0 ? totalTimeSpentMs : 0;
 }
 
 /**

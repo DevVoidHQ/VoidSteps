@@ -29,8 +29,13 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { NoteEditor } from "@/components/notes/NoteEditor";
+import { useToast } from "@/contexts/ToastContext";
+import { cn } from "@/lib/cn";
+import { reportError } from "@/lib/error-store";
 
-const TITLE_AUTOSAVE_MS = 30_000;
+// Matches NoteEditor's body debounce, and for the same reason: a local
+// IndexedDB write has no queue to spare, so there is nothing to batch.
+const TITLE_AUTOSAVE_MS = 1_000;
 const FOCUS_MODE_KEY = "voidsteps-notes-focus-mode";
 const OPEN_NB_KEY = "voidsteps-notes-open-notebook";
 const ACTIVE_NOTE_KEY = "voidsteps-notes-active-note";
@@ -721,13 +726,18 @@ function NoteEditorPane({
   onBack,
 }: {
   note: LocalNote | null;
-  onChange: (id: string, patch: { title?: string; body?: string }) => void;
+  // Rejects if the write did not land, so the caller can say so.
+  onChange: (id: string, patch: { title?: string; body?: string }) => Promise<void>;
   focusMode: boolean;
   onToggleFocusMode: () => void;
   onBack: () => void;
 }) {
   const [title, setTitle] = useState(note?.title ?? "");
   const [dirty, setDirty] = useState(false); // unsaved edits pending
+  // A write that came back rejected. Distinct from `dirty`: the edits are not
+  // merely unsaved, they were refused, and the label must not read "Saved".
+  const [saveFailed, setSaveFailed] = useState(false);
+  const toast = useToast();
   const titleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const titleAreaRef = useRef<HTMLTextAreaElement>(null);
   const resizeTitle = useCallback(() => {
@@ -752,24 +762,53 @@ function NoteEditorPane({
   useEffect(() => {
     setTitle(note?.title ?? "");
     setDirty(false);
+    setSaveFailed(false);
     // Resize after the value commits.
     requestAnimationFrame(resizeTitle);
   }, [note?._id, resizeTitle]);
 
-  const flushTitle = useCallback(() => {
+  /**
+   * Report a rejected write. There is no server and no retry queue behind
+   * this, so a save that fails silently is a save the user believes happened:
+   * the toast and the "Not saved" label are the whole recovery mechanism.
+   */
+  const reportSaveFailure = useCallback(
+    (error: unknown, action: string) => {
+      setSaveFailed(true);
+      setDirty(true);
+      reportError("mutation", error, { action });
+      toast.error(error instanceof Error ? error.message : "Could not save this note.");
+    },
+    [toast]
+  );
+
+  const flushTitle = useCallback(async () => {
     if (titleTimer.current) {
       clearTimeout(titleTimer.current);
       titleTimer.current = null;
     }
     const p = pendingTitle.current;
-    if (p) {
-      pendingTitle.current = null;
-      onChange(p.id, { title: p.value || "Untitled" });
+    if (!p) return;
+    try {
+      await onChange(p.id, { title: p.value || "Untitled" });
+      // Hold the pending title until the write commits, so a rejection still
+      // has something to retry from.
+      if (pendingTitle.current === p) pendingTitle.current = null;
+      setDirty(false);
+      setSaveFailed(false);
+    } catch (e) {
+      reportSaveFailure(e, "updateNoteTitle");
     }
-  }, [onChange]);
+  }, [onChange, reportSaveFailure]);
 
-  // Flush a pending title on note switch / unmount.
-  useEffect(() => () => flushTitle(), [note?._id, flushTitle]);
+  // Flush a pending title on note switch / unmount. Cleanup must return void,
+  // so the promise is dropped; flushTitle reports its own failure.
+  useEffect(
+    () => () => {
+      void flushTitle();
+    },
+    [note?._id, flushTitle]
+  );
 
   const scheduleTitleSave = (value: string) => {
     const id = noteRef.current?._id;
@@ -777,23 +816,27 @@ function NoteEditorPane({
     pendingTitle.current = { id, value };
     setDirty(true);
     if (titleTimer.current) clearTimeout(titleTimer.current);
-    titleTimer.current = setTimeout(() => {
-      flushTitle();
-      setDirty(false);
-    }, TITLE_AUTOSAVE_MS);
+    titleTimer.current = setTimeout(() => void flushTitle(), TITLE_AUTOSAVE_MS);
   };
 
   // Body save bound to this note's id (delayed flushes target the right note).
   const noteId = note?._id ?? null;
   const initialBody = note?.body ?? "";
   const persistBody = useCallback(
-    (body: string) => {
+    async (body: string) => {
       if (!noteId) return;
       if (body === initialBody) return;
-      onChange(noteId, { body });
-      setDirty(false);
+      try {
+        await onChange(noteId, { body });
+        setDirty(false);
+        setSaveFailed(false);
+      } catch (e) {
+        reportSaveFailure(e, "updateNoteBody");
+        // Rethrow so NoteEditor keeps the pending copy and retries it.
+        throw e;
+      }
     },
-    [noteId, initialBody, onChange]
+    [noteId, initialBody, onChange, reportSaveFailure]
   );
 
   const focusToggle = (
@@ -834,8 +877,13 @@ function NoteEditorPane({
         >
           <ArrowLeft className="w-4 h-4" />
         </Button>
-        <span className="ml-auto shrink-0 text-xs text-muted-foreground whitespace-nowrap">
-          {dirty ? "Editing…" : `Saved ${relativeTime(note.updatedAt)}`}
+        <span
+          className={cn(
+            "ml-auto shrink-0 text-xs whitespace-nowrap",
+            saveFailed ? "text-destructive font-medium" : "text-muted-foreground"
+          )}
+        >
+          {saveFailed ? "Not saved" : dirty ? "Editing…" : `Saved ${relativeTime(note.updatedAt)}`}
         </span>
         {focusToggle}
       </div>
@@ -851,10 +899,7 @@ function NoteEditorPane({
               scheduleTitleSave(e.target.value);
               resizeTitle();
             }}
-            onBlur={() => {
-              flushTitle();
-              setDirty(false);
-            }}
+            onBlur={() => void flushTitle()}
             onKeyDown={(e) => {
               if (e.key === "Enter") e.preventDefault();
             }}

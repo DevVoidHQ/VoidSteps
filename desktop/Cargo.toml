@@ -27,6 +27,14 @@ tauri-plugin-window-state = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
+# Desktop only: neither plugin supports mobile, and cargo would fail the
+# target resolution rather than warn.
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+# Checks GitHub Releases for a newer version and installs it in place.
+tauri-plugin-updater = "2"
+# Relaunches the app after an update is applied.
+tauri-plugin-process = "2"
+
 [profile.release]
 codegen-units = 1
 lto = true

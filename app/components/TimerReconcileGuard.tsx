@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useData } from "@/contexts/DataContext";
 import { useToast } from "@/contexts/ToastContext";
 import { useStopTimer, useStopTimerAt, useDiscardTimer } from "@/lib/local-mutations";
@@ -24,15 +24,22 @@ const STALE_TIMER_MS = 8 * 60 * 60 * 1000;
 const promptedStepIds = new Set<string>();
 
 /**
- * Two timer safety nets, mounted globally in Layout:
+ * Forgotten-timer safety net, mounted globally in Layout: a running session
+ * older than 8h (overnight laptop-lid case) prompts Keep / Trim to... /
+ * Discard instead of silently polluting the Day Log with a 14h block. Never
+ * auto-stops in the background.
  *
- * 1. Forgotten timer: a running session older than 8h (overnight laptop-lid
- *    case) prompts Keep / Trim to... / Discard instead of silently polluting
- *    the Day Log with a 14h block. Never auto-stops in the background.
- * 2. Convergence: two devices that both started timers offline sync into >1
- *    running step. The newest start wins; older ones are stopped AT the
- *    newer's start instant - deterministic, so every device converges to the
- *    same entries.
+ * There used to be a second net here, "convergence", which resolved >1 running
+ * step by keeping the newest and stopping the others AT its start instant. It
+ * was written for two devices whose offline timers merged on sync, and sync no
+ * longer exists. What it did in a local-only app was invent time: stopping a
+ * three-week-old timer at yesterday's start mints a three-week session and
+ * adds it to totalTimeSpentMs, with no prompt, bypassing the 8h guard directly
+ * below it.
+ *
+ * Several running steps is now the ordinary case rather than a corruption to
+ * heal: timers run in parallel by design. So this prompts for stale ones one
+ * at a time and leaves every other running timer alone.
  */
 export default function TimerReconcileGuard() {
   const { allSteps } = useData();
@@ -65,31 +72,7 @@ export default function TimerReconcileGuard() {
   // the dialog.
   const [dismissTick, setDismissTick] = useState(0);
 
-  // --- 2. Multi-running convergence (after a pull merges remote starts) ---
-  const converging = useRef(false);
-  useEffect(() => {
-    if (runningSteps.length <= 1 || converging.current) return;
-    converging.current = true;
-    (async () => {
-      try {
-        const newest = runningSteps.reduce((a, b) =>
-          (a.timerStartedAt ?? 0) >= (b.timerStartedAt ?? 0) ? a : b
-        );
-        for (const step of runningSteps) {
-          if (step._id === newest._id) continue;
-          // End the older session where the newer one began. If it started
-          // after (clock skew), useStopTimerAt clamps to zero duration.
-          await stopTimerAt({ id: step._id, end: newest.timerStartedAt! });
-        }
-      } catch (e) {
-        reportError("mutation", e, { action: "timerConvergence" });
-      } finally {
-        converging.current = false;
-      }
-    })();
-  }, [runningSteps, stopTimerAt]);
-
-  // --- 1. Forgotten-timer reconcile ---
+  // Forgotten-timer reconcile.
   const staleStep = useMemo(
     () =>
       runningSteps.find(
@@ -109,7 +92,10 @@ export default function TimerReconcileGuard() {
     setTrimValue(toDateTimeLocal((staleStep.timerStartedAt ?? Date.now()) + 60 * 60 * 1000));
   }, [staleStep?._id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!staleStep || runningSteps.length > 1) return null;
+  // The >1-running case used to be suppressed here so convergence could
+  // resolve it silently. With convergence gone the prompt handles those too,
+  // one step at a time, which is the only path that asks before writing.
+  if (!staleStep) return null;
 
   const startedAt = staleStep.timerStartedAt!;
   const elapsedMs = clock - startedAt;
