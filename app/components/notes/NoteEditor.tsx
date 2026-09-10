@@ -17,10 +17,12 @@ void audio;
 void file;
 const schema = BlockNoteSchema.create({ blockSpecs: allowedBlockSpecs });
 
-// Debounce body persistence aggressively. Saves only fire after a 30s typing
-// pause, on blur, or on unmount - keeps the sync queue from churning while you
-// write.
-const BODY_AUTOSAVE_MS = 30_000;
+// Debounce body persistence lightly. The 30s pause this used to wait for was
+// sized for the Convex sync queue, which no longer exists: a write is now a
+// local IndexedDB put costing well under a millisecond, so there is nothing to
+// batch and every second spent waiting is a second of typing a crash would
+// take with it. Saves fire after a short typing pause, on blur, or on unmount.
+const BODY_AUTOSAVE_MS = 1_000;
 
 type Doc = PartialBlock[];
 
@@ -38,7 +40,9 @@ export function NoteEditor({
   onEditing,
 }: {
   initialBody: string;
-  onChange: (body: string) => void;
+  // Must reject if the write did not land. flush() relies on that to keep the
+  // pending copy alive and retry, instead of reporting a save that never was.
+  onChange: (body: string) => void | Promise<void>;
   onEditing?: () => void;
 }) {
   const [seed, setSeed] = useState<Doc | null>(null);
@@ -93,16 +97,29 @@ function MountedEditor({
   onEditingRef.current = onEditing;
 
   const flush = useMemo(
-    () => () => {
+    () => async () => {
       if (timerRef.current) {
         clearTimeout(timerRef.current);
         timerRef.current = null;
       }
       const pending = pendingSerialized.current;
-      if (pending !== null && pending !== lastSerialized.current) {
-        lastSerialized.current = pending;
-        pendingSerialized.current = null;
-        onChangeRef.current(pending);
+      if (pending === null || pending === lastSerialized.current) return;
+
+      // Mark it saved optimistically so concurrent edits diff against it, but
+      // remember what to roll back to. Nothing is dropped until the write says
+      // it landed: this is the user's only copy and there is no server holding
+      // a second one.
+      const previous = lastSerialized.current;
+      lastSerialized.current = pending;
+      try {
+        await onChangeRef.current(pending);
+        // Only let go of the pending copy once the write has committed, and
+        // only if newer typing has not already replaced it.
+        if (pendingSerialized.current === pending) pendingSerialized.current = null;
+      } catch {
+        // The write failed. Rewind so the next flush retries this content
+        // rather than skipping past it. onChange has already told the user.
+        lastSerialized.current = previous;
       }
     },
     []
@@ -115,20 +132,27 @@ function MountedEditor({
       pendingSerialized.current = serialized;
       onEditingRef.current?.();
       if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(flush, BODY_AUTOSAVE_MS);
+      timerRef.current = setTimeout(() => void flush(), BODY_AUTOSAVE_MS);
     },
     [flush]
   );
 
-  // Flush pending edits on unmount (note switch, page leave).
-  useEffect(() => flush, [flush]);
+  // Flush pending edits on unmount (note switch, page leave). The cleanup has
+  // to stay sync-returning, so the promise is deliberately dropped: flush
+  // handles its own failure and the pending copy survives it either way.
+  useEffect(
+    () => () => {
+      void flush();
+    },
+    [flush]
+  );
 
   return (
     <BlockNoteView
       editor={editor}
       theme={colorScheme}
       onChange={() => schedule(editor.document)}
-      onBlur={flush}
+      onBlur={() => void flush()}
       className="voidsteps-editor"
     />
   );
