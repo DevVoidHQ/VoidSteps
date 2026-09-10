@@ -467,13 +467,16 @@ export function useFocusBackground(): string {
   return value;
 }
 
-/** Whether the picked audio track loops while focus mode is open. Default off:
- * sound should never start playing because someone hit play on a timer. */
+/** Whether the picked track plays while a timer runs or focus mode is open.
+ * Default on, reversing an earlier "sound should never start because someone
+ * hit play on a timer": music you have to go and find is music nobody uses.
+ * The off switch stays one click away in the focus view, never only here. */
 export function getFocusAudioOn(): boolean {
   try {
-    return localStorage.getItem(FOCUS_AUDIO_KEY) === "true";
+    const v = localStorage.getItem(FOCUS_AUDIO_KEY);
+    return v === null ? true : v === "true";
   } catch {
-    return false;
+    return true;
   }
 }
 
