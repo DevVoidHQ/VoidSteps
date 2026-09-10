@@ -340,10 +340,7 @@ export default function Analytics() {
       {(timeByPathData.length > 0 || pathBreakdown.length > 0) && (
         <div className="grid items-start gap-8 md:grid-cols-2">
           {timeByPathData.length > 0 && (
-            <Section
-              title="Time tracking by path"
-              subtitle="Steps without tracked time counted as 15 min"
-            >
+            <Section title="Time tracking by path" subtitle="Only time a timer actually recorded">
               <div className="space-y-2">
                 {timeByPathData.map((row, i) => (
                   <div key={row.name} className="space-y-1">
@@ -418,7 +415,7 @@ export default function Analytics() {
                     <td className="py-2 pr-4 truncate max-w-[200px]">{row.title}</td>
                     <td className="py-2 pr-4 text-muted-foreground">{row.path}</td>
                     <td className={`py-2 pr-4 ${row.tracked ? "" : "text-muted-foreground"}`}>
-                      {formatDurationHM(row.timeMs)}
+                      {row.tracked ? formatDurationHM(row.timeMs) : "Not tracked"}
                     </td>
                     <td className="py-2 text-muted-foreground">
                       {new Date(row.completedAt).toLocaleDateString(undefined, {
