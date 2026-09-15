@@ -6,9 +6,6 @@ import { startOfDay } from "./analytics-utils";
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Gaps shorter than this between consecutive intervals aren't worth a row. */
-export const MIN_GAP_MS = 5 * 60 * 1000;
-
 // ---------------------------------------------------------------------------
 // Day Log
 // ---------------------------------------------------------------------------
@@ -32,13 +29,6 @@ export interface DayInterval {
   clippedEnd?: boolean;
   /** The step no longer exists - rendered from the entry's denormalized title. */
   deletedStep?: boolean;
-  /** Untracked time before this interval, measured from the furthest point any
-   * earlier interval reached rather than from the previous row's end. With
-   * timers running in parallel the previous row can end long before the one
-   * above it does, and subtracting the wrong end invents gaps. */
-  gapBefore?: number;
-  /** This interval starts while an earlier one is still open. */
-  overlapsPrevious?: boolean;
 }
 
 export interface StepForTimeline {
@@ -65,9 +55,7 @@ export function clipToDay(
 
 /**
  * Build the chronological interval list for one day: stored entries clipped to
- * the day plus every live running session that overlaps it. Sorted by start,
- * then annotated with gaps and overlap, which cannot be derived row by row
- * once sessions can run at the same time.
+ * the day plus every live running session that overlaps it, sorted by start.
  */
 export function buildDayIntervals(
   entries: LocalTimeEntry[],
@@ -116,17 +104,105 @@ export function buildDayIntervals(
   }
 
   intervals.sort((a, b) => a.start - b.start || a.end - b.end);
+  return intervals;
+}
 
-  let reached = -Infinity;
-  for (const iv of intervals) {
-    if (reached > -Infinity) {
-      if (iv.start < reached) iv.overlapsPrevious = true;
-      else if (iv.start > reached) iv.gapBefore = iv.start - reached;
+export interface DayBlock {
+  interval: DayInterval;
+  /** Column within its overlap group, counted from the left. */
+  lane: number;
+  /** Columns it covers: its own plus any free ones to its right. */
+  span: number;
+  /** Columns in its overlap group. The block is span / lanes wide. */
+  lanes: number;
+}
+
+/**
+ * Lay the day's intervals out as calendar blocks. Sessions that overlap sit
+ * side by side, each in the leftmost column free at its start, and a block
+ * widens into any columns to its right that nothing beside it uses.
+ *
+ * `minVisibleMs` is the shortest time a block is drawn as. A two minute
+ * session still renders tall enough to read, so it has to be laid out at
+ * that height too, or it would be drawn on top of the session after it.
+ */
+export function layoutDayBlocks(intervals: DayInterval[], minVisibleMs = 0): DayBlock[] {
+  const visibleEnd = (iv: DayInterval) => Math.max(iv.end, iv.start + minVisibleMs);
+  const sorted = [...intervals].sort(
+    (a, b) => a.start - b.start || visibleEnd(b) - visibleEnd(a)
+  );
+
+  const blocks: DayBlock[] = [];
+  let group: DayBlock[] = [];
+  let laneEnds: number[] = [];
+  let groupEnd = -Infinity;
+
+  const overlaps = (a: DayInterval, b: DayInterval) =>
+    a.start < visibleEnd(b) && b.start < visibleEnd(a);
+
+  const closeGroup = () => {
+    for (const block of group) {
+      block.lanes = laneEnds.length;
+      while (
+        block.lane + block.span < laneEnds.length &&
+        !group.some(
+          (other) =>
+            other.lane === block.lane + block.span && overlaps(other.interval, block.interval)
+        )
+      ) {
+        block.span++;
+      }
     }
-    reached = Math.max(reached, iv.end);
+    blocks.push(...group);
+    group = [];
+    laneEnds = [];
+  };
+
+  for (const iv of sorted) {
+    if (iv.start >= groupEnd) closeGroup();
+    let lane = laneEnds.findIndex((end) => end <= iv.start);
+    if (lane === -1) lane = laneEnds.length;
+    laneEnds[lane] = visibleEnd(iv);
+    group.push({ interval: iv, lane, span: 1, lanes: 1 });
+    groupEnd = Math.max(groupEnd, visibleEnd(iv));
+  }
+  closeGroup();
+
+  return blocks;
+}
+
+/**
+ * The local hours the Day Log grid spans: whole hours around the day's work,
+ * at least `minHours` tall, never past the day's own edges. An end that runs
+ * into the next day (a session clipped at midnight) counts as hour 24.
+ */
+export function dayGridHours(
+  intervals: DayInterval[],
+  dayStart: number,
+  minHours = 3
+): { startHour: number; endHour: number } {
+  if (intervals.length === 0) return { startHour: 9, endHour: 9 + minHours };
+  const first = Math.min(...intervals.map((iv) => iv.start));
+  const last = Math.max(...intervals.map((iv) => iv.end));
+
+  let startHour = new Date(first).getHours();
+  let endHour: number;
+  if (startOfDay(last) !== dayStart) {
+    endHour = 24;
+  } else {
+    // Local fields, not ms arithmetic: a half-hour zone offset (IST) would
+    // otherwise misjudge whether the end sits on the hour.
+    const end = new Date(last);
+    const onTheHour =
+      end.getMinutes() === 0 && end.getSeconds() === 0 && end.getMilliseconds() === 0;
+    endHour = end.getHours() + (onTheHour ? 0 : 1);
   }
 
-  return intervals;
+  if (endHour - startHour < minHours) {
+    endHour = Math.min(24, startHour + minHours);
+    startHour = Math.max(0, endHour - minHours);
+  }
+  return { startHour, endHour };
 }
 
 /**
