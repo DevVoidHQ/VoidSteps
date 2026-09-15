@@ -1,3 +1,4 @@
+import { useClock } from "@/hooks/useClock";
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { Step } from "@/types";
@@ -54,6 +55,7 @@ function persistedDate(): string | null {
 }
 
 export default function Calendar() {
+  const now = useClock();
   const toast = useToast();
   const { allSteps, reminders, activePaths, runningTimerStepIds } = useData();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -66,12 +68,12 @@ export default function Calendar() {
   // spec-defined as UTC midnight, which lands on the previous local day in
   // UTC-negative timezones and breaks day-granularity navigation (Day Log's
   // "next day" becomes a no-op, "prev" skips a day).
-  const viewDate = dateParam
-    ? /^\d{4}-\d{2}-\d{2}$/.test(dateParam)
-      ? new Date(`${dateParam}T00:00:00`)
-      : new Date(dateParam)
-    : new Date();
-  if (isNaN(viewDate.getTime())) viewDate.setTime(Date.now());
+  const viewDate = useMemo(() => {
+    const parsed = dateParam
+      ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? `${dateParam}T00:00:00` : dateParam)
+      : new Date(now);
+    return Number.isNaN(parsed.getTime()) ? new Date(now) : parsed;
+  }, [dateParam, now]);
 
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
@@ -253,7 +255,7 @@ export default function Calendar() {
   const handleSaveEdit = useCallback(
     async (id: string, updates: Partial<Step>) => {
       try {
-        const { path, ...cleanUpdates } = updates as Record<string, unknown>;
+        const { path: _path, ...cleanUpdates } = updates as Record<string, unknown>;
         await updateStepMutation({ id, ...cleanUpdates });
       } catch (e) {
         reportError("mutation", e, { action: "updateStep", stepId: id });

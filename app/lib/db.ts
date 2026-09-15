@@ -95,7 +95,7 @@ export interface LocalUserSettings {
   dayTurnoverMinutes?: number;
   // "Start of day": minutes past midnight when routines spawn.
   routineSpawnMinutes?: number;
-  // Client-stamped UTC offset for the server cron's day math.
+  // Last observed device UTC offset. Scheduling uses the current device offset.
   utcOffsetMinutes?: number;
   updatedAt: number;
 }
@@ -187,7 +187,7 @@ export interface LocalUserFont {
   updatedAt: number;
 }
 
-class VoidStepsDB extends Dexie {
+export class VoidStepsDB extends Dexie {
   steps!: EntityTable<LocalStep, "_id">;
   paths!: EntityTable<LocalPath, "_id">;
   routines!: EntityTable<LocalRoutine, "_id">;
@@ -201,8 +201,8 @@ class VoidStepsDB extends Dexie {
   focusMedia!: EntityTable<LocalFocusMedia, "_id">;
   userFonts!: EntityTable<LocalUserFont, "_id">;
 
-  constructor() {
-    super("voidsteps");
+  constructor(name = "voidsteps") {
+    super(name);
 
     this.version(1).stores({
       steps: "_id, pathId, parentId, routineId, updatedAt",

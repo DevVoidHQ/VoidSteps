@@ -9,12 +9,12 @@ import Layout from "@/components/Layout";
 import { useEscapeFullscreenGuard } from "@/hooks/useEscapeFullscreenGuard";
 import LoadingScreen from "@/components/LoadingScreen";
 import Steps from "@/pages/Steps";
-import Paths from "@/pages/Paths";
+const Paths = lazy(() => import("@/pages/Paths"));
 import Routines from "@/pages/Routines";
 import Reminders from "@/pages/Reminders";
-import Analytics from "@/pages/Analytics";
+const Analytics = lazy(() => import("@/pages/Analytics"));
 import Calendar from "@/pages/Calendar";
-import Settings from "@/pages/Settings";
+const Settings = lazy(() => import("@/pages/Settings"));
 
 // Lazy - Notes pulls in BlockNote (~1.4MB). Keeps main bundle lean.
 const Notes = lazy(() => import("@/pages/Notes"));
@@ -27,76 +27,78 @@ function AppRoutes() {
     <ErrorBoundary>
       <AppLifecycleProvider>
         <DataProvider>
-          <Routes>
-            <Route
-              path="/"
-              element={
-                <Layout>
-                  <Calendar />
-                </Layout>
-              }
-            />
-            <Route
-              path="/steps"
-              element={
-                <Layout key={location.pathname}>
-                  <Steps />
-                </Layout>
-              }
-            />
-            <Route
-              path="/paths"
-              element={
-                <Layout key={location.pathname}>
-                  <Paths />
-                </Layout>
-              }
-            />
-            <Route
-              path="/routines"
-              element={
-                <Layout key={location.pathname}>
-                  <Routines />
-                </Layout>
-              }
-            />
-            <Route
-              path="/reminders"
-              element={
-                <Layout key={location.pathname}>
-                  <Reminders />
-                </Layout>
-              }
-            />
-            <Route
-              path="/notes"
-              element={
-                <Layout key={location.pathname} fullWidth>
-                  <Suspense fallback={<LoadingScreen />}>
-                    <Notes />
-                  </Suspense>
-                </Layout>
-              }
-            />
-            <Route path="/pathway" element={<Navigate to="/paths" replace />} />
-            <Route
-              path="/analytics"
-              element={
-                <Layout key={location.pathname}>
-                  <Analytics />
-                </Layout>
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                <Layout key={location.pathname}>
-                  <Settings />
-                </Layout>
-              }
-            />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <Suspense fallback={<LoadingScreen />}>
+            <Routes>
+              <Route
+                path="/"
+                element={
+                  <Layout>
+                    <Calendar />
+                  </Layout>
+                }
+              />
+              <Route
+                path="/steps"
+                element={
+                  <Layout key={location.pathname}>
+                    <Steps />
+                  </Layout>
+                }
+              />
+              <Route
+                path="/paths"
+                element={
+                  <Layout key={location.pathname}>
+                    <Paths />
+                  </Layout>
+                }
+              />
+              <Route
+                path="/routines"
+                element={
+                  <Layout key={location.pathname}>
+                    <Routines />
+                  </Layout>
+                }
+              />
+              <Route
+                path="/reminders"
+                element={
+                  <Layout key={location.pathname}>
+                    <Reminders />
+                  </Layout>
+                }
+              />
+              <Route
+                path="/notes"
+                element={
+                  <Layout key={location.pathname} fullWidth>
+                    <Suspense fallback={<LoadingScreen />}>
+                      <Notes />
+                    </Suspense>
+                  </Layout>
+                }
+              />
+              <Route path="/pathway" element={<Navigate to="/paths" replace />} />
+              <Route
+                path="/analytics"
+                element={
+                  <Layout key={location.pathname}>
+                    <Analytics />
+                  </Layout>
+                }
+              />
+              <Route
+                path="/settings"
+                element={
+                  <Layout key={location.pathname}>
+                    <Settings />
+                  </Layout>
+                }
+              />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
         </DataProvider>
       </AppLifecycleProvider>
     </ErrorBoundary>

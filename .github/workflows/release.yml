@@ -3,12 +3,27 @@ name: Release
 # Desktop builds ride version tags, never a branch push. The lander deploys on
 # its own schedule (lander.yml) so a marketing copy fix can't ship a binary.
 #
+# Tags normally come from auto-release.yml, which calls this workflow with the
+# tag it just pushed, because a tag pushed by a workflow triggers nothing on its
+# own. Pushing a v* tag by hand still works the same way.
+#
 # workflow_dispatch builds but does not publish: it exists to prove the pipeline
 # still works without burning a version number.
 on:
   push:
     tags: ["v*"]
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
   workflow_dispatch:
+
+# Called from auto-release.yml, github.ref is main rather than the tag, so every
+# step reads the tag from here. Empty on workflow_dispatch, which publishes
+# nothing.
+env:
+  TAG: ${{ inputs.tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || '' }}
 
 jobs:
   # Nothing gets built until the tag is honest and the tests are green. A
@@ -19,6 +34,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
 
       # No version pin here on purpose. package.json's packageManager field is
       # the single source of truth, and action-setup errors out if both are set.
@@ -34,9 +51,9 @@ jobs:
       # not the tag. Without this check, tagging v0.2.0 ships a dmg named
       # 0.1.0 and the release page lies about its own contents.
       - name: Version agrees with the tag
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.TAG != ''
         run: |
-          tag="${GITHUB_REF_NAME#v}"
+          tag="${TAG#v}"
           conf=$(node -p "require('./desktop/tauri.conf.json').version")
           crate=$(grep -m1 '^version = ' desktop/Cargo.toml | cut -d'"' -f2)
           pkg=$(node -p "require('./package.json').version")
@@ -68,6 +85,8 @@ jobs:
   # Upload bundles step, and update the Install section of README.md. Prove it
   # with workflow_dispatch before tagging.
   build:
+    permissions:
+      contents: write
     needs: verify
     strategy:
       fail-fast: false
@@ -82,6 +101,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
 
       # No version pin here on purpose. package.json's packageManager field is
       # the single source of truth, and action-setup errors out if both are set.
@@ -112,8 +133,8 @@ jobs:
           APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
         run: |
           if [ -z "$APPLE_API_KEY_BASE64" ]; then
-            echo "::warning::No App Store Connect key. This build will not be notarized."
-            exit 0
+            echo "::error::No App Store Connect key. Refusing an unnotarized release build."
+            exit 1
           fi
           mkdir -p "$HOME/private_keys"
           printf '%s' "$APPLE_API_KEY_BASE64" | base64 --decode > "$HOME/private_keys/AuthKey.p8"
@@ -146,13 +167,10 @@ jobs:
           projectPath: .
           # Empty on workflow_dispatch, which stops tauri-action creating a
           # release named after the branch.
-          tagName: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
-          releaseName: ${{ startsWith(github.ref, 'refs/tags/v') && format('VoidSteps {0}', github.ref_name) || '' }}
-          # Published, not draft. A draft release's assets are not publicly
-          # reachable, so latest.json 404s and no installed app ever hears
-          # about the release. The verify job above is the gate that makes
-          # publishing straight away safe.
-          releaseDraft: false
+          tagName: ${{ env.TAG }}
+          releaseName: ${{ env.TAG && format('VoidSteps {0}', env.TAG) || '' }}
+          # Keep every asset private until the installer checks below pass.
+          releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
 
@@ -187,14 +205,20 @@ jobs:
       # tauri-action uploaded the dmg before it was stapled, so the asset on the
       # release is the unopenable one until it is replaced.
       - name: Replace the release asset with the stapled dmg
-        if: runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/v') && env.DMG_PATH != ''
+        if: runner.os == 'macOS' && env.TAG != '' && env.DMG_PATH != ''
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "${{ github.ref_name }}" "$DMG_PATH" --clobber
+        run: gh release upload "$TAG" "$DMG_PATH" --clobber
+
+      - name: Publish verified release
+        if: env.TAG != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "$TAG" --draft=false
 
       # A dispatch build publishes nothing, so keep the bundles reachable.
       - name: Upload bundles
-        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        if: env.TAG == ''
         uses: actions/upload-artifact@v4
         with:
           name: voidsteps-${{ matrix.platform }}

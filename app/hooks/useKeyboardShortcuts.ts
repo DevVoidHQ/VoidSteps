@@ -1,6 +1,6 @@
+import { getKeybinds, matchesKeybind } from "@/lib/keybind-config";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getKeybinds, matchesKeybind } from "@/lib/keybind-config";
 
 const NAV_ACTIONS = [
   "navToday",
@@ -40,6 +40,7 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
+      if (e.defaultPrevented || target.closest('[role="dialog"]')) return;
       const isInput =
         target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
 

@@ -1,46 +1,46 @@
-import { useState, useCallback, useRef, useEffect, memo } from "react";
-import type { Step, Path } from "@/types/index";
-import { Card, CardContent } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
-import { IconButton } from "@/components/ui/IconButton";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { useToast } from "@/contexts/ToastContext";
-import {
-  Check,
-  X,
-  Star,
-  Target,
-  Pencil,
-  XCircle,
-  Clock,
-  Calendar,
-  CalendarClock,
-  History,
-  Play,
-  Pause,
-  Timer,
-  Trash2,
-  Repeat,
-  MoreHorizontal,
-} from "lucide-react";
-import { resolvePostponeDate } from "@/lib/postpone";
-import { useElapsedTime, formatDuration } from "@/hooks/useTimer";
-import { TimeEditDialog } from "@/components/TimeEditDialog";
 import { StepDialog, type StepDialogTab } from "@/components/StepDialog";
+import { TimeEditDialog } from "@/components/TimeEditDialog";
+import { Badge } from "@/components/ui/Badge";
+import { Card, CardContent } from "@/components/ui/Card";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { IconButton } from "@/components/ui/IconButton";
+import { useToast } from "@/contexts/ToastContext";
+import { formatDuration, useElapsedTime } from "@/hooks/useTimer";
 import {
-  getDueDateStatus,
+  formatAbsoluteDateTime,
   formatRelativeDate,
   formatRelativePast,
-  formatAbsoluteDateTime,
+  getDueDateStatus,
 } from "@/lib/date-utils";
+import { resolvePostponeDate } from "@/lib/postpone";
 import {
+  STEP_ACTION_ORDER,
   useShowStepDates,
   useStepActions,
-  STEP_ACTION_ORDER,
   type StepActionKey,
   type StepClickAction,
 } from "@/lib/preferences";
+import type { Path, Step } from "@/types/index";
+import {
+  Calendar,
+  CalendarClock,
+  Check,
+  Clock,
+  History,
+  MoreHorizontal,
+  Pause,
+  Pencil,
+  Play,
+  Repeat,
+  Star,
+  Target,
+  Timer,
+  Trash2,
+  X,
+  XCircle,
+} from "lucide-react";
 import type { ReactNode } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 
 export interface StepCardProps {
   step: Step;
@@ -349,8 +349,7 @@ function StepCardComponent({
                   {/* Path badge */}
                   {(step.pathId || step.path) && (
                     <Badge variant="secondary" size="sm" icon={<Target className="w-3 h-3" />}>
-                      {step.path?.title ||
-                        (typeof step.pathId === "object" && step.pathId ? step.pathId.title : "")}
+                      {step.path?.title ?? ""}
                     </Badge>
                   )}
                   {/* Routine badge */}

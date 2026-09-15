@@ -1,21 +1,21 @@
-import { useState, useCallback, useEffect } from "react";
-import type { Step, Path } from "@/types/index";
+import { ActivityTimeline } from "@/components/ActivityTimeline";
+import { HierarchicalPathSelector } from "@/components/HierarchicalPathSelector";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { DatePicker } from "@/components/ui/DatePicker";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/Dialog";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
-import { DatePicker } from "@/components/ui/DatePicker";
-import { HierarchicalPathSelector } from "@/components/HierarchicalPathSelector";
-import { ActivityTimeline } from "@/components/ActivityTimeline";
-import { MAX_TITLE_LENGTH, MAX_DESCRIPTION_LENGTH } from "@/lib/local-mutations";
+import { Input } from "@/components/ui/Input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { formatDateForInput, parseDateInput, parseStartDateInput } from "@/lib/date-utils";
+import { MAX_DESCRIPTION_LENGTH, MAX_TITLE_LENGTH } from "@/lib/local-mutations";
 import { useDeferDatesMode, useDueDatesMode } from "@/lib/preferences";
+import type { Path, Step } from "@/types/index";
+import { useCallback, useEffect, useState } from "react";
 
 export type StepDialogTab = "details" | "activity";
 
@@ -59,10 +59,7 @@ export function StepDialog({
     setEditForm({
       title: step.title,
       description: step.description || "",
-      pathId:
-        typeof step.pathId === "object" && step.pathId
-          ? step.pathId._id
-          : (step.pathId as unknown as string) || "",
+      pathId: step.pathId || "",
       dueDate: formatDateForInput(step.dueDate),
       startDate: formatDateForInput(step.startDate),
     });
@@ -80,7 +77,7 @@ export function StepDialog({
       description: editForm.description,
       // '' (no path selected) must reach the mutation as null-to-clear, never
       // as an empty-string id.
-      pathId: (editForm.pathId || null) as unknown as Path | null,
+      pathId: editForm.pathId || null,
       dueDate: parseDateInput(editForm.dueDate),
       startDate: parseStartDateInput(editForm.startDate),
     });

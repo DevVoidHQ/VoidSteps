@@ -1,6 +1,6 @@
-import * as React from "react";
-import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { Check, ChevronDown } from "lucide-react";
+import * as React from "react";
 
 export interface SelectOption {
   value: string;
@@ -42,6 +42,26 @@ function Select({
   const [open, setOpen] = React.useState(false);
   const rootRef = React.useRef<HTMLDivElement>(null);
 
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
+  const listRef = React.useRef<HTMLUListElement>(null);
+  const [active, setActive] = React.useState(0);
+  const listId = `${selectId}-list`;
+  const enabled = options
+    .map((option, index) => (option.disabled ? -1 : index))
+    .filter((index) => index >= 0);
+  const show = (last = false) => {
+    const selectedIndex = options.findIndex((option) => option.value === value && !option.disabled);
+    setActive(selectedIndex >= 0 ? selectedIndex : ((last ? enabled.at(-1) : enabled[0]) ?? 0));
+    setOpen(true);
+  };
+  const close = () => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+  React.useEffect(() => {
+    if (open) listRef.current?.querySelector<HTMLElement>(`[data-index="${active}"]`)?.focus();
+  }, [open, active]);
+
   const selected = options.find((o) => o.value === value);
 
   React.useEffect(() => {
@@ -51,14 +71,9 @@ function Select({
         setOpen(false);
       }
     };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
     document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
     };
   }, [open]);
 
@@ -75,12 +90,20 @@ function Select({
 
       <div className="relative" ref={rootRef}>
         <button
+          ref={triggerRef}
           type="button"
           id={selectId}
           disabled={disabled}
           aria-haspopup="listbox"
           aria-expanded={open}
-          onClick={() => setOpen((o) => !o)}
+          aria-controls={open ? listId : undefined}
+          onClick={() => (open ? close() : show())}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+              event.preventDefault();
+              show(event.key === "ArrowUp");
+            }
+          }}
           className={cn(
             "flex h-11 w-full items-center justify-between gap-2 rounded-md border bg-background px-3 py-2 text-sm",
             "border-input text-left transition-colors duration-150",
@@ -102,25 +125,67 @@ function Select({
 
         {open && (
           <ul
+            ref={listRef}
+            id={listId}
             role="listbox"
+            aria-labelledby={selectId}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopPropagation();
+                close();
+                return;
+              }
+              if (event.key === "Tab") {
+                close();
+                return;
+              }
+              let next: number | undefined;
+              if (event.key === "Home") next = enabled[0];
+              else if (event.key === "End") next = enabled.at(-1);
+              else if (event.key === "ArrowDown")
+                next = enabled[(enabled.indexOf(active) + 1) % enabled.length];
+              else if (event.key === "ArrowUp")
+                next = enabled[(enabled.indexOf(active) - 1 + enabled.length) % enabled.length];
+              else if (
+                event.key.length === 1 &&
+                !event.ctrlKey &&
+                !event.metaKey &&
+                event.key !== " "
+              ) {
+                const ordered = [
+                  ...enabled.filter((index) => index > active),
+                  ...enabled.filter((index) => index <= active),
+                ];
+                next = ordered.find((index) =>
+                  options[index].label.toLowerCase().startsWith(event.key.toLowerCase())
+                );
+              }
+              if (next !== undefined) {
+                event.preventDefault();
+                setActive(next);
+              }
+            }}
             className={cn(
               "absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border border-border bg-background p-1 shadow-lg",
               "animate-in fade-in-0 zoom-in-95 duration-200"
             )}
           >
-            {options.map((option) => {
+            {options.map((option, index) => {
               const isSelected = option.value === value;
               return (
                 <li key={option.value}>
                   <button
                     type="button"
                     role="option"
+                    data-index={index}
+                    tabIndex={index === active ? 0 : -1}
                     aria-selected={isSelected}
                     disabled={option.disabled}
                     onClick={() => {
                       if (option.disabled) return;
                       onValueChange(option.value);
-                      setOpen(false);
+                      close();
                     }}
                     className={cn(
                       "flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors",

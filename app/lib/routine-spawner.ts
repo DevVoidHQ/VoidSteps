@@ -1,7 +1,8 @@
-import { db } from "./db";
-import type { LocalStep } from "./db";
 import { calculateNextOccurrence, getLogicalDayStart } from "./calculate-next-occurrence";
 import { getDaySettings, toDayBoundaryOpts } from "./day-settings";
+import type { LocalStep } from "./db";
+import { db } from "./db";
+import { reportError } from "./error-store";
 
 const SPAWN_INTERVAL = 15 * 60 * 1000; // 15 minutes
 
@@ -35,53 +36,41 @@ async function prioritizeDueSteps() {
       await db.steps.update(step._id, { prioritizedToday: true, updatedAt: now });
     }
   } catch (error) {
-    console.error("Due date prioritizer error:", error);
+    await reportError("mutation", error, { action: "prioritizeDueSteps" });
   }
 }
 
-async function spawnDueRoutines() {
-  try {
+/** Spawn and advance schedules together, including concurrent app windows. */
+export async function spawnDueRoutines(): Promise<void> {
+  await db.transaction("rw", [db.steps, db.routines, db.userSettings], async () => {
     const now = Date.now();
-    const routines = await db.routines.filter((r) => r.nextOccurrence <= now).toArray();
-
-    // Dedup window = the user's current logical day (configured turnover
-    // boundary - must match the server cron's window or routines double-spawn).
-    const daySettings = await getDaySettings();
-    const dayOpts = toDayBoundaryOpts(daySettings);
+    const routines = await db.routines.where("nextOccurrence").belowOrEqual(now).toArray();
+    const dayOpts = toDayBoundaryOpts(await getDaySettings());
     const startOfToday = getLogicalDayStart(now, dayOpts);
-
     for (const routine of routines) {
-      // De-duplicate: skip if a step with same routineId was already created today.
-      // This spawner runs on mount and on visibilitychange, so the same logical
-      // day is checked many times per day and across restarts. `isRunning` guards
-      // overlapping runs within one session; this check guards everything else.
       const existingToday = await db.steps
-        .filter((s) => s.routineId === routine._id && s.createdAt >= startOfToday)
+        .where("routineId")
+        .equals(routine._id)
+        .filter((s) => s.createdAt >= startOfToday)
         .first();
-
-      if (existingToday) continue;
-
-      // Create step from routine blueprint
-      const stepId = `local_${crypto.randomUUID()}`;
-      const step: LocalStep = {
-        _id: stepId,
-        title: routine.title,
-        description: routine.description,
-        completed: false,
-        failed: false,
-        pathId: routine.pathId,
-        routineId: routine._id,
-        prioritizedToday: routine.autoPrioritize ?? false,
-        sortOrder: now,
-        dueDate: undefined,
-        startDate: undefined,
-        createdAt: now,
-        updatedAt: now,
-      };
-
-      await db.steps.add(step);
-
-      // Update routine's nextOccurrence (lands at the configured start-of-day)
+      if (!existingToday) {
+        const step: LocalStep = {
+          _id: `local_${crypto.randomUUID()}`,
+          title: routine.title,
+          description: routine.description,
+          completed: false,
+          failed: false,
+          pathId: routine.pathId,
+          routineId: routine._id,
+          prioritizedToday: routine.autoPrioritize ?? false,
+          sortOrder: now,
+          createdAt: now,
+          updatedAt: now,
+        };
+        await db.steps.add(step);
+      }
+      // Also advance a stale schedule when a previous build already spawned
+      // today's step. Otherwise it stays due until another day and spawns again.
       const nextOccurrence = calculateNextOccurrence(
         routine.frequency,
         routine.daysOfWeek,
@@ -90,15 +79,9 @@ async function spawnDueRoutines() {
         routine.dayOfYear,
         dayOpts
       );
-
-      await db.routines.update(routine._id, {
-        nextOccurrence,
-        updatedAt: now,
-      });
+      await db.routines.update(routine._id, { nextOccurrence, updatedAt: now });
     }
-  } catch (error) {
-    console.error("Routine spawner error:", error);
-  }
+  });
 }
 
 async function runScheduledTasks() {
@@ -107,6 +90,8 @@ async function runScheduledTasks() {
   try {
     await spawnDueRoutines();
     await prioritizeDueSteps();
+  } catch (error) {
+    await reportError("mutation", error, { action: "routineSpawner" });
   } finally {
     isRunning = false;
   }
