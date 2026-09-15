@@ -32,7 +32,7 @@ export async function getDaySettings(): Promise<DaySettings> {
 }
 
 /** Recurrence/day-math options for these settings on THIS device (the device's
- * own offset - the stored utcOffsetMinutes is for the server cron). */
+ * own offset, rather than a previously stored utcOffsetMinutes). */
 export function toDayBoundaryOpts(settings: DaySettings): DayBoundaryOpts {
   return {
     spawnMinutes: settings.routineSpawnMinutes,

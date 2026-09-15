@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useClock } from "./useClock";
 
 /**
  * Format milliseconds into a human-readable duration string
@@ -21,26 +21,6 @@ export function formatDuration(ms: number): string {
  * Updates every second when startedAt is provided
  */
 export function useElapsedTime(startedAt: number | undefined, baseTimeMs: number = 0): string {
-  const [elapsed, setElapsed] = useState<number>(
-    startedAt ? Date.now() - startedAt + baseTimeMs : baseTimeMs
-  );
-
-  useEffect(() => {
-    if (!startedAt) {
-      setElapsed(baseTimeMs);
-      return;
-    }
-
-    // Initial calculation
-    setElapsed(Date.now() - startedAt + baseTimeMs);
-
-    // Update every second
-    const interval = setInterval(() => {
-      setElapsed(Date.now() - startedAt + baseTimeMs);
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [startedAt, baseTimeMs]);
-
-  return formatDuration(elapsed);
+  const now = useClock(startedAt ? 1000 : 60000);
+  return formatDuration(baseTimeMs + (startedAt ? Math.max(0, now - startedAt) : 0));
 }

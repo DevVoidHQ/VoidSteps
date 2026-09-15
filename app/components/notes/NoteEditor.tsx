@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { BlockNoteSchema, defaultBlockSpecs, type PartialBlock } from "@blocknote/core";
-import { useCreateBlockNote } from "@blocknote/react";
-import { BlockNoteView } from "@blocknote/mantine";
 import { useTheme } from "@/contexts/ThemeContext";
+import { createAutosave } from "@/lib/autosave";
+import { BlockNoteSchema, defaultBlockSpecs, type PartialBlock } from "@blocknote/core";
+import { BlockNoteView } from "@blocknote/mantine";
+import { useCreateBlockNote } from "@blocknote/react";
+import { useEffect, useLayoutEffect, useState } from "react";
 
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/mantine/style.css";
@@ -37,13 +38,13 @@ function schemeFromBackground(background: string): "light" | "dark" {
 export function NoteEditor({
   initialBody,
   onChange,
-  onEditing,
+  onStatus,
 }: {
   initialBody: string;
   // Must reject if the write did not land. flush() relies on that to keep the
   // pending copy alive and retry, instead of reporting a save that never was.
   onChange: (body: string) => void | Promise<void>;
-  onEditing?: () => void;
+  onStatus?: (status: "saved" | "pending" | "error") => void;
 }) {
   const [seed, setSeed] = useState<Doc | null>(null);
   const [ready, setReady] = useState(false);
@@ -68,17 +69,17 @@ export function NoteEditor({
     return <div className="h-full" />;
   }
 
-  return <MountedEditor seed={seed ?? undefined} onChange={onChange} onEditing={onEditing} />;
+  return <MountedEditor seed={seed ?? undefined} onChange={onChange} onStatus={onStatus} />;
 }
 
 function MountedEditor({
   seed,
   onChange,
-  onEditing,
+  onStatus,
 }: {
   seed: Doc | undefined;
-  onChange: (body: string) => void;
-  onEditing?: () => void;
+  onChange: (body: string) => void | Promise<void>;
+  onStatus?: (status: "saved" | "pending" | "error") => void;
 }) {
   const { theme } = useTheme();
   const colorScheme = schemeFromBackground(theme.background);
@@ -88,71 +89,35 @@ function MountedEditor({
     initialContent: seed && seed.length > 0 ? seed : undefined,
   });
 
-  const lastSerialized = useRef<string>("");
-  const pendingSerialized = useRef<string | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
-  const onEditingRef = useRef(onEditing);
-  onEditingRef.current = onEditing;
-
-  const flush = useMemo(
-    () => async () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-      }
-      const pending = pendingSerialized.current;
-      if (pending === null || pending === lastSerialized.current) return;
-
-      // Mark it saved optimistically so concurrent edits diff against it, but
-      // remember what to roll back to. Nothing is dropped until the write says
-      // it landed: this is the user's only copy and there is no server holding
-      // a second one.
-      const previous = lastSerialized.current;
-      lastSerialized.current = pending;
-      try {
-        await onChangeRef.current(pending);
-        // Only let go of the pending copy once the write has committed, and
-        // only if newer typing has not already replaced it.
-        if (pendingSerialized.current === pending) pendingSerialized.current = null;
-      } catch {
-        // The write failed. Rewind so the next flush retries this content
-        // rather than skipping past it. onChange has already told the user.
-        lastSerialized.current = previous;
-      }
-    },
-    []
+  const [autosave] = useState(() =>
+    createAutosave({
+      initial: JSON.stringify(editor.document),
+      save: onChange,
+      delay: BODY_AUTOSAVE_MS,
+      onStatus,
+    })
   );
+  useLayoutEffect(() => {
+    autosave.setCallbacks(onChange, onStatus);
+  }, [autosave, onChange, onStatus]);
 
-  const schedule = useMemo(
-    () => (blocks: unknown) => {
-      const serialized = JSON.stringify(blocks);
-      if (serialized === lastSerialized.current) return;
-      pendingSerialized.current = serialized;
-      onEditingRef.current?.();
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => void flush(), BODY_AUTOSAVE_MS);
-    },
-    [flush]
-  );
-
-  // Flush pending edits on unmount (note switch, page leave). The cleanup has
-  // to stay sync-returning, so the promise is deliberately dropped: flush
-  // handles its own failure and the pending copy survives it either way.
+  // Finish queued writes on note switch. Errors remain visible through the
+  // parent's save callback; an unmounted editor cannot offer a later retry.
   useEffect(
     () => () => {
-      void flush();
+      void autosave.flush();
     },
-    [flush]
+    [autosave]
   );
 
   return (
     <BlockNoteView
       editor={editor}
       theme={colorScheme}
-      onChange={() => schedule(editor.document)}
-      onBlur={() => void flush()}
+      onChange={() => {
+        autosave.schedule(JSON.stringify(editor.document));
+      }}
+      onBlur={() => void autosave.flush()}
       className="voidsteps-editor"
     />
   );

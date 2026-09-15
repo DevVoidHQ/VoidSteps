@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import {
   parseSnapshot,
   countRows,
@@ -92,9 +92,21 @@ describe("parseSnapshot", () => {
   });
 
   it("keeps rows intact", () => {
-    const data = { ...emptyData(), steps: [{ _id: "a", title: "Ship it" }] };
+    const data = {
+      ...emptyData(),
+      steps: [
+        {
+          _id: "a",
+          title: "Ship it",
+          completed: false,
+          prioritizedToday: false,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+    };
     const snap = parseSnapshot(envelope({ data }));
-    expect(snap.data.steps).toEqual([{ _id: "a", title: "Ship it" }]);
+    expect(snap.data.steps).toEqual(data.steps);
   });
 });
 
@@ -209,5 +221,73 @@ describe("buildSnapshot / restoreSnapshot round trip against a real database", (
     });
 
     expect(await db.steps.count()).toBe(0);
+  });
+});
+
+describe("restore validation and rollback", () => {
+  afterEach(async () => {
+    vi.restoreAllMocks();
+    await Promise.all(db.tables.map((table) => table.clear()));
+  });
+  it("rejects malformed input before removing any existing rows", async () => {
+    const existing = {
+      _id: "safe",
+      title: "Keep",
+      completed: false,
+      prioritizedToday: false,
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    await db.steps.add(existing);
+    const snapshot = {
+      ...parseSnapshot(envelope()),
+      data: { ...emptyData(), steps: [{ ...existing, title: 42 }] },
+    };
+    await expect(
+      restoreSnapshot(snapshot as unknown as Parameters<typeof restoreSnapshot>[0])
+    ).rejects.toThrow(/title/);
+    expect(await db.steps.toArray()).toEqual([existing]);
+  });
+  it.each([
+    ["steps", { _id: "s", title: 42 }],
+    ["notes", { _id: "n", title: "Note", body: 42 }],
+    ["routines", { _id: "r", title: "Task", frequency: "sometimes" }],
+    ["userSettings", { _id: "u", updatedAt: 1, dayTurnoverMinutes: "3" }],
+  ])("rejects invalid fields in %s", (table, row) => {
+    expect(() => parseSnapshot(envelope({ data: { ...emptyData(), [table]: [row] } }))).toThrow(
+      /invalid/
+    );
+  });
+  it("rejects duplicate ids and cycles without changing the database", () => {
+    const path = { _id: "p", title: "Path", createdAt: 1, updatedAt: 1 };
+    expect(() => parseSnapshot(envelope({ data: { paths: [path, path] } }))).toThrow(/duplicate/);
+    expect(() =>
+      parseSnapshot(envelope({ data: { paths: [{ ...path, parentId: "p" }] } }))
+    ).toThrow(/circular/);
+    expect(() => parseSnapshot(envelope({ data: [] }))).toThrow(/no data/);
+    expect(() => parseSnapshot(envelope({ version: 0 }))).toThrow(/version/);
+  });
+  it("restores the previous database when a later table write fails", async () => {
+    await db.paths.add({ _id: "old", title: "Keep", createdAt: 1, updatedAt: 1 });
+    const snapshot = parseSnapshot(
+      envelope({
+        data: {
+          notes: [
+            {
+              _id: "new",
+              title: "New",
+              body: "body",
+              notebookId: "nb",
+              createdAt: 1,
+              updatedAt: 1,
+            },
+          ],
+        },
+      })
+    );
+    vi.spyOn(db.notes, "bulkAdd").mockRejectedValueOnce(new Error("Quota exceeded"));
+    await expect(restoreSnapshot(snapshot)).rejects.toThrow("Quota exceeded");
+    expect(await db.paths.get("old")).toBeDefined();
+    expect(await db.notes.count()).toBe(0);
   });
 });

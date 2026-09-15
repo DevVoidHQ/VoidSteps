@@ -8,18 +8,19 @@
  *
  * `errorLog` is deliberately excluded: it is diagnostic, not content.
  */
-import { db } from "./db";
 import type {
-  LocalStep,
-  LocalPath,
-  LocalRoutine,
-  LocalReminder,
-  LocalNotebook,
-  LocalNote,
-  LocalUserSettings,
-  LocalTimeEntry,
   LocalActivityEvent,
+  LocalNote,
+  LocalNotebook,
+  LocalPath,
+  LocalReminder,
+  LocalRoutine,
+  LocalStep,
+  LocalTimeEntry,
+  LocalUserSettings,
 } from "./db";
+import { db } from "./db";
+import { validateSnapshotRows } from "./snapshot-validation";
 
 export const SNAPSHOT_FORMAT = "voidsteps-snapshot";
 export const SNAPSHOT_VERSION = 1;
@@ -73,7 +74,7 @@ export function totalRows(counts: SnapshotCounts): number {
  * Parse and validate an untrusted snapshot (a file the user picked).
  *
  * Throws with a message meant to be shown as-is. Deliberately strict about the
- * envelope and lenient about row contents: a row missing an optional field is
+ * envelope and required row fields: a row missing an optional field is
  * the app's problem to tolerate, but a file that is not a snapshot at all, or
  * is from a newer version that may mean something different, must be refused
  * rather than half-imported.
@@ -86,7 +87,11 @@ export function parseSnapshot(raw: string): Snapshot {
     throw new Error("That file isn't valid JSON.");
   }
 
-  if (typeof parsed !== "object" || parsed === null) {
+  return validateSnapshot(parsed);
+}
+
+function validateSnapshot(parsed: unknown): Snapshot {
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     throw new Error("That file isn't a VoidSteps snapshot.");
   }
   const obj = parsed as Record<string, unknown>;
@@ -94,7 +99,7 @@ export function parseSnapshot(raw: string): Snapshot {
   if (obj.format !== SNAPSHOT_FORMAT) {
     throw new Error("That file isn't a VoidSteps snapshot.");
   }
-  if (typeof obj.version !== "number" || !Number.isInteger(obj.version)) {
+  if (typeof obj.version !== "number" || !Number.isInteger(obj.version) || obj.version < 1) {
     throw new Error("That snapshot has no version and cannot be read.");
   }
   if (obj.version > SNAPSHOT_VERSION) {
@@ -102,7 +107,7 @@ export function parseSnapshot(raw: string): Snapshot {
       `That snapshot was written by a newer version of VoidSteps (format ${obj.version}, this build reads ${SNAPSHOT_VERSION}). Update the app first.`
     );
   }
-  if (typeof obj.data !== "object" || obj.data === null) {
+  if (typeof obj.data !== "object" || obj.data === null || Array.isArray(obj.data)) {
     throw new Error("That snapshot has no data in it.");
   }
 
@@ -118,15 +123,7 @@ export function parseSnapshot(raw: string): Snapshot {
     if (!Array.isArray(rows)) {
       throw new Error(`That snapshot's "${table}" section is malformed.`);
     }
-    for (const row of rows) {
-      if (
-        typeof row !== "object" ||
-        row === null ||
-        typeof (row as { _id?: unknown })._id !== "string"
-      ) {
-        throw new Error(`That snapshot has a row in "${table}" with no id.`);
-      }
-    }
+    validateSnapshotRows(table, rows);
     (data[table] as unknown[]) = rows;
   }
 
@@ -141,45 +138,51 @@ export function parseSnapshot(raw: string): Snapshot {
 
 /** Read the whole local database into a snapshot envelope. */
 export async function buildSnapshot(source = "manual export"): Promise<Snapshot> {
-  const [
-    steps,
-    paths,
-    routines,
-    reminders,
-    notebooks,
-    notes,
-    userSettings,
-    timeEntries,
-    activityEvents,
-  ] = await Promise.all([
-    db.steps.toArray(),
-    db.paths.toArray(),
-    db.routines.toArray(),
-    db.reminders.toArray(),
-    db.notebooks.toArray(),
-    db.notes.toArray(),
-    db.userSettings.toArray(),
-    db.timeEntries.toArray(),
-    db.activityEvents.toArray(),
-  ]);
+  return db.transaction(
+    "r",
+    SNAPSHOT_TABLES.map((name) => db.table(name)),
+    async () => {
+      const [
+        steps,
+        paths,
+        routines,
+        reminders,
+        notebooks,
+        notes,
+        userSettings,
+        timeEntries,
+        activityEvents,
+      ] = await Promise.all([
+        db.steps.toArray(),
+        db.paths.toArray(),
+        db.routines.toArray(),
+        db.reminders.toArray(),
+        db.notebooks.toArray(),
+        db.notes.toArray(),
+        db.userSettings.toArray(),
+        db.timeEntries.toArray(),
+        db.activityEvents.toArray(),
+      ]);
 
-  return {
-    format: SNAPSHOT_FORMAT,
-    version: SNAPSHOT_VERSION,
-    createdAt: Date.now(),
-    source,
-    data: {
-      steps,
-      paths,
-      routines,
-      reminders,
-      notebooks,
-      notes,
-      userSettings,
-      timeEntries,
-      activityEvents,
-    },
-  };
+      return {
+        format: SNAPSHOT_FORMAT,
+        version: SNAPSHOT_VERSION,
+        createdAt: Date.now(),
+        source,
+        data: {
+          steps,
+          paths,
+          routines,
+          reminders,
+          notebooks,
+          notes,
+          userSettings,
+          timeEntries,
+          activityEvents,
+        },
+      };
+    }
+  );
 }
 
 /**
@@ -191,7 +194,8 @@ export async function buildSnapshot(source = "manual export"): Promise<Snapshot>
  * leaves the original data untouched.
  */
 export async function restoreSnapshot(snapshot: Snapshot): Promise<SnapshotCounts> {
-  const { data } = snapshot;
+  // Validate again at the destructive boundary, including programmatic callers.
+  const { data } = validateSnapshot(snapshot);
 
   await db.transaction(
     "rw",

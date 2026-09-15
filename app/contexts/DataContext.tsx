@@ -1,9 +1,9 @@
-import React, { createContext, useContext, useMemo, useCallback, useState, useEffect } from "react";
-import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "@/lib/db";
 import { getLogicalDayStart } from "@/lib/calculate-next-occurrence";
-import type { Path, Step, Routine, Reminder } from "@/types";
-import type { LocalUserSettings } from "@/lib/db";
+import type { LocalPath, LocalRoutine, LocalStep, LocalUserSettings } from "@/lib/db";
+import { db } from "@/lib/db";
+import type { Path, Reminder, Routine, Step } from "@/types";
+import { useLiveQuery } from "dexie-react-hooks";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 interface DataContextType {
   paths: Path[] | undefined;
@@ -19,11 +19,6 @@ interface DataContextType {
   upcomingSteps: Step[] | undefined;
   userSettings: LocalUserSettings | undefined;
   isLoading: boolean;
-  // Legacy optimistic update functions (no-ops, kept for backward compatibility)
-  applyOptimisticUpdate: (id: string, updates: Partial<Step>) => void;
-  applyOptimisticDelete: (id: string) => void;
-  clearOptimisticUpdate: (id: string) => void;
-  clearOptimisticDelete: (id: string) => void;
   // Helpers
   isStepUpcoming: (step: Step) => boolean;
   // Timer. Several steps can run at once, so this is a set rather than an id.
@@ -34,7 +29,7 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 // Enrich a local step with its path object
-function enrichStepWithPath(step: any, pathsMap: Map<string, any>): Step {
+function enrichStepWithPath(step: LocalStep, pathsMap: Map<string, LocalPath>): Step {
   const path = step.pathId ? pathsMap.get(step.pathId) || null : null;
   return {
     ...step,
@@ -48,13 +43,12 @@ function enrichStepWithPath(step: any, pathsMap: Map<string, any>): Step {
           updatedAt: path.updatedAt,
         }
       : null,
-    parentId: step.parentId || null,
     pathId: step.pathId || null,
-  } as Step;
+  };
 }
 
 // Enrich a local routine with its path object
-function enrichRoutineWithPath(routine: any, pathsMap: Map<string, any>): Routine {
+function enrichRoutineWithPath(routine: LocalRoutine, pathsMap: Map<string, LocalPath>): Routine {
   const path = routine.pathId ? pathsMap.get(routine.pathId) || null : null;
   return {
     ...routine,
@@ -69,7 +63,7 @@ function enrichRoutineWithPath(routine: any, pathsMap: Map<string, any>): Routin
         }
       : null,
     pathId: routine.pathId || null,
-  } as Routine;
+  };
 }
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -125,10 +119,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [localRoutines, pathsMap]);
 
   // Reminders need no enrichment - they're standalone date markers.
-  const reminders = useMemo(
-    () => (localReminders ? (localReminders as unknown as Reminder[]) : undefined),
-    [localReminders]
-  );
+  const reminders = useMemo(() => (localReminders ? localReminders : undefined), [localReminders]);
 
   // All enriched steps
   const allSteps = useMemo(() => {
@@ -233,12 +224,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [startOfToday]
   );
 
-  // No-op optimistic update functions (writes are now instant via IndexedDB)
-  const applyOptimisticUpdate = useCallback((_id: string, _updates: Partial<Step>) => {}, []);
-  const clearOptimisticUpdate = useCallback((_id: string) => {}, []);
-  const applyOptimisticDelete = useCallback((_id: string) => {}, []);
-  const clearOptimisticDelete = useCallback((_id: string) => {}, []);
-
   const value = useMemo(
     () => ({
       paths,
@@ -254,10 +239,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       upcomingSteps,
       userSettings,
       isLoading,
-      applyOptimisticUpdate,
-      applyOptimisticDelete,
-      clearOptimisticUpdate,
-      clearOptimisticDelete,
       isStepUpcoming,
       runningTimerStepIds,
     }),
@@ -275,10 +256,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       upcomingSteps,
       userSettings,
       isLoading,
-      applyOptimisticUpdate,
-      applyOptimisticDelete,
-      clearOptimisticUpdate,
-      clearOptimisticDelete,
       isStepUpcoming,
       runningTimerStepIds,
     ]

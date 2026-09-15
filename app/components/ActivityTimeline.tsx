@@ -1,3 +1,4 @@
+import { useClock } from "@/hooks/useClock";
 import { useMemo, useState } from "react";
 import type { Step, Path } from "@/types/index";
 import type { LocalActivityEvent, LocalTimeEntry } from "@/lib/db";
@@ -166,6 +167,7 @@ export function ActivityTimeline({ step, paths }: ActivityTimelineProps) {
 
   const pathsById = useMemo(() => new Map(paths.map((p) => [p._id, p])), [paths]);
 
+  const now = useClock();
   const groups = useMemo(() => {
     if (!entries || !events) return undefined;
     return buildActivityFeed(
@@ -180,9 +182,9 @@ export function ActivityTimeline({ step, paths }: ActivityTimelineProps) {
       },
       entries,
       events,
-      Date.now()
+      now
     );
-  }, [entries, events, step]);
+  }, [entries, events, step, now]);
 
   const handleSubmitEntry = async (start: number, end: number) => {
     try {

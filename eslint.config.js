@@ -26,7 +26,7 @@ const noDashRule = {
 
 export default tseslint.config(
   {
-    ignores: ["dist", "node_modules", "desktop", "coverage"],
+    ignores: ["dist", "node_modules", "desktop", "coverage", "test-results", "playwright-report"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

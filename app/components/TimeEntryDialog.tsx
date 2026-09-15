@@ -1,3 +1,4 @@
+import { useClock } from "@/hooks/useClock";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/Button";
 import {
@@ -36,7 +37,7 @@ export function TimeEntryDialog({ open, onOpenChange, initial, onSubmit }: TimeE
 
   const start = fromDateTimeLocal(startValue);
   const end = fromDateTimeLocal(endValue);
-  const now = Date.now();
+  const now = useClock();
   const error =
     start === undefined || end === undefined
       ? "Pick a start and end time"

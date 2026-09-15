@@ -1,14 +1,15 @@
 # Contributing
 
 Thanks for looking. VoidSteps is a local-only desktop task tracker: no accounts,
-no server, no network calls. That constraint decides most of what follows.
+no server and no data uploads. The optional GitHub release updater is the only
+network exception. That constraint decides most of what follows.
 
 ## Running it
 
 ```bash
 pnpm install
 pnpm desktop:dev     # Tauri window, hot reloads the UI
-pnpm test            # logic tests
+pnpm test            # logic, storage and component tests
 pnpm lint            # eslint
 pnpm format          # prettier
 ```
@@ -25,15 +26,18 @@ vitest is more forgiving than `tsc`. Run the build before opening a PR.
 
 ## Where code goes
 
-- **`app/lib/`** is pure logic, and it is the only layer with tests. Date maths,
-  recurrence, snapshot validation, quick-capture parsing. If a behaviour can be
-  expressed without a component, put it here and test it.
-- **`app/components/`, `app/pages/`** are UI. There is no component or
-  end-to-end test layer yet, so this code is verified by hand. Keep logic out of
-  it so it can be tested.
-- **`app/lib/local-mutations.ts`** is the only write path. Never write to Dexie
-  directly from a component: the activity log hangs off these mutations, so
-  bypassing them silently loses history.
+- **`app/lib/`** holds domain logic and storage services. Date maths, recurrence,
+  snapshot validation and quick-capture parsing have unit tests; mutations and
+  migrations have integration tests using in-memory IndexedDB.
+- **`app/components/`, `app/pages/`** are UI. Shared keyboard controls and note
+  persistence have component tests. Browser smoke tests live in `e2e/`.
+- **`app/lib/mutations/`** contains domain mutation services. The stable hook
+  adapters in `app/lib/local-mutations.ts` expose them to React. Components must
+  use these services rather than writing domain entities directly to Dexie,
+  because mutations also maintain activity history and timer totals.
+- Snapshot restore, data wipe, routine spawning, lifecycle maintenance and
+  media/settings helpers own their dedicated storage operations. Multi-table
+  changes must be transactional, including the snapshot export read.
 - **`desktop/`** is the desktop shell. App code must not import Node builtins;
   it runs in a webview.
 
@@ -50,9 +54,10 @@ no longer exist; that is deliberate, leave them.
 for audio, and it fails the suite rather than shipping something uncredited. If
 you have not verified an asset's licence, it does not go in.
 
-**Nothing may make a network request.** The privacy claim is the product. No
+**The webview must not make a network request.** The privacy claim is the product. No
 analytics, no telemetry, no crash reporting, no remote fonts, no CDN. Errors are stored
-locally in `lib/error-store.ts` and never leave the machine.
+locally in `app/lib/error-store.ts` and never leave the machine. The Rust updater
+may check and download this app's GitHub releases when enabled or requested.
 
 **Never hardcode a colour.** Theming is six HSL variables with contrast-derived
 foregrounds. Compose from `var(--background)`, `var(--primary)` and friends so
@@ -110,3 +115,13 @@ This is a deliberate decision, not an oversight: source files do not carry SPDX
 or copyright headers. The repository-level [LICENSE](LICENSE) plus the
 copyright line in the README's Licence section already cover every file, and in
 a single-owner codebase per-file headers are noise. Do not add them.
+
+## Browser checks
+
+Install the browser once with `pnpm exec playwright install chromium`.
+Start the production preview with `pnpm build` then `pnpm preview --port 4173`,
+and run `pnpm test:e2e`. In Void, run the preview and test process using `void run`.
+Browser contexts are isolated and never access the installed desktop database.
+The suite checks note persistence, backup/restore, deletion and route rendering.
+Native signed installation and update delivery still require a release-environment
+check; a browser test cannot validate those platform services.

@@ -8,3 +8,7 @@ public
 # with a .js extension that Prettier tries, and fails, to parse.
 desktop/target
 desktop/gen
+
+# Generated browser test reports
+test-results
+playwright-report

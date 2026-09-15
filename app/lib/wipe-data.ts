@@ -49,11 +49,19 @@ function tableFor(name: WipeEntity) {
 export async function getDataCounts(): Promise<Record<WipeEntity, number>> {
   const entries = await Promise.all(
     WIPE_ENTITIES.map(async (name) => {
-      const rows = await tableFor(name).toArray();
-      return [name, rows.length] as const;
+      return [name, await db[name].count()] as const;
     })
   );
   return Object.fromEntries(entries) as Record<WipeEntity, number>;
+}
+
+/** Retained history counts, including entries whose step has been deleted. */
+export async function getHistoryCounts() {
+  const [timeEntries, activityEvents] = await Promise.all([
+    db.timeEntries.count(),
+    db.activityEvents.count(),
+  ]);
+  return { timeEntries, activityEvents };
 }
 
 /** How many steps a cascade delete of all paths would additionally take. */
@@ -126,7 +134,13 @@ export async function wipeData(
         if (name === "steps") for (const id of ids) removedStepIds.add(id);
       }
       // Forced: wiped steps take their timesheet entries + activity log.
-      await cleanupStepChildren(removedStepIds);
+      if (set.has("steps")) {
+        // A complete step wipe also erases history retained by individual deletes.
+        await db.timeEntries.clear();
+        await db.activityEvents.clear();
+      } else {
+        await cleanupStepChildren(removedStepIds);
+      }
     }
   );
 }

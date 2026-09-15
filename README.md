@@ -27,7 +27,8 @@ meantime.
 app/               the UI: React 19 + Vite + Tailwind
   lib/db.ts            Dexie schema; version blocks are a migration
                        history, add a new one, never edit an old one
-  lib/local-mutations.ts   every write goes through here
+  lib/mutations/      domain writes, transactions and activity history
+  lib/local-mutations.ts   stable React adapters for those services
   lib/snapshot.ts      the one backup and restore format
   lib/recurrence.ts    routine scheduling, in a shifted-UTC frame
 desktop/           the Tauri shell (Rust)
@@ -45,7 +46,7 @@ shell.
 ```bash
 pnpm install
 pnpm desktop:dev     # Tauri window, hot reloads the UI
-pnpm test            # pure logic tests
+pnpm test            # logic, storage and component tests
 pnpm lint            # eslint
 pnpm format          # prettier
 ```
@@ -67,7 +68,7 @@ quarantined on any machine that did not compile it. To test one locally:
 xattr -dr com.apple.quarantine <path to .app>
 ```
 
-CI builds both platforms on a `v*` tag, see `.github/workflows/release.yml`.
+CI builds macOS on a `v*` tag, see `.github/workflows/release.yml`.
 
 ## Storage and privacy
 

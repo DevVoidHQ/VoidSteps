@@ -1,27 +1,29 @@
-import { useState, useEffect, useCallback } from "react";
+import { useLiveQuery } from "dexie-react-hooks";
+import { Button } from "@/components/ui/Button";
+import { Card, CardContent } from "@/components/ui/Card";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/Dialog";
 import { Input } from "@/components/ui/Input";
-import { Button } from "@/components/ui/Button";
 import { Toggle } from "@/components/ui/Toggle";
-import { Card, CardContent } from "@/components/ui/Card";
 import { useToast } from "@/contexts/ToastContext";
 import { reportError } from "@/lib/error-store";
 import {
-  wipeData,
   getDataCounts,
+  getHistoryCounts,
   getPathCascadeImpact,
   WIPE_ENTITIES,
   WIPE_ENTITY_LABELS,
+  wipeData,
   type WipeEntity,
 } from "@/lib/wipe-data";
-import { Trash2, AlertTriangle } from "lucide-react";
+import { AlertTriangle, Trash2 } from "lucide-react";
+import { useState } from "react";
 
 // An action the user can trigger from the danger zone.
 type WipeAction = { kind: "type"; entity: WipeEntity } | { kind: "todos" } | { kind: "full" };
@@ -39,28 +41,20 @@ const ZERO: Counts = {
 
 export default function DataSettings() {
   const toast = useToast();
-  const [counts, setCounts] = useState<Counts>(ZERO);
-  const [cascadeImpact, setCascadeImpact] = useState({ steps: 0 });
+  const summary = useLiveQuery(
+    () => Promise.all([getDataCounts(), getPathCascadeImpact(), getHistoryCounts()]),
+    []
+  );
+  const counts = summary?.[0] ?? ZERO;
+  const cascadeImpact = summary?.[1] ?? { steps: 0 };
+  const history = summary?.[2] ?? { timeEntries: 0, activityEvents: 0 };
+  const historyCount = history.timeEntries + history.activityEvents;
   const [action, setAction] = useState<WipeAction | null>(null);
   const [cascade, setCascade] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const refresh = useCallback(async () => {
-    try {
-      const [c, impact] = await Promise.all([getDataCounts(), getPathCascadeImpact()]);
-      setCounts(c);
-      setCascadeImpact(impact);
-    } catch (e) {
-      reportError("mutation", e, { action: "getDataCounts" });
-    }
-  }, []);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
-
-  const total = WIPE_ENTITIES.reduce((sum, e) => sum + counts[e], 0);
+  const total = WIPE_ENTITIES.reduce((sum, e) => sum + counts[e], historyCount);
 
   const openAction = (a: WipeAction) => {
     setAction(a);
@@ -80,13 +74,13 @@ export default function DataSettings() {
     if (action.kind === "todos") {
       return {
         names: ["steps", "routines"] as WipeEntity[],
-        count: counts.steps + counts.routines,
+        count: counts.steps + counts.routines + historyCount,
         forcedCascade: false,
       };
     }
     return {
       names: [action.entity],
-      count: counts[action.entity],
+      count: counts[action.entity] + (action.entity === "steps" ? historyCount : 0),
       forcedCascade: action.entity === "notebooks", // notebooks always take their notes
     };
   })();
@@ -104,7 +98,6 @@ export default function DataSettings() {
       await wipeData(resolved.names, { cascade: isPaths ? cascade : false });
       toast.success("Data deleted");
       setAction(null);
-      await refresh();
     } catch (e) {
       reportError("mutation", e, { action: "wipeData" });
       toast.error("Failed to delete data");
@@ -119,14 +112,14 @@ export default function DataSettings() {
     if (action?.kind === "full")
       return `Everything: ${total} item${total === 1 ? "" : "s"} across all types.`;
     if (action?.kind === "todos")
-      return `${counts.steps} step${counts.steps === 1 ? "" : "s"} and ${counts.routines} routine${counts.routines === 1 ? "" : "s"}.`;
+      return `${counts.steps} step${counts.steps === 1 ? "" : "s"} and ${counts.routines} routine${counts.routines === 1 ? "" : "s"}, plus ${historyCount} history records.`;
     const e = (action as { entity: WipeEntity }).entity;
     const base = `${counts[e]} ${WIPE_ENTITY_LABELS[e].toLowerCase()}`;
     if (e === "notebooks")
       return `${base} and all ${counts.notes} note${counts.notes === 1 ? "" : "s"} inside them.`;
     if (e === "paths" && cascade)
       return `${base}, plus ${cascadeImpact.steps} step${cascadeImpact.steps === 1 ? "" : "s"} inside them.`;
-    return `${base}.`;
+    return `${base}${e === "steps" ? `, plus ${historyCount} history records` : ""}.`;
   })();
 
   return (
@@ -143,13 +136,13 @@ export default function DataSettings() {
         <CardContent className="p-4 space-y-3">
           <DangerRow
             label="All to-dos"
-            description="Every step and routine. Paths, notes and reminders are kept."
-            count={counts.steps + counts.routines}
+            description="Every step, routine and history record. Paths, notes and reminders are kept."
+            count={counts.steps + counts.routines + historyCount}
             onClick={() => openAction({ kind: "todos" })}
           />
           <DangerRow
             label="Everything"
-            description="A full wipe of all steps, paths, routines, reminders, notebooks and notes."
+            description="A full wipe of all steps, paths, routines, reminders, notebooks, notes and history records."
             count={total}
             onClick={() => openAction({ kind: "full" })}
             emphasize
@@ -166,7 +159,7 @@ export default function DataSettings() {
               <DangerRow
                 key={e}
                 label={`All ${WIPE_ENTITY_LABELS[e].toLowerCase()}`}
-                count={counts[e]}
+                count={counts[e] + (e === "steps" ? historyCount : 0)}
                 onClick={() => openAction({ kind: "type", entity: e })}
               />
             ))}
@@ -263,6 +256,7 @@ function DangerRow({
         variant={emphasize ? "destructive" : "outline"}
         size="sm"
         onClick={onClick}
+        aria-label={`Delete ${label.toLowerCase()}`}
         disabled={count === 0}
         className="shrink-0"
       >

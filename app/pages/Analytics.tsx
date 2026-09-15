@@ -1,3 +1,4 @@
+import { useClock } from "@/hooks/useClock";
 import { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -53,6 +54,7 @@ const TIME_BY_PATH_TOP_N = 8;
 // Component
 // ---------------------------------------------------------------------------
 export default function Analytics() {
+  const now = useClock();
   const { allSteps, isLoading } = useData();
   const [selectedRange, setSelectedRange] = useState<RangeKey>("30d");
   const colors = useChartColors();
@@ -71,8 +73,8 @@ export default function Analytics() {
   // ---- Range cutoff -------------------------------------------------------
   const rangeCutoff = useMemo(() => {
     const days = RANGE_DAYS[selectedRange];
-    return startOfDay(Date.now()) - (days - 1) * 24 * 60 * 60 * 1000;
-  }, [selectedRange]);
+    return startOfDay(now) - (days - 1) * 24 * 60 * 60 * 1000;
+  }, [selectedRange, now]);
 
   // ---- Filtered step sets -------------------------------------------------
   const completedInRange = useMemo(
@@ -101,7 +103,7 @@ export default function Analytics() {
     const completed = (allSteps ?? []).filter((s) => s.completed && s.completedAt);
     const daySet = new Set(completed.map((s) => startOfDay(toMs(s.completedAt))));
     let streak = 0;
-    let day = startOfDay(Date.now());
+    let day = startOfDay(now);
     // If nothing completed today, start from yesterday
     if (!daySet.has(day)) {
       day -= 24 * 60 * 60 * 1000;
@@ -111,7 +113,7 @@ export default function Analytics() {
       day -= 24 * 60 * 60 * 1000;
     }
     return streak;
-  }, [allSteps]);
+  }, [allSteps, now]);
 
   // ---- Section 2: Completion trends ----------------------------------------
   const completionTrendData = useMemo(() => {

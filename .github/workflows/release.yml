@@ -68,6 +68,8 @@ jobs:
   # Upload bundles step, and update the Install section of README.md. Prove it
   # with workflow_dispatch before tagging.
   build:
+    permissions:
+      contents: write
     needs: verify
     strategy:
       fail-fast: false
@@ -112,8 +114,8 @@ jobs:
           APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
         run: |
           if [ -z "$APPLE_API_KEY_BASE64" ]; then
-            echo "::warning::No App Store Connect key. This build will not be notarized."
-            exit 0
+            echo "::error::No App Store Connect key. Refusing an unnotarized release build."
+            exit 1
           fi
           mkdir -p "$HOME/private_keys"
           printf '%s' "$APPLE_API_KEY_BASE64" | base64 --decode > "$HOME/private_keys/AuthKey.p8"
@@ -148,11 +150,8 @@ jobs:
           # release named after the branch.
           tagName: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
           releaseName: ${{ startsWith(github.ref, 'refs/tags/v') && format('VoidSteps {0}', github.ref_name) || '' }}
-          # Published, not draft. A draft release's assets are not publicly
-          # reachable, so latest.json 404s and no installed app ever hears
-          # about the release. The verify job above is the gate that makes
-          # publishing straight away safe.
-          releaseDraft: false
+          # Keep every asset private until the installer checks below pass.
+          releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
 
@@ -191,6 +190,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "${{ github.ref_name }}" "$DMG_PATH" --clobber
+
+      - name: Publish verified release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "$GITHUB_REF_NAME" --draft=false
 
       # A dispatch build publishes nothing, so keep the bundles reachable.
       - name: Upload bundles

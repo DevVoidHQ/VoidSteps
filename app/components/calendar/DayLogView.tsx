@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useClock } from "@/hooks/useClock";
+import { useCallback, useMemo, useState } from "react";
 import { useData } from "@/contexts/DataContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -64,17 +65,6 @@ function useSeriesColors(): string[] {
   }, [theme]);
 }
 
-/** Re-render every `ms` while `active` (live running-session row + totals). */
-function useTick(active: boolean, ms: number): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!active) return;
-    const id = setInterval(() => setNow(Date.now()), ms);
-    return () => clearInterval(id);
-  }, [active, ms]);
-  return active ? now : Date.now();
-}
-
 interface DayLogViewProps {
   viewDate: Date;
   onNavigate: (date: Date) => void;
@@ -123,7 +113,7 @@ export default function DayLogView({ viewDate, onNavigate }: DayLogViewProps) {
     [runningTimerStepIds, stepsById]
   );
   // Live-tick only while a session is running on the viewed day (today).
-  const now = useTick(runningSteps.length > 0 && isToday, 1000);
+  const now = useClock(runningSteps.length > 0 && isToday ? 1000 : 60000);
 
   const intervals = useMemo(
     () =>

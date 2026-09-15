@@ -115,7 +115,7 @@ export default function TimerReconcileGuard() {
   };
 
   const trimEnd = fromDateTimeLocal(trimValue);
-  const trimValid = trimEnd !== undefined && trimEnd > startedAt && trimEnd <= Date.now();
+  const trimValid = trimEnd !== undefined && trimEnd > startedAt && trimEnd <= clock;
 
   return (
     <Dialog
