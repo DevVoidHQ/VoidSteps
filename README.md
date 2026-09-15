@@ -68,10 +68,11 @@ quarantined on any machine that did not compile it. To test one locally:
 xattr -dr com.apple.quarantine <path to .app>
 ```
 
-Every merge to `main` that carries a `feat` or `fix` commit releases itself:
-`feat` bumps the minor version, `fix` and `perf` the patch, and anything else
-ships nothing. CI then builds, signs and notarizes macOS and publishes the
-release, see `.github/workflows/auto-release.yml` and `release.yml`.
+Every merge to `main` releases itself: a `feat` commit bumps the minor version,
+anything else bumps the patch, and a merge holding only `docs`, `ci`, `chore`
+or `test` commits ships nothing. CI then builds, signs and notarizes macOS and
+publishes the release, see `.github/workflows/auto-release.yml` and
+`release.yml`.
 
 ## Storage and privacy
 

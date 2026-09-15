@@ -1,8 +1,8 @@
 name: Auto release
 
-# Every merge to main that carries a feat or fix ships. The commit subjects since
-# the last tag pick the version, so nobody bumps four files by hand, and a merge
-# holding only docs, ci, chore, style, refactor or test commits ships nothing.
+# Every merge to main ships unless it is only housekeeping. The commit subjects
+# since the last tag pick the version, so nobody bumps four files by hand, and a
+# merge holding only docs, ci, chore or test commits ships nothing.
 on:
   push:
     branches: [main]
@@ -28,17 +28,19 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      # feat is a minor bump, fix and perf a patch. Merge commits are skipped,
-      # the commits they carry are what count. The bot's own "chore: vX.Y.Z"
-      # is a chore, so it never counts either.
+      # feat is a minor bump. Anything else that is not plainly housekeeping is
+      # a patch, including a commit with no prefix at all: a forgotten prefix
+      # should cost a version number's accuracy, never leave work unshipped.
+      # Merge commits are skipped, the commits they carry are what count. The
+      # bot's own "chore: vX.Y.Z" is a chore, so it never counts either.
       - name: Decide the version
         id: next
         run: |
           last=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)
           subjects=$(git log --no-merges --format=%s ${last:+"$last"..}HEAD)
-          if printf '%s\n' "$subjects" | grep -Eq '^feat(\(.+\))?!?:'; then
+          if [ -n "$subjects" ] && printf '%s\n' "$subjects" | grep -Eq '^feat(\(.+\))?!?:'; then
             bump=minor
-          elif printf '%s\n' "$subjects" | grep -Eq '^(fix|perf)(\(.+\))?!?:'; then
+          elif [ -n "$subjects" ] && printf '%s\n' "$subjects" | grep -Evq '^(docs|ci|chore|test)(\(.+\))?!?:'; then
             bump=patch
           else
             echo "Nothing user-facing since ${last:-the first commit}, no release."
