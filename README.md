@@ -68,7 +68,10 @@ quarantined on any machine that did not compile it. To test one locally:
 xattr -dr com.apple.quarantine <path to .app>
 ```
 
-CI builds macOS on a `v*` tag, see `.github/workflows/release.yml`.
+Every merge to `main` that carries a `feat` or `fix` commit releases itself:
+`feat` bumps the minor version, `fix` and `perf` the patch, and anything else
+ships nothing. CI then builds, signs and notarizes macOS and publishes the
+release, see `.github/workflows/auto-release.yml` and `release.yml`.
 
 ## Storage and privacy
 

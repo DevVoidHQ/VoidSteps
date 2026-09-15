@@ -1,0 +1,117 @@
+name: Auto release
+
+# Every merge to main that carries a feat or fix ships. The commit subjects since
+# the last tag pick the version, so nobody bumps four files by hand, and a merge
+# holding only docs, ci, chore, style, refactor or test commits ships nothing.
+on:
+  push:
+    branches: [main]
+
+# Two merges in quick succession release one after the other, never over each
+# other. The later run checks out main's tip, so it sees the earlier run's bump
+# commit and tag and only counts what landed after them.
+concurrency:
+  group: auto-release
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      # feat is a minor bump, fix and perf a patch. Merge commits are skipped,
+      # the commits they carry are what count. The bot's own "chore: vX.Y.Z"
+      # is a chore, so it never counts either.
+      - name: Decide the version
+        id: next
+        run: |
+          last=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)
+          subjects=$(git log --no-merges --format=%s ${last:+"$last"..}HEAD)
+          if printf '%s\n' "$subjects" | grep -Eq '^feat(\(.+\))?!?:'; then
+            bump=minor
+          elif printf '%s\n' "$subjects" | grep -Eq '^(fix|perf)(\(.+\))?!?:'; then
+            bump=patch
+          else
+            echo "Nothing user-facing since ${last:-the first commit}, no release."
+            exit 0
+          fi
+          IFS=. read -r major minor patch <<< "$(node -p "require('./package.json').version")"
+          if [ "$bump" = minor ]; then
+            version="$major.$((minor + 1)).0"
+          else
+            version="$major.$minor.$((patch + 1))"
+          fi
+          echo "$bump bump since ${last:-the first commit}: v$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: pnpm/action-setup@v4
+        if: steps.next.outputs.version
+
+      - uses: actions/setup-node@v4
+        if: steps.next.outputs.version
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+        if: steps.next.outputs.version
+
+      # A tag is the one thing this job cannot take back, so the gate sits in
+      # front of it. A red main gets no version number.
+      - name: Type check
+        if: steps.next.outputs.version
+        run: pnpm exec tsc --noEmit
+
+      - name: Run tests
+        if: steps.next.outputs.version
+        run: pnpm test
+
+      # The same four files the manual v0.2.0 bump touched. Cargo.lock carries
+      # the crate's own version too, and a stale one fails a --locked build.
+      - name: Bump, commit and tag
+        id: tag
+        if: steps.next.outputs.version
+        env:
+          VERSION: ${{ steps.next.outputs.version }}
+        run: |
+          set -euo pipefail
+          sed -i -E "0,/\"version\": \"[^\"]+\"/s//\"version\": \"$VERSION\"/" package.json desktop/tauri.conf.json
+          sed -i -E "0,/^version = \"[^\"]+\"/s//version = \"$VERSION\"/" desktop/Cargo.toml
+          sed -i -E "/^name = \"voidsteps\"$/{n;s/^version = \"[^\"]+\"/version = \"$VERSION\"/}" desktop/Cargo.lock
+          git diff --stat
+          if [ "$(git diff --name-only | wc -l)" -ne 4 ]; then
+            echo "::error::expected the bump to touch exactly four files"
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898583+github-actions[bot]@users.noreply.github.com"
+          git commit -qam "chore: v$VERSION"
+          git tag "v$VERSION"
+          # Atomic, so a main that moved underneath us rejects the tag as well
+          # and nothing is left half pushed. The concurrency group makes that
+          # rare; this makes it harmless.
+          git push --atomic origin HEAD:main "v$VERSION"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+  # A tag pushed with GITHUB_TOKEN triggers no workflow, by GitHub's design, so
+  # the release pipeline is called here rather than left to the tag push. That
+  # is also why a tag can never build twice.
+  release:
+    needs: version
+    if: needs.version.outputs.tag != ''
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.version.outputs.tag }}
+    secrets: inherit
