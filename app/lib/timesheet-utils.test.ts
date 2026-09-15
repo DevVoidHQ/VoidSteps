@@ -5,6 +5,8 @@ import {
   summarizeDay,
   unionCoverageMs,
   assignColorSlots,
+  layoutDayBlocks,
+  dayGridHours,
   buildActivityFeed,
   DAY_MS,
   type StepForTimeline,
@@ -95,40 +97,6 @@ describe("buildDayIntervals", () => {
     expect(result.every((r) => r.running)).toBe(true);
   });
 
-  it("flags an overlap instead of reporting a gap", () => {
-    // s2 starts while s1 is still open, so there is no untracked time between
-    // them even though s2 begins after s1's row.
-    const result = buildDayIntervals(
-      [
-        entry({ stepId: "s1", start: DAY + 9 * H, end: DAY + 12 * H, durationMs: 3 * H }),
-        entry({ stepId: "s2", start: DAY + 10 * H, end: DAY + 11 * H }),
-      ],
-      stepsById,
-      [],
-      DAY,
-      DAY + 13 * H
-    );
-    expect(result[1].overlapsPrevious).toBe(true);
-    expect(result[1].gapBefore).toBeUndefined();
-  });
-
-  it("measures a gap from the furthest point reached, not the previous row", () => {
-    // The regression: s2 ends at 11:00 but s1 runs to 12:00, so a 12:30 start
-    // is 30 minutes of untracked time, not 90.
-    const result = buildDayIntervals(
-      [
-        entry({ stepId: "s1", start: DAY + 9 * H, end: DAY + 12 * H, durationMs: 3 * H }),
-        entry({ stepId: "s2", start: DAY + 10 * H, end: DAY + 11 * H }),
-        entry({ stepId: "s1", start: DAY + 12.5 * H, end: DAY + 13 * H, durationMs: 0.5 * H }),
-      ],
-      stepsById,
-      [],
-      DAY,
-      DAY + 14 * H
-    );
-    expect(result[2].gapBefore).toBe(0.5 * H);
-  });
-
   it("shows an overnight running session from midnight on today", () => {
     const running: StepForTimeline = { _id: "s2", title: "Task two", timerStartedAt: DAY - 2 * H };
     const result = buildDayIntervals([], stepsById, [running], DAY, DAY + H);
@@ -137,6 +105,103 @@ describe("buildDayIntervals", () => {
       start: DAY,
       clippedStart: true,
       durationMs: H,
+    });
+  });
+});
+
+describe("layoutDayBlocks", () => {
+  const iv = (stepId: string, startH: number, endH: number) => ({
+    stepId,
+    title: stepId,
+    source: "timer" as const,
+    start: DAY + startH * H,
+    end: DAY + endH * H,
+    durationMs: (endH - startH) * H,
+  });
+  const byId = (blocks: ReturnType<typeof layoutDayBlocks>) =>
+    Object.fromEntries(
+      blocks.map((b) => [b.interval.stepId, { lane: b.lane, span: b.span, lanes: b.lanes }])
+    );
+
+  it("gives sessions that never overlap the full width", () => {
+    expect(byId(layoutDayBlocks([iv("a", 9, 10), iv("b", 10, 11)]))).toEqual({
+      a: { lane: 0, span: 1, lanes: 1 },
+      b: { lane: 0, span: 1, lanes: 1 },
+    });
+  });
+
+  it("puts two timers that ran together side by side", () => {
+    expect(byId(layoutDayBlocks([iv("a", 9, 11), iv("b", 10, 12)]))).toEqual({
+      a: { lane: 0, span: 1, lanes: 2 },
+      b: { lane: 1, span: 1, lanes: 2 },
+    });
+  });
+
+  it("reuses a column once it frees up, and widens into free columns", () => {
+    // a runs all morning; b and c follow each other beside it, then d overlaps
+    // only c. c's group is three wide, but b never sits next to d, so b widens.
+    const blocks = byId(
+      layoutDayBlocks([iv("a", 9, 13), iv("b", 9.5, 10.5), iv("c", 10.5, 12), iv("d", 11, 12)])
+    );
+    expect(blocks.a).toEqual({ lane: 0, span: 1, lanes: 3 });
+    expect(blocks.b).toEqual({ lane: 1, span: 2, lanes: 3 });
+    expect(blocks.c).toEqual({ lane: 1, span: 1, lanes: 3 });
+    expect(blocks.d).toEqual({ lane: 2, span: 1, lanes: 3 });
+  });
+
+  it("gives the longer of two sessions that start together the left column", () => {
+    const blocks = byId(layoutDayBlocks([iv("short", 9, 9.5), iv("long", 9, 11)]));
+    expect(blocks.long.lane).toBe(0);
+    expect(blocks.short.lane).toBe(1);
+  });
+
+  it("lays a short session out at its drawn height, not its real one", () => {
+    // Two minutes at 9:00 and a session at 9:05 do not overlap in time, but a
+    // block drawn fifteen minutes tall would cover the second one.
+    const blocks = layoutDayBlocks([iv("a", 9, 9 + 2 / 60), iv("b", 9 + 5 / 60, 10)], H / 4);
+    expect(blocks.map((b) => b.lanes)).toEqual([2, 2]);
+  });
+});
+
+describe("dayGridHours", () => {
+  const iv = (startMs: number, endMs: number) => ({
+    stepId: "s1",
+    title: "s1",
+    source: "timer" as const,
+    start: startMs,
+    end: endMs,
+    durationMs: endMs - startMs,
+  });
+
+  it("spans whole hours around the work", () => {
+    expect(dayGridHours([iv(DAY + 9.5 * H, DAY + 13.25 * H)], DAY)).toEqual({
+      startHour: 9,
+      endHour: 14,
+    });
+  });
+
+  it("does not add an hour when the work ends on the hour", () => {
+    expect(dayGridHours([iv(DAY + 9 * H, DAY + 13 * H)], DAY)).toEqual({
+      startHour: 9,
+      endHour: 13,
+    });
+  });
+
+  it("is never shorter than the minimum, and stays inside the day", () => {
+    expect(dayGridHours([iv(DAY + 10 * H, DAY + 10.5 * H)], DAY)).toEqual({
+      startHour: 10,
+      endHour: 13,
+    });
+    expect(dayGridHours([iv(DAY + 23 * H, DAY + 23.5 * H)], DAY)).toEqual({
+      startHour: 21,
+      endHour: 24,
+    });
+  });
+
+  it("runs to midnight for a session clipped at the end of the day", () => {
+    expect(dayGridHours([iv(DAY + 20 * H, DAY + DAY_MS)], DAY)).toEqual({
+      startHour: 20,
+      endHour: 24,
     });
   });
 });

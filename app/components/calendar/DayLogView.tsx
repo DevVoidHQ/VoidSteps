@@ -11,8 +11,10 @@ import {
   summarizeDay,
   unionCoverageMs,
   assignColorSlots,
+  layoutDayBlocks,
+  dayGridHours,
   formatClock,
-  MIN_GAP_MS,
+  type DayBlock,
   type DayInterval,
   type StepForTimeline,
 } from "@/lib/timesheet-utils";
@@ -51,6 +53,14 @@ const SERIES_DARK = [
   "#d95926",
 ];
 const OTHER_COLOR = "#898781"; // muted - the fold-in bucket, both modes
+
+const HOUR_MS = 60 * 60 * 1000;
+// Grid scale. A block is never drawn shorter than MIN_BLOCK_PX, so a short
+// session stays readable and clickable; the layout reserves that height too.
+const HOUR_PX = 72;
+const MIN_BLOCK_PX = 20;
+// Below this a block has room for one line only.
+const TWO_LINE_PX = 40;
 
 /** Pick the palette mode from the active theme's background lightness (themes
  * are user-defined HSL, so "dark mode" is a property of the theme, not the OS). */
@@ -273,28 +283,13 @@ export default function DayLogView({ viewDate, onNavigate }: DayLogViewProps) {
             </div>
           </div>
 
-          {/* Chronological timeline with untracked gaps */}
-          <div className="rounded-lg border border-border bg-card">
-            {intervals.map((iv) => {
-              const gap = iv.gapBefore ?? 0;
-              return (
-                <div key={iv.entryId ?? `running-${iv.stepId}`}>
-                  {gap >= MIN_GAP_MS && (
-                    <div className="flex items-center gap-2 px-4 py-1 text-[11px] text-muted-foreground/70">
-                      <span className="h-px flex-1 border-t border-dashed border-border" />
-                      {formatDurationHM(gap)} untracked
-                      <span className="h-px flex-1 border-t border-dashed border-border" />
-                    </div>
-                  )}
-                  <IntervalRow
-                    interval={iv}
-                    color={colorFor(iv.stepId)}
-                    onOpen={() => !iv.deletedStep && openActivity(iv.stepId)}
-                  />
-                </div>
-              );
-            })}
-          </div>
+          <DayGrid
+            intervals={intervals}
+            dayStart={dayStart}
+            now={isToday ? now : null}
+            colorFor={colorFor}
+            onOpen={openActivity}
+          />
         </>
       )}
 
@@ -312,50 +307,146 @@ export default function DayLogView({ viewDate, onNavigate }: DayLogViewProps) {
   );
 }
 
-function IntervalRow({
-  interval,
+/** The day as a calendar column: an hour scale on the left, each session a
+ * block as tall as it ran, and sessions that overlapped side by side. Empty
+ * space between blocks is the untracked time. */
+function DayGrid({
+  intervals,
+  dayStart,
+  now,
+  colorFor,
+  onOpen,
+}: {
+  intervals: DayInterval[];
+  dayStart: number;
+  /** Set on today only, to draw the current-time line. */
+  now: number | null;
+  colorFor: (stepId: string) => string;
+  onOpen: (stepId: string) => void;
+}) {
+  const { startHour, endHour } = dayGridHours(intervals, dayStart);
+  // Positions come from real timestamps of local hours, so a DST day's missing
+  // or repeated hour lands where the clock says it does.
+  const hourTs = (h: number) => new Date(dayStart).setHours(h, 0, 0, 0);
+  const gridStart = hourTs(startHour);
+  const gridEnd = hourTs(endHour);
+  const y = (ts: number) => ((ts - gridStart) / HOUR_MS) * HOUR_PX;
+
+  const blocks = useMemo(
+    () => layoutDayBlocks(intervals, (MIN_BLOCK_PX / HOUR_PX) * HOUR_MS),
+    [intervals]
+  );
+  const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => hourTs(startHour + i));
+
+  return (
+    <div className="rounded-lg border border-border bg-card px-2 py-4 sm:px-3">
+      <div className="relative" style={{ height: y(gridEnd) }}>
+        {hours.map((ts) => (
+          <div key={ts} className="absolute inset-x-0" style={{ top: y(ts) }}>
+            <span className="absolute left-0 w-12 -translate-y-1/2 pr-2 text-right text-[11px] tabular-nums text-muted-foreground/70">
+              {new Date(ts).toLocaleTimeString(undefined, { hour: "numeric" })}
+            </span>
+            <span className="absolute left-12 right-0 h-px bg-border/60" />
+          </div>
+        ))}
+
+        <div className="absolute inset-y-0 left-12 right-0 ml-1">
+          {blocks.map((block) => (
+            <DayBlockButton
+              key={block.interval.entryId ?? `running-${block.interval.stepId}`}
+              block={block}
+              top={y(block.interval.start)}
+              height={Math.max(y(block.interval.end) - y(block.interval.start), MIN_BLOCK_PX)}
+              color={colorFor(block.interval.stepId)}
+              onOpen={() => !block.interval.deletedStep && onOpen(block.interval.stepId)}
+            />
+          ))}
+
+          {now != null && now >= gridStart && now <= gridEnd && (
+            <div
+              className="pointer-events-none absolute inset-x-0 z-10 flex items-center"
+              style={{ top: y(now) }}
+              aria-hidden
+            >
+              <span className="-ml-1 h-2 w-2 -translate-y-1/2 rounded-full bg-primary" />
+              <span className="h-0.5 flex-1 -translate-y-1/2 bg-primary" />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DayBlockButton({
+  block,
+  top,
+  height,
   color,
   onOpen,
 }: {
-  interval: DayInterval;
+  block: DayBlock;
+  top: number;
+  height: number;
   color: string;
   onOpen: () => void;
 }) {
+  const { interval, lane, span, lanes } = block;
+  const from = interval.clippedStart ? "0:00" : formatClock(interval.start);
+  const to = interval.running ? "now" : formatClock(interval.end);
+  const duration = formatDurationHM(interval.durationMs);
+  const title = `${interval.title}${interval.deletedStep ? " (deleted)" : ""}`;
+  const compact = height < TWO_LINE_PX;
+
   return (
     <button
       type="button"
       onClick={onOpen}
       disabled={interval.deletedStep}
-      className="flex w-full items-center gap-3 border-b border-border/50 px-4 py-2.5 text-left last:border-b-0 enabled:hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      title={`${title} · ${from} to ${to} · ${duration}`}
+      aria-label={`${title}, ${from} to ${to}, ${duration}${interval.running ? ", running" : ""}`}
+      className={`absolute flex overflow-hidden rounded-md border-l-[3px] px-2 text-left transition-[filter] enabled:hover:brightness-110 focus-visible:z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+        compact ? "items-center gap-1.5" : "flex-col gap-0.5 py-1"
+      } ${interval.deletedStep ? "opacity-60" : ""}`}
+      style={{
+        top,
+        height,
+        // A hairline gutter between neighbours; the last column runs flush.
+        left: `${(lane / lanes) * 100}%`,
+        width: `calc(${(span / lanes) * 100}% - 2px)`,
+        borderLeftColor: color,
+        // The palette is all #rrggbb, so an alpha suffix tints the fill.
+        backgroundColor: `${color}2e`,
+      }}
     >
-      <span className="w-14 shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
-        {interval.clippedStart ? "0:00" : formatClock(interval.start)}
+      <span className="flex min-w-0 items-center gap-1.5">
+        {interval.running && (
+          <span className="relative flex h-1.5 w-1.5 shrink-0">
+            <span
+              className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60"
+              style={{ backgroundColor: color }}
+            />
+            <span
+              className="relative inline-flex h-1.5 w-1.5 rounded-full"
+              style={{ backgroundColor: color }}
+            />
+          </span>
+        )}
+        <span
+          className={`truncate text-xs font-medium ${interval.deletedStep ? "text-muted-foreground line-through" : "text-foreground"}`}
+        >
+          {title}
+        </span>
       </span>
-      {interval.running ? (
-        <span className="relative flex h-2 w-2 shrink-0">
-          <span
-            className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60"
-            style={{ backgroundColor: color }}
-          />
-          <span
-            className="relative inline-flex h-2 w-2 rounded-full"
-            style={{ backgroundColor: color }}
-          />
+      {compact ? (
+        <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
+          {duration}
         </span>
       ) : (
-        <span
-          className="inline-block h-2 w-2 shrink-0 rounded-full"
-          style={{ backgroundColor: color }}
-        />
-      )}
-      <span className="min-w-0 flex-1">
-        <span
-          className={`block truncate text-sm font-medium ${interval.deletedStep ? "text-muted-foreground line-through" : "text-foreground"}`}
-        >
-          {interval.title}
-          {interval.deletedStep ? " (deleted)" : ""}
-        </span>
-        <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-[11px] text-muted-foreground">
+          <span className="font-mono tabular-nums">
+            {from} to {to} · {duration}
+          </span>
           {interval.clippedStart && <span>from previous day</span>}
           {interval.pathTitle && (
             <Badge variant="secondary" size="sm" icon={<Target className="w-2.5 h-2.5" />}>
@@ -364,14 +455,7 @@ function IntervalRow({
           )}
           {interval.source === "manual" && <span className="uppercase tracking-wide">manual</span>}
         </span>
-      </span>
-      <span
-        className={`shrink-0 font-mono text-sm tabular-nums ${interval.running ? "text-primary" : "text-muted-foreground"}`}
-      >
-        {interval.running
-          ? `${formatDurationHM(interval.durationMs)} · running`
-          : formatDurationHM(interval.durationMs)}
-      </span>
+      )}
     </button>
   );
 }

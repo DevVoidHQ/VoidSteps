@@ -197,11 +197,24 @@ export default function GlobalTimerBar() {
     toast.success("Timer bar hidden. Bring it back in Settings, under Focus.");
   }, [toast]);
 
-  const clear = useCallback(() => {
-    setFocusId(null);
-    writeFocusId(null);
-    setFullscreen(false);
-  }, []);
+  // After the tracked timer stops, hand the bar (and focus mode, if open) to the
+  // newest timer still running. Only when none are left does it go away. The
+  // newest-id effect cannot do this alone: stopping an older timer leaves the
+  // newest id unchanged, so nothing would re-adopt one.
+  const moveOnFrom = useCallback(
+    (stoppedId: string) => {
+      const next = runningSteps.find((s) => s._id !== stoppedId);
+      if (next) {
+        setFocusId(next._id);
+        writeFocusId(next._id);
+        return;
+      }
+      setFocusId(null);
+      writeFocusId(null);
+      setFullscreen(false);
+    },
+    [runningSteps]
+  );
 
   const handlePauseResume = useCallback(async () => {
     if (!step) return;
@@ -222,8 +235,8 @@ export default function GlobalTimerBar() {
       reportError("mutation", error, { action: "timerStop", stepId: step._id });
       toast.error("Failed to stop timer");
     }
-    clear();
-  }, [step, isRunning, stopTimer, toast, clear]);
+    moveOnFrom(step._id);
+  }, [step, isRunning, stopTimer, toast, moveOnFrom]);
 
   const handleStopComplete = useCallback(async () => {
     if (!step) return;
@@ -235,8 +248,8 @@ export default function GlobalTimerBar() {
       reportError("mutation", error, { action: "timerStopComplete", stepId: step._id });
       toast.error("Failed to complete step");
     }
-    clear();
-  }, [step, isRunning, stopTimer, toggleCompletion, toast, clear]);
+    moveOnFrom(step._id);
+  }, [step, isRunning, stopTimer, toggleCompletion, toast, moveOnFrom]);
 
   // Esc exits fullscreen
   useEffect(() => {
