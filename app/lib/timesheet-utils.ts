@@ -128,9 +128,7 @@ export interface DayBlock {
  */
 export function layoutDayBlocks(intervals: DayInterval[], minVisibleMs = 0): DayBlock[] {
   const visibleEnd = (iv: DayInterval) => Math.max(iv.end, iv.start + minVisibleMs);
-  const sorted = [...intervals].sort(
-    (a, b) => a.start - b.start || visibleEnd(b) - visibleEnd(a)
-  );
+  const sorted = [...intervals].sort((a, b) => a.start - b.start || visibleEnd(b) - visibleEnd(a));
 
   const blocks: DayBlock[] = [];
   let group: DayBlock[] = [];
