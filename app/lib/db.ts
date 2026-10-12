@@ -47,6 +47,8 @@ export interface LocalRoutine {
   dayOfYear?: number;
   nextOccurrence: number;
   autoPrioritize?: boolean;
+  // Days after creation that a spawned step is due; undefined means no due date.
+  dueOffsetDays?: number;
   createdAt: number;
   updatedAt: number;
 }

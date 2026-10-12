@@ -2,7 +2,12 @@ import { calculateNextOccurrence } from "../calculate-next-occurrence";
 import { getDaySettings, toDayBoundaryOpts } from "../day-settings";
 import type { LocalRoutine } from "../db";
 import { db } from "../db";
-import { generateLocalId, validateDescription, validateTitle } from "./helpers";
+import {
+  generateLocalId,
+  validateDescription,
+  validateDueOffsetDays,
+  validateTitle,
+} from "./helpers";
 
 export const createRoutine = async (args: {
   title: string;
@@ -14,9 +19,11 @@ export const createRoutine = async (args: {
   month?: number;
   dayOfYear?: number;
   autoPrioritize?: boolean;
+  dueOffsetDays?: number;
 }) => {
   validateTitle(args.title);
   validateDescription(args.description);
+  validateDueOffsetDays(args.dueOffsetDays);
   const now = Date.now();
   const id = generateLocalId();
 
@@ -41,6 +48,7 @@ export const createRoutine = async (args: {
     dayOfYear: args.dayOfYear,
     nextOccurrence,
     autoPrioritize: args.autoPrioritize,
+    dueOffsetDays: args.dueOffsetDays,
     createdAt: now,
     updatedAt: now,
   };
@@ -60,9 +68,11 @@ export const updateRoutine = async (args: {
   month?: number | null;
   dayOfYear?: number | null;
   autoPrioritize?: boolean;
+  dueOffsetDays?: number | null;
 }) => {
   if (args.title !== undefined) validateTitle(args.title);
   if (args.description !== undefined) validateDescription(args.description);
+  if (args.dueOffsetDays !== null) validateDueOffsetDays(args.dueOffsetDays);
   const { id, ...updates } = args;
   const existing = await db.routines.get(id);
   if (!existing) throw new Error("Routine not found");
@@ -83,6 +93,10 @@ export const updateRoutine = async (args: {
   if (updates.dayOfYear !== undefined)
     patchData.dayOfYear = updates.dayOfYear === null ? undefined : updates.dayOfYear;
   if (updates.autoPrioritize !== undefined) patchData.autoPrioritize = updates.autoPrioritize;
+  // Handle dueOffsetDays (null clears). Only steps spawned afterwards use it.
+  if ("dueOffsetDays" in updates) {
+    patchData.dueOffsetDays = updates.dueOffsetDays === null ? undefined : updates.dueOffsetDays;
+  }
 
   // Recalculate nextOccurrence if schedule changed
   if (

@@ -34,6 +34,22 @@ describe("parseSnapshot", () => {
     expect(snap.source).toBe("test");
   });
 
+  it("accepts routines with and without a due offset", () => {
+    const base = {
+      title: "Task",
+      frequency: "daily",
+      nextOccurrence: 1,
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    const routines = [
+      { ...base, _id: "old" },
+      { ...base, _id: "due", dueOffsetDays: 2 },
+    ];
+    const snap = parseSnapshot(envelope({ data: { ...emptyData(), routines } }));
+    expect(snap.data.routines).toEqual(routines);
+  });
+
   it("rejects non-JSON", () => {
     expect(() => parseSnapshot("not json at all")).toThrow(/valid JSON/);
   });
@@ -252,6 +268,18 @@ describe("restore validation and rollback", () => {
     ["steps", { _id: "s", title: 42 }],
     ["notes", { _id: "n", title: "Note", body: 42 }],
     ["routines", { _id: "r", title: "Task", frequency: "sometimes" }],
+    [
+      "routines",
+      {
+        _id: "r",
+        title: "Task",
+        frequency: "daily",
+        nextOccurrence: 1,
+        createdAt: 1,
+        updatedAt: 1,
+        dueOffsetDays: -1,
+      },
+    ],
     ["userSettings", { _id: "u", updatedAt: 1, dayTurnoverMinutes: "3" }],
   ])("rejects invalid fields in %s", (table, row) => {
     expect(() => parseSnapshot(envelope({ data: { ...emptyData(), [table]: [row] } }))).toThrow(

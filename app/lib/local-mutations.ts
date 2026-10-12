@@ -27,7 +27,12 @@ import {
 } from "./mutations/steps";
 import { addTimeEntry, deleteTimeEntry, updateTimeEntry } from "./mutations/time-entries";
 import { discardTimer, setTotalTime, startTimer, stopTimer, stopTimerAt } from "./mutations/timers";
-export { MAX_DESCRIPTION_LENGTH, MAX_TITLE_LENGTH, TIMER_STARTED_EVENT } from "./mutations/helpers";
+export {
+  MAX_DESCRIPTION_LENGTH,
+  MAX_DUE_OFFSET_DAYS,
+  MAX_TITLE_LENGTH,
+  TIMER_STARTED_EVENT,
+} from "./mutations/helpers";
 export function useCreateStep() {
   return createStep;
 }
