@@ -411,7 +411,7 @@ export default function Steps() {
             hint={
               searchQuerySteps || selectedPathFilterSteps
                 ? "Try adjusting your search or path filter"
-                : "Add a step above to get started"
+                : "A step is one concrete thing to do. Add one above and file it under a path."
             }
           />
         )}
