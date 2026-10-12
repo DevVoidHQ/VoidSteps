@@ -11,6 +11,7 @@ import {
   getDeferDatesMode,
   getDueDatesMode,
   getFontScale,
+  getPostponeDeprioritizes,
   getPrioritizeDefault,
   getShowStepDates,
   getStepActions,
@@ -20,6 +21,7 @@ import {
   setDeferDatesMode,
   setDueDatesMode,
   setFontScale,
+  setPostponeDeprioritizes,
   setPrioritizeDefault,
   setShowStepDates,
   setStepActionMode,
@@ -49,6 +51,9 @@ export default function GeneralSettings() {
   const [deferMode, setDeferMode] = useState<DeferDatesMode>(getDeferDatesMode());
   const [dueMode, setDueMode] = useState<DeferDatesMode>(getDueDatesMode());
   const [prioritizeDefault, setPrioritizeDefaultState] = useState(getPrioritizeDefault());
+  const [postponeDeprioritizes, setPostponeDeprioritizesState] = useState(
+    getPostponeDeprioritizes()
+  );
   const [showStepDates, setShowStepDatesState] = useState(getShowStepDates());
   const [fontScale, setFontScaleState] = useState<FontScale>(getFontScale());
   const [zoom, setZoomState] = useState<number>(getZoom());
@@ -73,6 +78,7 @@ export default function GeneralSettings() {
     setDeferMode(getDeferDatesMode());
     setDueMode(getDueDatesMode());
     setPrioritizeDefaultState(getPrioritizeDefault());
+    setPostponeDeprioritizesState(getPostponeDeprioritizes());
     setShowStepDatesState(getShowStepDates());
     setFontScaleState(getFontScale());
     setZoomState(resetZoom());
@@ -182,6 +188,17 @@ export default function GeneralSettings() {
             }}
             label="Prioritize new steps for today by default"
             description="Pre-checks 'Prioritize for today' when creating a step. Off by default."
+          />
+
+          <Toggle
+            size="sm"
+            checked={postponeDeprioritizes}
+            onChange={(e) => {
+              setPostponeDeprioritizesState(e.target.checked);
+              setPostponeDeprioritizes(e.target.checked);
+            }}
+            label="Postponing a step removes it from today"
+            description="Moving a step's due date past today also takes it off today's list. On by default."
           />
 
           <Toggle
