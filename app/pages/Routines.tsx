@@ -6,7 +6,7 @@ import { reportError } from "@/lib/error-store";
 import { useToast } from "@/contexts/ToastContext";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
-import { Plus, X, Star, Target, Pencil, Repeat, Calendar } from "lucide-react";
+import { Plus, X, Star, Target, Pencil, Repeat, Calendar, Clock } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import QuickCreateRoutineDialog from "@/components/QuickCreateRoutineDialog";
 import { getKeybinds, formatKeybindDisplay } from "@/lib/keybind-config";
@@ -20,6 +20,11 @@ const DAYS_OF_WEEK = [
   { value: 5, label: "Fri" },
   { value: 6, label: "Sat" },
 ];
+
+function formatDueOffset(days: number): string {
+  if (days === 0) return "Due same day";
+  return `Due in ${days} ${days === 1 ? "day" : "days"}`;
+}
 
 function formatSchedule(routine: Routine): string {
   switch (routine.frequency) {
@@ -156,6 +161,12 @@ export default function Routines() {
                         <Calendar className="w-3 h-3" />
                         {formatSchedule(routine)}
                       </span>
+                      {routine.dueOffsetDays !== undefined && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {formatDueOffset(routine.dueOffsetDays)}
+                        </span>
+                      )}
                       {routine.nextOccurrence && (
                         <span>Next: {formatNextOccurrence(routine.nextOccurrence)}</span>
                       )}
