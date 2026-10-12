@@ -25,6 +25,7 @@ import {
   setStepActionMode,
   setStepsClickAction,
   setTodayClickAction,
+  setWelcomeDismissed,
   STEP_ACTION_LABELS,
   STEP_ACTION_ORDER,
   type DeferDatesMode,
@@ -42,10 +43,14 @@ import {
   ZOOM_LEVELS,
   zoomSupported,
 } from "@/lib/zoom";
+import { reportError } from "@/lib/error-store";
+import { seedStarterPath } from "@/lib/starter-path";
 import { Minus, Plus, RotateCcw } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function GeneralSettings() {
+  const navigate = useNavigate();
   const [deferMode, setDeferMode] = useState<DeferDatesMode>(getDeferDatesMode());
   const [dueMode, setDueMode] = useState<DeferDatesMode>(getDueDatesMode());
   const [prioritizeDefault, setPrioritizeDefaultState] = useState(getPrioritizeDefault());
@@ -79,6 +84,15 @@ export default function GeneralSettings() {
     setStepActions(getStepActions());
     setStepsClick(getStepsClickAction());
     setTodayClick(getTodayClickAction());
+  };
+  const handleShowWelcome = () => {
+    setWelcomeDismissed(false);
+    // Only seeds a profile with no paths and no steps, so this never adds
+    // sample data on top of real work.
+    seedStarterPath().catch((e) => {
+      void reportError("mutation", e, { phase: "starterPath" });
+    });
+    navigate("/paths");
   };
   return (
     <div className="space-y-6">
@@ -126,6 +140,19 @@ export default function GeneralSettings() {
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Welcome guide</label>
+            <p className="text-sm text-muted-foreground">
+              Shows the short guide to paths and steps on the Paths page again. An empty profile
+              also gets the Getting Started path back.
+            </p>
+            <div className="pt-1">
+              <Button variant="outline" size="sm" onClick={handleShowWelcome}>
+                Show again
+              </Button>
             </div>
           </div>
 

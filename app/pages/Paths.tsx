@@ -1,6 +1,7 @@
 import GraphView from "@/components/graph/GraphView";
 import { PathDeleteDialog } from "@/components/PathDeleteDialog";
 import QuickCapture from "@/components/QuickCapture";
+import WelcomeCard from "@/components/WelcomeCard";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useData } from "@/contexts/DataContext";
@@ -206,6 +207,8 @@ export default function Paths() {
         </div>
       </div>
 
+      <WelcomeCard className="mb-4 shrink-0" />
+
       <div className="flex flex-col md:flex-row flex-1 min-h-0 gap-4">
         {/* Graph canvas - primary view. Top half on mobile, left on desktop. */}
         <div className="flex-1 min-h-0 min-w-0">
@@ -364,7 +367,9 @@ export default function Paths() {
                 })
               ) : (
                 <div className="text-xs text-muted-foreground text-center py-8">
-                  {showArchived ? "No archived paths" : "No paths yet. Create one above."}
+                  {showArchived
+                    ? "No archived paths"
+                    : "No paths yet. A path is a goal; its steps are what get it done. Create one above."}
                 </div>
               )}
             </div>
