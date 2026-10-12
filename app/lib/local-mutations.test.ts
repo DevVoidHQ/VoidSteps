@@ -13,6 +13,8 @@ import {
   useArchivePath,
   useUnarchivePath,
   useDeletePathWithMigration,
+  useMergeIntoStep,
+  MAX_DESCRIPTION_LENGTH,
 } from "./local-mutations";
 
 // Every table cleared between tests: `db` is a module-level singleton over
@@ -335,5 +337,97 @@ describe("deleting a path migrates its steps rather than deleting them", () => {
 
     const row = await db.steps.get(step!._id);
     expect(row?.pathId).toBeUndefined();
+  });
+});
+
+describe("mergeIntoStep: existing step wins, typed values fill blanks", () => {
+  const seed = async (step: Partial<LocalStep>) => {
+    const { result } = renderHook(() => useCreateStep());
+    let created: LocalStep | undefined;
+    await act(async () => {
+      created = await result.current({ title: "File GST return", ...step });
+    });
+    return created!;
+  };
+  const merge = async (args: Parameters<ReturnType<typeof useMergeIntoStep>>[0]) => {
+    const { result } = renderHook(() => useMergeIntoStep());
+    await act(async () => {
+      await result.current(args);
+    });
+  };
+
+  it("keeps the title and appends the typed title to the description", async () => {
+    const step = await seed({ description: "Q3 figures" });
+    await merge({ id: step._id, title: "submit GST filing" });
+    const row = await db.steps.get(step._id);
+    expect(row?.title).toBe("File GST return");
+    expect(row?.description).toBe("Q3 figures\n\nsubmit GST filing");
+    expect(await db.steps.count()).toBe(1);
+  });
+
+  it("sets the description when it was empty", async () => {
+    const step = await seed({});
+    await merge({ id: step._id, title: "submit GST filing" });
+    expect((await db.steps.get(step._id))?.description).toBe("submit GST filing");
+  });
+
+  it("fills a blank due date, path and prioritize", async () => {
+    const step = await seed({});
+    await merge({
+      id: step._id,
+      title: "submit GST filing",
+      pathId: "p1",
+      dueDate: 1000,
+      prioritizedToday: true,
+    });
+    expect(await db.steps.get(step._id)).toMatchObject({
+      pathId: "p1",
+      dueDate: 1000,
+      prioritizedToday: true,
+    });
+  });
+
+  it("never overwrites an existing due date, path or prioritize", async () => {
+    const step = await seed({ pathId: "keep", dueDate: 5000, prioritizedToday: true });
+    await merge({
+      id: step._id,
+      title: "submit GST filing",
+      pathId: "other",
+      dueDate: 1000,
+      prioritizedToday: false,
+    });
+    expect(await db.steps.get(step._id)).toMatchObject({
+      pathId: "keep",
+      dueDate: 5000,
+      prioritizedToday: true,
+    });
+  });
+
+  it("records the merge in the activity history", async () => {
+    const step = await seed({});
+    await merge({ id: step._id, title: "submit GST filing", dueDate: 1000 });
+    const events = await db.activityEvents.toArray();
+    expect(events.every((e) => e.stepId === step._id)).toBe(true);
+    expect(events.map((e) => e.field).sort()).toEqual(["description", "dueDate"]);
+  });
+
+  it("throws on an over-length description and leaves the row unchanged", async () => {
+    const original = "x".repeat(MAX_DESCRIPTION_LENGTH - 5);
+    const step = await seed({ description: original });
+    const { result } = renderHook(() => useMergeIntoStep());
+    await expect(
+      result.current({ id: step._id, title: "submit GST filing", dueDate: 1000 })
+    ).rejects.toThrow();
+    const row = await db.steps.get(step._id);
+    expect(row?.description).toBe(original);
+    expect(row?.dueDate).toBeUndefined();
+    expect(await db.activityEvents.count()).toBe(0);
+  });
+
+  it("throws when the step is gone", async () => {
+    const { result } = renderHook(() => useMergeIntoStep());
+    await expect(result.current({ id: "missing", title: "anything" })).rejects.toThrow(
+      "Step not found"
+    );
   });
 });

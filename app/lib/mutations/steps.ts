@@ -130,6 +130,35 @@ export const updateStep = async (args: {
   });
 };
 
+/**
+ * Fold a would-be duplicate into an existing step. The existing step wins: it
+ * keeps its title, the typed title is appended to its description, and the
+ * typed path, due date and prioritize only fill fields it has none of.
+ */
+export const mergeIntoStep = async (args: {
+  id: string;
+  title: string;
+  pathId?: string;
+  dueDate?: number;
+  prioritizedToday?: boolean;
+}) => {
+  await db.transaction("rw", [db.steps, db.timeEntries, db.activityEvents], async () => {
+    const existing = await db.steps.get(args.id);
+    if (!existing) throw new Error("Step not found");
+
+    const patch: Parameters<typeof updateStep>[0] = {
+      id: args.id,
+      description: existing.description ? `${existing.description}\n\n${args.title}` : args.title,
+    };
+    if (args.pathId && !existing.pathId) patch.pathId = args.pathId;
+    if (args.dueDate !== undefined && existing.dueDate === undefined) patch.dueDate = args.dueDate;
+    if (args.prioritizedToday && !existing.prioritizedToday) patch.prioritizedToday = true;
+
+    // Same tables, so updateStep joins this transaction and logs the activity.
+    await updateStep(patch);
+  });
+};
+
 export const deleteStep = async (args: { id: string }) => {
   const now = Date.now();
   await db.transaction("rw", [db.steps, db.timeEntries, db.activityEvents], async () => {
