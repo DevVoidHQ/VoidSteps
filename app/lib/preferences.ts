@@ -9,6 +9,7 @@ const DUE_DATES_KEY = "voidsteps-due-dates";
 const PRIORITIZE_DEFAULT_KEY = "voidsteps-prioritize-default";
 const STEP_ACTIONS_KEY = "voidsteps-step-actions";
 const OPEN_FOCUS_ON_PLAY_KEY = "voidsteps-open-focus-on-play";
+const POSTPONE_DEPRIORITIZES_KEY = "voidsteps-postpone-deprioritizes";
 const TIMER_BAR_HIDDEN_KEY = "voidsteps-timer-bar-hidden";
 const AUTO_UPDATE_CHECK_KEY = "voidsteps-auto-update-check";
 const SHOW_STEP_DATES_KEY = "voidsteps-show-step-dates";
@@ -166,6 +167,26 @@ export function getPrioritizeDefault(): boolean {
 export function setPrioritizeDefault(on: boolean): void {
   try {
     localStorage.setItem(PRIORITIZE_DEFAULT_KEY, String(on));
+  } catch {
+    /* ignore */
+  }
+  window.dispatchEvent(new Event(PREFS_EVENT));
+}
+
+// Whether moving a step's due date past today also drops it from Today.
+// Default on.
+export function getPostponeDeprioritizes(): boolean {
+  try {
+    const v = localStorage.getItem(POSTPONE_DEPRIORITIZES_KEY);
+    return v === null ? true : v === "true";
+  } catch {
+    return true;
+  }
+}
+
+export function setPostponeDeprioritizes(on: boolean): void {
+  try {
+    localStorage.setItem(POSTPONE_DEPRIORITIZES_KEY, String(on));
   } catch {
     /* ignore */
   }
@@ -450,6 +471,7 @@ export function useFontScale(): FontScale {
 export function resetGeneralPreferences(): void {
   const keys = [
     PRIORITIZE_DEFAULT_KEY,
+    POSTPONE_DEPRIORITIZES_KEY,
     STEPS_CLICK_ACTION_KEY,
     TODAY_CLICK_ACTION_KEY,
     STEP_ACTIONS_KEY,

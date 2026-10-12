@@ -1,5 +1,9 @@
+import { getLogicalDayStart } from "../calculate-next-occurrence";
+import { getDaySettings, toDayBoundaryOpts } from "../day-settings";
 import type { LocalStep } from "../db";
 import { db } from "../db";
+import { isAfterToday } from "../postpone";
+import { getPostponeDeprioritizes } from "../preferences";
 import {
   generateLocalId,
   logStepEvents,
@@ -68,6 +72,18 @@ export const updateStep = async (args: {
   const { id, ...updates } = args;
   const now = Date.now();
 
+  // Moving the due date past today means "not today", so it also drops the
+  // step from Today unless the setting is off or the caller set the star
+  // itself. Day settings are read here: userSettings is not in the
+  // transaction below.
+  const newDueDate = updates.dueDate;
+  const dayOpts =
+    typeof newDueDate === "number" &&
+    updates.prioritizedToday === undefined &&
+    getPostponeDeprioritizes()
+      ? toDayBoundaryOpts(await getDaySettings())
+      : undefined;
+
   await db.transaction("rw", [db.steps, db.timeEntries, db.activityEvents], async () => {
     const existing = await db.steps.get(id);
     if (!existing) throw new Error("Step not found");
@@ -90,6 +106,20 @@ export const updateStep = async (args: {
     // Handle dueDate (null clears)
     if ("dueDate" in updates) {
       patchData.dueDate = updates.dueDate === null ? undefined : updates.dueDate;
+    }
+
+    // Only a move to a different day counts: the editor resends the due date
+    // on every save, rounded to end of day, so comparing timestamps would
+    // unstar a step on a title-only edit.
+    if (
+      dayOpts &&
+      typeof newDueDate === "number" &&
+      (existing.dueDate === undefined ||
+        getLogicalDayStart(existing.dueDate, dayOpts) !==
+          getLogicalDayStart(newDueDate, dayOpts)) &&
+      isAfterToday(newDueDate, now, dayOpts)
+    ) {
+      patchData.prioritizedToday = false;
     }
 
     // Handle startDate (null clears)
