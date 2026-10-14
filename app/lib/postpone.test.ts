@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { POSTPONE_TARGETS, resolvePostponeDate } from "./postpone";
+import { isAfterToday, POSTPONE_TARGETS, resolvePostponeDate } from "./postpone";
 
 // Wed 2026-09-02, mid-morning local.
 const WEDNESDAY = new Date(2026, 8, 2, 10, 0, 0);
@@ -70,5 +70,32 @@ describe("resolvePostponeDate", () => {
       expect(resolvePostponeDate(token)!).toBeGreaterThan(Date.now());
     }
     expect(POSTPONE_TARGETS.map((t) => t.token)).not.toContain("yesterday");
+  });
+});
+
+describe("isAfterToday", () => {
+  const now = WEDNESDAY.getTime();
+
+  it("is false for any time today", () => {
+    expect(isAfterToday(new Date(2026, 8, 2, 23, 59, 59, 999).getTime(), now)).toBe(false);
+    expect(isAfterToday(new Date(2026, 8, 2, 0, 0, 0).getTime(), now)).toBe(false);
+  });
+
+  it("is false for an earlier day", () => {
+    expect(isAfterToday(new Date(2026, 8, 1, 23, 59, 59, 999).getTime(), now)).toBe(false);
+  });
+
+  it("is true from the start of tomorrow", () => {
+    expect(isAfterToday(new Date(2026, 8, 3, 0, 0, 0).getTime(), now)).toBe(true);
+    expect(isAfterToday(new Date(2026, 8, 3, 23, 59, 59, 999).getTime(), now)).toBe(true);
+  });
+
+  it("follows the end-of-day turnover, like Today does", () => {
+    // 01:00 with a 03:00 turnover still belongs to yesterday, so the current
+    // calendar date is already a later day.
+    const oneAm = new Date(2026, 8, 2, 1, 0, 0).getTime();
+    const opts = { turnoverMinutes: 180 };
+    expect(isAfterToday(new Date(2026, 8, 2, 23, 59, 59, 999).getTime(), oneAm, opts)).toBe(true);
+    expect(isAfterToday(new Date(2026, 8, 2, 2, 0, 0).getTime(), oneAm, opts)).toBe(false);
   });
 });

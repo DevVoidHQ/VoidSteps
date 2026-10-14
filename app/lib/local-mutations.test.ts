@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { db } from "./db";
 import type { LocalStep, LocalPath } from "./db";
@@ -14,6 +14,7 @@ import {
   useUnarchivePath,
   useDeletePathWithMigration,
 } from "./local-mutations";
+import { setPostponeDeprioritizes } from "./preferences";
 
 // Every table cleared between tests: `db` is a module-level singleton over
 // the fake-indexeddb instance from app/test/setup.ts, so state would
@@ -335,5 +336,96 @@ describe("deleting a path migrates its steps rather than deleting them", () => {
 
     const row = await db.steps.get(step!._id);
     expect(row?.pathId).toBeUndefined();
+  });
+});
+
+describe("moving the due date past today drops the step from Today", () => {
+  // Fixed noon so "today" and "tomorrow" never straddle a boundary mid-test.
+  // Only Date is faked: fake-indexeddb schedules on real timers.
+  const NOON = new Date(2026, 9, 12, 12, 0, 0);
+  const endOf = (y: number, m: number, d: number) => new Date(y, m, d, 23, 59, 59, 999).getTime();
+  const today = endOf(2026, 9, 12);
+  const tomorrow = endOf(2026, 9, 13);
+  const nextWeek = endOf(2026, 9, 19);
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOON);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    localStorage.clear();
+  });
+
+  async function starredStep(dueDate: number | undefined = today) {
+    const { result } = renderHook(() => useCreateStep());
+    let step: LocalStep | undefined;
+    await act(async () => {
+      step = await result.current({ title: "Call the bank", prioritizedToday: true, dueDate });
+    });
+    return step!;
+  }
+
+  async function update(args: Parameters<ReturnType<typeof useUpdateStep>>[0]) {
+    const { result } = renderHook(() => useUpdateStep());
+    await act(async () => {
+      await result.current(args);
+    });
+    return (await db.steps.get(args.id))!;
+  }
+
+  it("unstars by default and logs both changes", async () => {
+    const step = await starredStep();
+    const row = await update({ id: step._id, dueDate: tomorrow });
+    expect(row.dueDate).toBe(tomorrow);
+    expect(row.prioritizedToday).toBe(false);
+
+    const events = await db.activityEvents.where("stepId").equals(step._id).toArray();
+    const fields = events.filter((e) => e.type === "field_changed").map((e) => e.field);
+    expect(fields).toEqual(expect.arrayContaining(["dueDate", "prioritizedToday"]));
+  });
+
+  it("only moves the date with the setting off", async () => {
+    setPostponeDeprioritizes(false);
+    const step = await starredStep();
+    const row = await update({ id: step._id, dueDate: tomorrow });
+    expect(row.dueDate).toBe(tomorrow);
+    expect(row.prioritizedToday).toBe(true);
+  });
+
+  it("keeps the star when the new date is today", async () => {
+    const step = await starredStep(undefined);
+    const row = await update({ id: step._id, dueDate: today });
+    expect(row.dueDate).toBe(today);
+    expect(row.prioritizedToday).toBe(true);
+  });
+
+  it("keeps the star when the new date is earlier than today", async () => {
+    const step = await starredStep();
+    const row = await update({ id: step._id, dueDate: endOf(2026, 9, 10) });
+    expect(row.prioritizedToday).toBe(true);
+  });
+
+  it("keeps the star when the date is cleared", async () => {
+    const step = await starredStep(nextWeek);
+    // The editor sends a cleared date as undefined with the key present.
+    expect((await update({ id: step._id, dueDate: undefined })).prioritizedToday).toBe(true);
+    expect((await update({ id: step._id, dueDate: null })).prioritizedToday).toBe(true);
+  });
+
+  it("lets an explicit prioritizedToday in the same update win", async () => {
+    const step = await starredStep();
+    const row = await update({ id: step._id, dueDate: tomorrow, prioritizedToday: true });
+    expect(row.dueDate).toBe(tomorrow);
+    expect(row.prioritizedToday).toBe(true);
+  });
+
+  it("leaves the star alone when the editor resends the same day", async () => {
+    // Due next week at 22:00; the editor rounds every date to end of day, so
+    // a title-only save resends the same day at 23:59:59.999.
+    const step = await starredStep(new Date(2026, 9, 19, 22, 0, 0).getTime());
+    const row = await update({ id: step._id, title: "Call the bank again", dueDate: nextWeek });
+    expect(row.title).toBe("Call the bank again");
+    expect(row.prioritizedToday).toBe(true);
   });
 });
