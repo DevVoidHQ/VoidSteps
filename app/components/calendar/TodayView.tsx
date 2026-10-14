@@ -314,7 +314,9 @@ export default function TodayView() {
               : "No steps prioritized for today"
           }
           hint={
-            !searchQueryToday && !selectedPathFilterToday ? "Star a step to add it here" : undefined
+            !searchQueryToday && !selectedPathFilterToday
+              ? "Prioritize any step and it shows up here, your short list for today."
+              : undefined
           }
         />
       ) : null}

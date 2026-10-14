@@ -279,7 +279,7 @@ export default function GraphView({
         <EmptyState
           icon={GitBranch}
           message="No paths to visualize"
-          hint="Create a path from the sidebar to see your graph"
+          hint="A path is a goal you are working toward. Create one with New Path."
         />
       </div>
     );

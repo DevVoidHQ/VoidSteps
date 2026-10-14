@@ -18,6 +18,7 @@ const FOCUS_BACKGROUND_KEY = "voidsteps-focus-background";
 const FOCUS_AUDIO_KEY = "voidsteps-focus-audio";
 const FOCUS_VOLUME_KEY = "voidsteps-focus-volume";
 const FOCUS_TRACK_KEY = "voidsteps-focus-track";
+const WELCOME_DISMISSED_KEY = "voidsteps-welcome-dismissed";
 const PREFS_EVENT = "voidsteps-prefs-changed";
 
 // Per-action placement on a step: "open" = its own inline icon, "compact" =
@@ -253,6 +254,41 @@ export function useTimerBarHidden(): boolean {
   const [value, setValue] = useState(getTimerBarHidden);
   useEffect(() => {
     const handler = () => setValue(getTimerBarHidden());
+    window.addEventListener(PREFS_EVENT, handler);
+    window.addEventListener("storage", handler);
+    return () => {
+      window.removeEventListener(PREFS_EVENT, handler);
+      window.removeEventListener("storage", handler);
+    };
+  }, []);
+  return value;
+}
+
+// Whether the first-run welcome card on Paths has been dismissed. Off by
+// default, so a fresh install sees it once. Kept out of Reset All on purpose:
+// resetting layout preferences should not bring the welcome back, Settings
+// has its own "Show again" for that.
+export function getWelcomeDismissed(): boolean {
+  try {
+    return localStorage.getItem(WELCOME_DISMISSED_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function setWelcomeDismissed(dismissed: boolean): void {
+  try {
+    localStorage.setItem(WELCOME_DISMISSED_KEY, String(dismissed));
+  } catch {
+    /* ignore */
+  }
+  window.dispatchEvent(new Event(PREFS_EVENT));
+}
+
+export function useWelcomeDismissed(): boolean {
+  const [value, setValue] = useState(getWelcomeDismissed);
+  useEffect(() => {
+    const handler = () => setValue(getWelcomeDismissed());
     window.addEventListener(PREFS_EVENT, handler);
     window.addEventListener("storage", handler);
     return () => {

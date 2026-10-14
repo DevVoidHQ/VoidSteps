@@ -7,6 +7,7 @@ import { DataProvider } from "@/contexts/DataContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Layout from "@/components/Layout";
 import { useEscapeFullscreenGuard } from "@/hooks/useEscapeFullscreenGuard";
+import { useFirstRun } from "@/hooks/useFirstRun";
 import LoadingScreen from "@/components/LoadingScreen";
 import Steps from "@/pages/Steps";
 const Paths = lazy(() => import("@/pages/Paths"));
@@ -21,6 +22,7 @@ const Notes = lazy(() => import("@/pages/Notes"));
 
 function AppRoutes() {
   useEscapeFullscreenGuard();
+  useFirstRun();
   const location = useLocation();
 
   return (
