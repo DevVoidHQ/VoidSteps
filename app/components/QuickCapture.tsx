@@ -5,11 +5,15 @@ import { cn } from "@/lib/cn";
 import { useData } from "@/contexts/DataContext";
 import { useToast } from "@/contexts/ToastContext";
 import { reportError } from "@/lib/error-store";
+import { StepDialog } from "@/components/StepDialog";
+import { findSimilarSteps } from "@/lib/duplicate-steps";
 import {
   useCreateStep,
   useCreatePath,
   useCreateRoutine,
   useCreateReminder,
+  useMergeIntoStep,
+  useUpdateStep,
   MAX_TITLE_LENGTH,
 } from "@/lib/local-mutations";
 import { getPrioritizeDefault } from "@/lib/preferences";
@@ -26,6 +30,7 @@ import {
   SCHEDULE_TOKENS,
   type CaptureKind,
 } from "@/lib/quick-capture";
+import type { Step } from "@/types";
 
 interface Suggestion {
   /** Text inserted after the token marker. */
@@ -89,23 +94,34 @@ interface QuickCaptureProps {
  */
 export default function QuickCapture({ open, onOpenChange, kind = "step" }: QuickCaptureProps) {
   const toast = useToast();
-  const { activePaths } = useData();
+  const { activePaths, allSteps } = useData();
   const createStep = useCreateStep();
   const createPath = useCreatePath();
   const createRoutine = useCreateRoutine();
   const createReminder = useCreateReminder();
+  const mergeIntoStep = useMergeIntoStep();
+  const updateStep = useUpdateStep();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [text, setText] = useState("");
   const [caret, setCaret] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
   const [dismissed, setDismissed] = useState(false);
+  // An existing step opened from the matches. Outlives the capture bar.
+  const [openStepId, setOpenStepId] = useState<string | null>(null);
 
   const paths = useMemo(() => activePaths || [], [activePaths]);
   const rawToken = useMemo(() => activeToken(text, caret), [text, caret]);
   const token = dismissed ? null : rawToken;
 
   const preview = useMemo(() => buildPreview(kind, text, paths), [kind, text, paths]);
+
+  // Open steps this one may duplicate. Advisory only: Enter still creates.
+  const matches = useMemo(
+    () => (kind === "step" ? findSimilarSteps(preview.title, allSteps ?? []) : []),
+    [kind, preview.title, allSteps]
+  );
+  const openStep = openStepId ? ((allSteps ?? []).find((s) => s._id === openStepId) ?? null) : null;
 
   const suggestions = useMemo<Suggestion[]>(() => {
     if (!token) return [];
@@ -133,6 +149,7 @@ export default function QuickCapture({ open, onOpenChange, kind = "step" }: Quic
 
   useEffect(() => {
     if (!open) return;
+    setOpenStepId(null);
     setText("");
     setCaret(0);
     setDismissed(false);
@@ -218,16 +235,63 @@ export default function QuickCapture({ open, onOpenChange, kind = "step" }: Quic
     toast,
   ]);
 
+  const merge = useCallback(
+    async (match: Step) => {
+      const title = preview.title.slice(0, MAX_TITLE_LENGTH);
+      if (!title) return;
+
+      try {
+        const step = parseStepCapture(text, paths);
+        // Only what was typed fills blanks; the prioritize default was not typed.
+        await mergeIntoStep({
+          id: match._id,
+          title,
+          pathId: step.pathId,
+          dueDate: parseDateInput(step.dueDate ?? ""),
+          prioritizedToday: step.prioritizedToday,
+        });
+        toast.success(`Merged into "${match.title}"`);
+        setText("");
+        setCaret(0);
+        setDismissed(false);
+      } catch (error) {
+        reportError("mutation", error, { action: "quickCapture:merge" });
+        toast.error("Failed to merge step");
+      }
+    },
+    [preview.title, text, paths, mergeIntoStep, toast]
+  );
+
+  const openExisting = (match: Step) => {
+    setOpenStepId(match._id);
+    onOpenChange(false);
+  };
+
+  const saveOpenStep = useCallback(
+    async (id: string, updates: Partial<Step>) => {
+      try {
+        const { path: _path, ...cleanUpdates } = updates as Record<string, unknown>;
+        await updateStep({ id, ...cleanUpdates });
+      } catch (error) {
+        reportError("mutation", error, { action: "updateStep", stepId: id });
+        toast.error("Failed to update step");
+      }
+    },
+    [updateStep, toast]
+  );
+
+  // On the dialog rather than the input, so Escape still closes the bar once
+  // Shift+Tab has moved focus onto a match's buttons.
+  const handleDialogKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "Escape") return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (suggestions.length > 0) setDismissed(true);
+    else onOpenChange(false);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     const listOpen = suggestions.length > 0;
-
-    if (e.key === "Escape") {
-      e.preventDefault();
-      e.stopPropagation();
-      if (listOpen) setDismissed(true);
-      else onOpenChange(false);
-      return;
-    }
 
     if (listOpen && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
       e.preventDefault();
@@ -248,7 +312,17 @@ export default function QuickCapture({ open, onOpenChange, kind = "step" }: Quic
     }
   };
 
-  if (!open) return null;
+  const stepDialog = openStep && (
+    <StepDialog
+      step={openStep}
+      paths={paths}
+      open
+      onOpenChange={(next) => !next && setOpenStepId(null)}
+      onSaveEdit={saveOpenStep}
+    />
+  );
+
+  if (!open) return stepDialog;
 
   const KindIcon = KINDS[kind].icon;
 
@@ -268,7 +342,49 @@ export default function QuickCapture({ open, onOpenChange, kind = "step" }: Quic
         aria-label={`New ${KINDS[kind].label.toLowerCase()}`}
         className="relative z-10 w-full max-w-2xl animate-in slide-in-from-bottom-4 fade-in-0 duration-150"
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={handleDialogKeyDown}
       >
+        {suggestions.length === 0 && matches.length > 0 && (
+          <section
+            aria-label="You may already have this"
+            className="mb-2 overflow-hidden rounded-xl border border-border bg-card p-1 shadow-2xl"
+          >
+            <p className="px-3 pb-1 pt-2 text-xs text-muted-foreground">
+              You may already have this
+            </p>
+            <ul>
+              {matches.map((match) => (
+                <li
+                  key={match._id}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground hover:bg-muted"
+                >
+                  <ListTodo className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                  <span className="flex-1 truncate">{match.title}</span>
+                  {match.path && (
+                    <ChipView icon={Target} tone="path">
+                      {match.path.title}
+                    </ChipView>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => openExisting(match)}
+                    className="rounded px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
+                  >
+                    Open
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => merge(match)}
+                    className="rounded px-2 py-1 text-xs text-primary transition-colors hover:bg-primary-light"
+                  >
+                    Merge
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         {suggestions.length > 0 && (
           <ul
             role="listbox"

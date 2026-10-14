@@ -20,6 +20,7 @@ import { updateDaySettings } from "./mutations/settings";
 import {
   createStep,
   deleteStep,
+  mergeIntoStep,
   reorderSteps,
   toggleStepCompletion,
   toggleStepFailed,
@@ -38,6 +39,9 @@ export function useCreateStep() {
 }
 export function useUpdateStep() {
   return updateStep;
+}
+export function useMergeIntoStep() {
+  return mergeIntoStep;
 }
 export function useDeleteStep() {
   return deleteStep;
