@@ -49,7 +49,13 @@ const rules: Record<SnapshotTable, { required: Fields; optional: Fields }> = {
       frequency: oneOf("daily", "weekdays", "weekly", "monthly", "yearly"),
       nextOccurrence: number,
     },
-    optional: { ...schedule, description: string, pathId: id, autoPrioritize: boolean },
+    optional: {
+      ...schedule,
+      description: string,
+      pathId: id,
+      autoPrioritize: boolean,
+      dueOffsetDays: range(0, 365),
+    },
   },
   reminders: {
     required: { ...named, recurrence: oneOf("once", "yearly", "monthly") },

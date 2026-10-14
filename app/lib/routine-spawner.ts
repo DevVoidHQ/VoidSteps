@@ -1,4 +1,5 @@
 import { calculateNextOccurrence, getLogicalDayStart } from "./calculate-next-occurrence";
+import type { DayBoundaryOpts } from "./calculate-next-occurrence";
 import { getDaySettings, toDayBoundaryOpts } from "./day-settings";
 import type { LocalStep } from "./db";
 import { db } from "./db";
@@ -40,6 +41,30 @@ async function prioritizeDueSteps() {
   }
 }
 
+/**
+ * Due date for a step a routine creates at `now`: the end of the logical day
+ * plus `dueOffsetDays`, or undefined when the routine sets no due date. Counts
+ * from the creation time rather than the scheduled occurrence, like postpone's
+ * "relative to today", so a late catch-up spawn never arrives already overdue.
+ */
+export function routineStepDueDate(
+  now: number,
+  dueOffsetDays: number | undefined,
+  dayOpts: DayBoundaryOpts
+): number | undefined {
+  if (dueOffsetDays === undefined) return undefined;
+  const start = new Date(getLogicalDayStart(now, dayOpts));
+  return new Date(
+    start.getFullYear(),
+    start.getMonth(),
+    start.getDate() + dueOffsetDays,
+    23,
+    59,
+    59,
+    999
+  ).getTime();
+}
+
 /** Spawn and advance schedules together, including concurrent app windows. */
 export async function spawnDueRoutines(): Promise<void> {
   await db.transaction("rw", [db.steps, db.routines, db.userSettings], async () => {
@@ -63,6 +88,7 @@ export async function spawnDueRoutines(): Promise<void> {
           pathId: routine.pathId,
           routineId: routine._id,
           prioritizedToday: routine.autoPrioritize ?? false,
+          dueDate: routineStepDueDate(now, routine.dueOffsetDays, dayOpts),
           sortOrder: now,
           createdAt: now,
           updatedAt: now,

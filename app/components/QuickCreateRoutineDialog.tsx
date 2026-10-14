@@ -16,6 +16,7 @@ import {
   useUpdateRoutine,
   MAX_TITLE_LENGTH,
   MAX_DESCRIPTION_LENGTH,
+  MAX_DUE_OFFSET_DAYS,
 } from "@/lib/local-mutations";
 import { useData } from "@/contexts/DataContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -52,6 +53,8 @@ export default function QuickCreateRoutineDialog({
   const [month, setMonth] = useState(1);
   const [dayOfYear, setDayOfYear] = useState(1);
   const [autoPrioritize, setAutoPrioritize] = useState(true);
+  const [dueMode, setDueMode] = useState<"none" | "same" | "later">("none");
+  const [dueDays, setDueDays] = useState(1);
 
   const resetForm = useCallback(() => {
     setTitle("");
@@ -63,6 +66,8 @@ export default function QuickCreateRoutineDialog({
     setMonth(1);
     setDayOfYear(1);
     setAutoPrioritize(true);
+    setDueMode("none");
+    setDueDays(1);
   }, []);
 
   // Prefill from the routine being edited (or reset to defaults) when opened.
@@ -80,6 +85,9 @@ export default function QuickCreateRoutineDialog({
       setMonth(routine.month ?? 1);
       setDayOfYear(routine.dayOfYear ?? 1);
       setAutoPrioritize(routine.autoPrioritize ?? true);
+      const offset = routine.dueOffsetDays;
+      setDueMode(offset === undefined ? "none" : offset === 0 ? "same" : "later");
+      setDueDays(offset && offset > 0 ? offset : 1);
     } else {
       resetForm();
     }
@@ -95,6 +103,12 @@ export default function QuickCreateRoutineDialog({
   const handleSubmit = useCallback(async () => {
     const trimmed = title.trim();
     if (!trimmed) return;
+    const dueOffsetDays =
+      dueMode === "none"
+        ? undefined
+        : dueMode === "same"
+          ? 0
+          : Math.min(MAX_DUE_OFFSET_DAYS, Math.max(1, Math.round(dueDays) || 1));
     try {
       if (routine) {
         // Edit: null clears the field server-side when not applicable.
@@ -109,6 +123,7 @@ export default function QuickCreateRoutineDialog({
           month: frequency === "yearly" ? month : null,
           dayOfYear: frequency === "yearly" ? dayOfYear : null,
           autoPrioritize,
+          dueOffsetDays: dueOffsetDays ?? null,
         });
         toast.success(`Updated routine "${trimmed}"`);
       } else {
@@ -122,6 +137,7 @@ export default function QuickCreateRoutineDialog({
           month: frequency === "yearly" ? month : undefined,
           dayOfYear: frequency === "yearly" ? dayOfYear : undefined,
           autoPrioritize,
+          dueOffsetDays,
         });
         toast.success(`Created routine "${trimmed}"`);
       }
@@ -142,6 +158,8 @@ export default function QuickCreateRoutineDialog({
     month,
     dayOfYear,
     autoPrioritize,
+    dueMode,
+    dueDays,
     createRoutineMutation,
     updateRoutineMutation,
     toast,
@@ -258,6 +276,42 @@ export default function QuickCreateRoutineDialog({
               />
             </div>
           )}
+
+          {/* Due date, counted from the day each step is created */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Due date</label>
+            <div className="flex items-center gap-3">
+              <Select
+                className="flex-1"
+                value={dueMode}
+                onValueChange={(v) => setDueMode(v as "none" | "same" | "later")}
+                options={[
+                  { value: "none", label: "No due date" },
+                  { value: "same", label: "Due the day it's created" },
+                  { value: "later", label: "Due N days later" },
+                ]}
+              />
+              {dueMode === "later" && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={MAX_DUE_OFFSET_DAYS}
+                    value={dueDays}
+                    onChange={(e) => setDueDays(Number(e.target.value))}
+                    aria-label="Days after creation"
+                    className="w-20"
+                  />
+                  <span>{dueDays === 1 ? "day" : "days"}</span>
+                </div>
+              )}
+            </div>
+            {dueMode === "same" && (
+              <p className="text-xs text-muted-foreground">
+                Due today also adds it to Today's Focus.
+              </p>
+            )}
+          </div>
 
           <Toggle
             size="sm"

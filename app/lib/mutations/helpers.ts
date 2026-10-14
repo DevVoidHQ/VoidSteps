@@ -18,6 +18,15 @@ export function validateDescription(description: string | undefined) {
   }
 }
 
+export const MAX_DUE_OFFSET_DAYS = 365;
+
+export function validateDueOffsetDays(days: number | undefined) {
+  if (days === undefined) return;
+  if (!Number.isInteger(days) || days < 0 || days > MAX_DUE_OFFSET_DAYS) {
+    throw new Error(`Due offset must be a whole number from 0 to ${MAX_DUE_OFFSET_DAYS} days`);
+  }
+}
+
 // --- ID generation for offline creates ---
 
 export function generateLocalId(): string {
