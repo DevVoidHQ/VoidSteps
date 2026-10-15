@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { Dialog as DialogPrimitive, VisuallyHidden } from "radix-ui";
 import { Bell, CalendarDays, ListTodo, Repeat, Star, Target, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useData } from "@/contexts/DataContext";
 import { useToast } from "@/contexts/ToastContext";
 import { reportError } from "@/lib/error-store";
 import { StepDialog } from "@/components/StepDialog";
+import { useReturnFocus } from "@/components/ui/Dialog";
 import { findSimilarSteps } from "@/lib/duplicate-steps";
 import {
   useCreateStep,
@@ -107,6 +108,7 @@ export default function QuickCapture({ open, onOpenChange, kind = "step" }: Quic
   const [caret, setCaret] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
   const [dismissed, setDismissed] = useState(false);
+  const onCloseAutoFocus = useReturnFocus(open);
   // An existing step opened from the matches. Outlives the capture bar.
   const [openStepId, setOpenStepId] = useState<string | null>(null);
 
@@ -128,9 +130,9 @@ export default function QuickCapture({ open, onOpenChange, kind = "step" }: Quic
     const query = token.query.trim().toLowerCase();
 
     if (token.kind === "path") {
+      // Every match, not a top few: the list scrolls (see the listbox below).
       return paths
         .filter((p) => p.title.toLowerCase().includes(query))
-        .slice(0, 6)
         .map((p) => ({ insert: p.title, label: p.title }));
     }
 
@@ -153,8 +155,6 @@ export default function QuickCapture({ open, onOpenChange, kind = "step" }: Quic
     setText("");
     setCaret(0);
     setDismissed(false);
-    const id = setTimeout(() => inputRef.current?.focus(), 20);
-    return () => clearTimeout(id);
   }, [open]);
 
   useEffect(() => setActiveIndex(0), [token?.kind, token?.query]);
@@ -168,6 +168,10 @@ export default function QuickCapture({ open, onOpenChange, kind = "step" }: Quic
       const head = text.slice(0, token.start) + marker + suggestion.insert + " ";
       const next = head + text.slice(token.start + 1 + token.query.length);
       setText(next);
+      // A pick completes the token, so close the list. Path names contain
+      // spaces, so the token would otherwise stay open and keep matching the
+      // path just chosen. Typing again reopens it.
+      setDismissed(true);
       requestAnimationFrame(() => {
         inputRef.current?.setSelectionRange(head.length, head.length);
         setCaret(head.length);
@@ -280,14 +284,14 @@ export default function QuickCapture({ open, onOpenChange, kind = "step" }: Quic
     [updateStep, toast]
   );
 
-  // On the dialog rather than the input, so Escape still closes the bar once
-  // Shift+Tab has moved focus onto a match's buttons.
-  const handleDialogKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== "Escape") return;
-    e.preventDefault();
+  // Radix listens on document, so Escape works wherever focus sits in the bar.
+  // An open suggestion list is dismissed first; the next Escape closes the bar.
+  const handleEscape = (e: KeyboardEvent) => {
+    if (suggestions.length > 0) {
+      e.preventDefault();
+      setDismissed(true);
+    }
     e.stopPropagation();
-    if (suggestions.length > 0) setDismissed(true);
-    else onOpenChange(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -326,144 +330,153 @@ export default function QuickCapture({ open, onOpenChange, kind = "step" }: Quic
 
   const KindIcon = KINDS[kind].icon;
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[110] flex items-end justify-center px-4 pb-8"
-      onClick={() => onOpenChange(false)}
-    >
-      <div
-        className="absolute inset-0 bg-black/50 animate-in fade-in-0 duration-150"
-        aria-hidden="true"
-      />
+  return (
+    <DialogPrimitive.Root open onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>
+        {/* Top third like the command bar; suggestions drop below the input. */}
+        <div className="fixed inset-0 z-[110] flex items-start justify-center px-4 pt-[20vh]">
+          <DialogPrimitive.Overlay className="absolute inset-0 bg-black/50 animate-in fade-in-0 duration-150" />
 
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={`New ${KINDS[kind].label.toLowerCase()}`}
-        className="relative z-10 w-full max-w-2xl animate-in slide-in-from-bottom-4 fade-in-0 duration-150"
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={handleDialogKeyDown}
-      >
-        {suggestions.length === 0 && matches.length > 0 && (
-          <section
-            aria-label="You may already have this"
-            className="mb-2 overflow-hidden rounded-xl border border-border bg-card p-1 shadow-2xl"
+          <DialogPrimitive.Content
+            aria-describedby={undefined}
+            className="relative z-10 w-full max-w-2xl outline-none animate-in slide-in-from-top-4 fade-in-0 duration-150"
+            onOpenAutoFocus={(e) => {
+              e.preventDefault();
+              inputRef.current?.focus();
+            }}
+            onCloseAutoFocus={onCloseAutoFocus}
+            onEscapeKeyDown={handleEscape}
           >
-            <p className="px-3 pb-1 pt-2 text-xs text-muted-foreground">
-              You may already have this
-            </p>
-            <ul>
-              {matches.map((match) => (
-                <li
-                  key={match._id}
-                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground hover:bg-muted"
-                >
-                  <ListTodo className="h-3.5 w-3.5 shrink-0 opacity-70" />
-                  <span className="flex-1 truncate">{match.title}</span>
-                  {match.path && (
-                    <ChipView icon={Target} tone="path">
-                      {match.path.title}
-                    </ChipView>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => openExisting(match)}
-                    className="rounded px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
-                  >
-                    Open
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => merge(match)}
-                    className="rounded px-2 py-1 text-xs text-primary transition-colors hover:bg-primary-light"
-                  >
-                    Merge
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
+            <VisuallyHidden.Root asChild>
+              <DialogPrimitive.Title>New {KINDS[kind].label.toLowerCase()}</DialogPrimitive.Title>
+            </VisuallyHidden.Root>
+            <div className="overflow-hidden rounded-xl bg-popover shadow-elev-3">
+              <div className="flex items-center gap-2 px-4">
+                <span className="inline-flex shrink-0 items-center gap-1.5 rounded bg-muted px-2 py-1 type-meta text-muted-foreground">
+                  <KindIcon className="h-3 w-3" />
+                  {KINDS[kind].label}
+                </span>
+                <input
+                  ref={inputRef}
+                  value={text}
+                  onChange={(e) => {
+                    setText(e.target.value);
+                    setCaret(e.target.selectionStart ?? e.target.value.length);
+                    setDismissed(false);
+                  }}
+                  onKeyUp={syncCaret}
+                  onClick={syncCaret}
+                  onKeyDown={handleKeyDown}
+                  maxLength={MAX_TITLE_LENGTH + 80}
+                  placeholder={KINDS[kind].placeholder}
+                  className="h-14 w-full bg-transparent type-prompt text-foreground placeholder:text-muted-foreground focus:!outline-none focus-visible:!outline-none"
+                />
+              </div>
 
-        {suggestions.length > 0 && (
-          <ul
-            role="listbox"
-            className="mb-2 overflow-hidden rounded-xl border border-border bg-card p-1 shadow-2xl"
-          >
-            {suggestions.map((suggestion, i) => (
-              <li key={`${suggestion.insert}-${i}`}>
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={i === activeIndex}
-                  onMouseMove={() => setActiveIndex(i)}
-                  onClick={() => applySuggestion(suggestion)}
-                  className={cn(
-                    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors",
-                    i === activeIndex
-                      ? "bg-primary text-primary-foreground"
-                      : "text-foreground hover:bg-muted"
-                  )}
-                >
-                  {token?.kind === "path" ? (
-                    <Target className="h-3.5 w-3.5 shrink-0 opacity-70" />
-                  ) : (
-                    <CalendarDays className="h-3.5 w-3.5 shrink-0 opacity-70" />
-                  )}
-                  <span className="flex-1 truncate">{suggestion.label}</span>
-                  {suggestion.hint && (
-                    <span
+              <div className="flex flex-wrap items-center gap-2 mt-1 px-4 py-2 type-meta">
+                {preview.chips.map((chip, i) => (
+                  <ChipView key={i} icon={chip.icon} tone={chip.tone}>
+                    {chip.text}
+                  </ChipView>
+                ))}
+                <span className="ml-auto text-muted-foreground/70">
+                  {preview.title ? "enter create" : KINDS[kind].hint} · esc close
+                </span>
+              </div>
+            </div>
+
+            {suggestions.length === 0 && matches.length > 0 && (
+              <section
+                aria-label="You may already have this"
+                className="mt-2 overflow-hidden rounded-xl bg-popover p-1 shadow-elev-3"
+              >
+                <p className="px-3 pb-1 pt-2 type-meta text-muted-foreground">
+                  You may already have this
+                </p>
+                <ul>
+                  {matches.map((match) => (
+                    <li
+                      key={match._id}
+                      className="flex items-center gap-2 rounded-lg px-3 py-2 type-body text-foreground hover:bg-muted"
+                    >
+                      <ListTodo className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                      <span className="flex-1 truncate">{match.title}</span>
+                      {match.path && (
+                        <ChipView icon={Target} tone="path">
+                          {match.path.title}
+                        </ChipView>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => openExisting(match)}
+                        className="rounded px-2 py-1 type-meta text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
+                      >
+                        Open
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => merge(match)}
+                        className="rounded px-2 py-1 type-meta text-primary transition-colors hover:bg-primary-light"
+                      >
+                        Merge
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {suggestions.length > 0 && (
+              <ul
+                role="listbox"
+                className="mt-2 max-h-[17rem] overflow-y-auto rounded-xl bg-popover p-1 shadow-elev-3"
+              >
+                {suggestions.map((suggestion, i) => (
+                  <li key={`${suggestion.insert}-${i}`}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={i === activeIndex}
+                      // Arrow keys move the highlight; keep it in view as the list scrolls.
+                      ref={
+                        i === activeIndex
+                          ? (el) => el?.scrollIntoView({ block: "nearest" })
+                          : undefined
+                      }
+                      onMouseMove={() => setActiveIndex(i)}
+                      onClick={() => applySuggestion(suggestion)}
                       className={cn(
-                        "text-xs",
-                        i === activeIndex ? "opacity-70" : "text-muted-foreground"
+                        "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left type-body transition-colors",
+                        i === activeIndex
+                          ? "bg-primary text-primary-foreground"
+                          : "text-foreground hover:bg-muted"
                       )}
                     >
-                      {suggestion.hint}
-                    </span>
-                  )}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
-          <div className="flex items-center gap-2 px-4">
-            <span className="inline-flex shrink-0 items-center gap-1.5 rounded bg-muted px-2 py-1 text-xs text-muted-foreground">
-              <KindIcon className="h-3 w-3" />
-              {KINDS[kind].label}
-            </span>
-            <input
-              ref={inputRef}
-              value={text}
-              onChange={(e) => {
-                setText(e.target.value);
-                setCaret(e.target.selectionStart ?? e.target.value.length);
-                setDismissed(false);
-              }}
-              onKeyUp={syncCaret}
-              onClick={syncCaret}
-              onKeyDown={handleKeyDown}
-              maxLength={MAX_TITLE_LENGTH + 80}
-              placeholder={KINDS[kind].placeholder}
-              className="h-14 w-full bg-transparent text-base text-foreground placeholder:text-muted-foreground focus:!outline-none focus-visible:!outline-none"
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 border-t border-border px-4 py-2 text-xs">
-            {preview.chips.map((chip, i) => (
-              <ChipView key={i} icon={chip.icon} tone={chip.tone}>
-                {chip.text}
-              </ChipView>
-            ))}
-            <span className="ml-auto text-muted-foreground/70">
-              {preview.title ? "enter create" : KINDS[kind].hint} · esc close
-            </span>
-          </div>
+                      {token?.kind === "path" ? (
+                        <Target className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                      ) : (
+                        <CalendarDays className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                      )}
+                      <span className="flex-1 truncate">{suggestion.label}</span>
+                      {suggestion.hint && (
+                        <span
+                          className={cn(
+                            "type-meta",
+                            i === activeIndex ? "opacity-70" : "text-muted-foreground"
+                          )}
+                        >
+                          {suggestion.hint}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </DialogPrimitive.Content>
         </div>
-      </div>
-    </div>,
-    document.body
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
 
@@ -534,7 +547,7 @@ function ChipView({
     path: "bg-primary-light text-primary",
     date: "bg-muted text-foreground",
     star: "bg-warning/15 text-warning",
-    unknown: "bg-destructive/10 text-destructive",
+    unknown: "bg-destructive/10 text-destructive-ink",
   };
   return (
     <span className={cn("inline-flex items-center gap-1 rounded px-2 py-1", tones[tone])}>

@@ -1,10 +1,8 @@
-import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import type { Step } from "@/types/index";
 import { useSearchHotkey } from "@/hooks/useSearchHotkey";
-import { useStepsClickAction } from "@/lib/preferences";
 
 // Shared with the Today view so the path filter stays in sync across both.
-const STEPS_PATH_FILTER_KEY = "voidsteps-path-filter";
 import {
   useUpdateStep,
   useDeleteStep,
@@ -13,11 +11,10 @@ import {
   useReorderSteps,
   useStartTimer,
   useStopTimer,
-  useSetTotalTime,
 } from "@/lib/local-mutations";
 import { useData } from "@/contexts/DataContext";
+import { useLensedData } from "@/contexts/LensContext";
 import { reportError } from "@/lib/error-store";
-import { getDescendantPathIds } from "@/lib/path-utils";
 import { useToast } from "@/contexts/ToastContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -27,13 +24,14 @@ import { getKeybinds, formatKeybindDisplay } from "@/lib/keybind-config";
 import { StepCard } from "@/components/StepCard";
 import { filterSteps as applyStepFilters } from "@/lib/step-filters";
 import { DraggableStepList } from "@/components/DraggableStepList";
-import { HierarchicalPathSelector } from "@/components/HierarchicalPathSelector";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 export default function Steps() {
   const toast = useToast();
-  const { activePaths, activeSteps, allSteps, failedSteps, upcomingSteps, runningTimerStepIds } =
-    useData();
+  // Steps come through the app-wide lens; paths stay whole for cards and pickers.
+  const { activePaths } = useData();
+  const { activeSteps, allSteps, failedSteps, upcomingSteps, runningTimerStepIds } =
+    useLensedData();
 
   // Mutations
   const updateStepMutation = useUpdateStep();
@@ -43,7 +41,6 @@ export default function Steps() {
   const reorderStepsMutation = useReorderSteps();
   const startTimerMutation = useStartTimer();
   const stopTimerMutation = useStopTimer();
-  const setTotalTimeMutation = useSetTotalTime();
 
   const toggleTimer = useCallback(
     async (id: string) => {
@@ -63,18 +60,6 @@ export default function Steps() {
     [runningTimerStepIds, startTimerMutation, stopTimerMutation, toast]
   );
 
-  const setTotalTime = useCallback(
-    async (id: string, totalTimeMs: number) => {
-      try {
-        await setTotalTimeMutation({ id, totalTimeSpentMs: totalTimeMs });
-      } catch (error) {
-        reportError("mutation", error, { action: "setTotalTime", stepId: id });
-        toast.error("Failed to set time");
-      }
-    },
-    [setTotalTimeMutation, toast]
-  );
-
   // UI state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [showCompletedSteps, setShowCompletedSteps] = useState(false);
@@ -83,44 +68,13 @@ export default function Steps() {
   const [searchQuerySteps, setSearchQuerySteps] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
   useSearchHotkey(searchRef);
-  const stepsClickAction = useStepsClickAction();
-  const [selectedPathFilterSteps, setSelectedPathFilterSteps] = useState<string>(() => {
-    try {
-      return localStorage.getItem(STEPS_PATH_FILTER_KEY) || "";
-    } catch {
-      return "";
-    }
-  });
-
-  // Persist the path filter so it stays locked in until changed/cleared.
-  useEffect(() => {
-    try {
-      if (selectedPathFilterSteps)
-        localStorage.setItem(STEPS_PATH_FILTER_KEY, selectedPathFilterSteps);
-      else localStorage.removeItem(STEPS_PATH_FILTER_KEY);
-    } catch {
-      /* ignore */
-    }
-  }, [selectedPathFilterSteps]);
+  // Path filtering lives in the app-wide lens now; search stays per page.
+  const selectedPathFilterSteps = "";
 
   // Memoize paths for stable reference
   const memoizedPaths = useMemo(() => activePaths || [], [activePaths]);
 
-  // Drop a stale filter if its path no longer exists (e.g. deleted).
-  useEffect(() => {
-    if (
-      selectedPathFilterSteps &&
-      memoizedPaths.length > 0 &&
-      !memoizedPaths.some((p) => p._id === selectedPathFilterSteps)
-    ) {
-      setSelectedPathFilterSteps("");
-    }
-  }, [selectedPathFilterSteps, memoizedPaths]);
-
-  const descendantPathIds = useMemo(
-    () => getDescendantPathIds(selectedPathFilterSteps, memoizedPaths),
-    [selectedPathFilterSteps, memoizedPaths]
-  );
+  const descendantPathIds = useMemo(() => new Set<string>(), []);
 
   const filterSteps = useCallback(
     (steps: Step[], searchQuery: string, pathFilter: string) =>
@@ -291,11 +245,11 @@ export default function Steps() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">All steps</h1>
+        <h1 className="type-page">All steps</h1>
         <Button onClick={() => setIsCreateOpen(true)} size="sm">
           <Plus className="w-4 h-4 mr-2" />
           New Step
-          <kbd className="ml-2 hidden sm:inline-flex h-5 items-center rounded border border-primary-foreground/30 bg-primary-foreground/10 px-1.5 font-mono text-[10px]">
+          <kbd className="ml-2 hidden sm:inline-flex h-5 items-center rounded bg-primary-foreground/10 px-1.5 type-kbd">
             {formatKeybindDisplay(getKeybinds().quickCreate)}
           </kbd>
         </Button>
@@ -313,20 +267,12 @@ export default function Steps() {
             className="pl-9"
           />
         </div>
-        <HierarchicalPathSelector
-          paths={activePaths || []}
-          selectedPathId={selectedPathFilterSteps || null}
-          onChange={(id) => setSelectedPathFilterSteps(id || "")}
-          placeholder="All paths"
-          allowEmpty={true}
-          className="sm:w-48"
-        />
       </div>
 
       {/* Due Steps - Pinned at top */}
       {dueSteps.length > 0 && (
         <div className="space-y-3">
-          <h2 className="text-lg font-semibold flex items-center space-x-2 text-accent">
+          <h2 className="type-section flex items-center space-x-2 text-accent-ink">
             <Calendar className="w-5 h-5" />
             <span>Due ({dueSteps.length})</span>
           </h2>
@@ -343,8 +289,6 @@ export default function Steps() {
                 onTogglePriority={togglePriority}
                 onSaveEdit={updateStep}
                 onToggleTimer={toggleTimer}
-                onSetTotalTime={setTotalTime}
-                clickAction={stepsClickAction}
               />
             ))}
           </div>
@@ -354,7 +298,7 @@ export default function Steps() {
       {/* Priority Steps */}
       {prioritySteps.length > 0 && (
         <div className="space-y-3">
-          <h2 className="text-lg font-semibold flex items-center space-x-2">
+          <h2 className="type-section flex items-center space-x-2">
             <Star className="w-5 h-5 fill-primary text-primary" />
             <span>Priority</span>
           </h2>
@@ -369,8 +313,6 @@ export default function Steps() {
             onTogglePriority={togglePriority}
             onSaveEdit={updateStep}
             onToggleTimer={toggleTimer}
-            onSetTotalTime={setTotalTime}
-            clickAction={stepsClickAction}
           />
         </div>
       )}
@@ -378,7 +320,7 @@ export default function Steps() {
       {/* Regular Steps */}
       {regularSteps.length > 0 && (
         <div className="space-y-3">
-          <h2 className="text-lg font-semibold">All steps</h2>
+          <h2 className="type-section">All steps</h2>
           <DraggableStepList
             steps={regularSteps}
             paths={memoizedPaths}
@@ -390,8 +332,6 @@ export default function Steps() {
             onTogglePriority={togglePriority}
             onSaveEdit={updateStep}
             onToggleTimer={toggleTimer}
-            onSetTotalTime={setTotalTime}
-            clickAction={stepsClickAction}
           />
         </div>
       )}
@@ -411,21 +351,21 @@ export default function Steps() {
             hint={
               searchQuerySteps || selectedPathFilterSteps
                 ? "Try adjusting your search or path filter"
-                : "A step is one concrete thing to do. Add one above and file it under a path."
+                : "Add a step above to get started"
             }
           />
         )}
 
       {/* Upcoming Steps - At bottom with muted styling */}
       {filteredUpcomingSteps.length > 0 && (
-        <div className="space-y-3 pt-4 border-t border-border">
+        <div className="space-y-3 pt-6">
           <button
             onClick={() => setShowUpcomingSteps(!showUpcomingSteps)}
             className="flex items-center space-x-2 text-muted-foreground hover:text-foreground transition-colors"
           >
             <Clock className="w-5 h-5" />
-            <span className="text-lg font-semibold">Upcoming ({filteredUpcomingSteps.length})</span>
-            <span className="text-sm">({showUpcomingSteps ? "hide" : "show"})</span>
+            <span className="type-section">Upcoming ({filteredUpcomingSteps.length})</span>
+            <span className="type-body">({showUpcomingSteps ? "hide" : "show"})</span>
           </button>
           {showUpcomingSteps && (
             <div className="space-y-2 opacity-70">
@@ -441,8 +381,6 @@ export default function Steps() {
                   onTogglePriority={togglePriority}
                   onSaveEdit={updateStep}
                   onToggleTimer={toggleTimer}
-                  onSetTotalTime={setTotalTime}
-                  clickAction={stepsClickAction}
                   showStartDateBadge
                 />
               ))}
@@ -474,9 +412,7 @@ export default function Steps() {
       {/* Failed Steps */}
       {showFailedSteps && failedStepsList.length > 0 && (
         <div className="space-y-3">
-          <h2 className="text-lg font-medium text-destructive">
-            Failed ({failedStepsList.length})
-          </h2>
+          <h2 className="type-section text-destructive-ink">Failed ({failedStepsList.length})</h2>
           <div className="space-y-2">
             {failedStepsList.map((step: Step) => (
               <StepCard
@@ -490,8 +426,6 @@ export default function Steps() {
                 onTogglePriority={togglePriority}
                 onSaveEdit={updateStep}
                 onToggleTimer={toggleTimer}
-                onSetTotalTime={setTotalTime}
-                clickAction={stepsClickAction}
               />
             ))}
           </div>
@@ -501,7 +435,7 @@ export default function Steps() {
       {/* Completed Steps */}
       {showCompletedSteps && completedSteps.length > 0 && (
         <div className="space-y-3">
-          <h2 className="text-lg font-medium text-muted-foreground">
+          <h2 className="type-section text-muted-foreground">
             Completed ({completedSteps.length})
           </h2>
           <div className="space-y-2 opacity-60">
@@ -517,8 +451,6 @@ export default function Steps() {
                 onTogglePriority={togglePriority}
                 onSaveEdit={updateStep}
                 onToggleTimer={toggleTimer}
-                onSetTotalTime={setTotalTime}
-                clickAction={stepsClickAction}
               />
             ))}
           </div>

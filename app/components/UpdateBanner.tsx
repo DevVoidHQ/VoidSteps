@@ -38,20 +38,20 @@ export default function UpdateBanner() {
   const notes = status.phase === "available" ? status.update.body?.trim() : null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-[min(22rem,calc(100vw-2rem))] rounded-xl border border-border bg-card/95 p-4 shadow-lg backdrop-blur">
+    <div className="fixed bottom-4 right-4 z-50 w-[min(22rem,calc(100vw-2rem))] rounded-xl bg-popover p-4 shadow-elev-3">
       <div className="flex items-start gap-3">
         <Download className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-foreground">
+          <p className="type-label text-foreground">
             {installing ? `Installing ${version}` : `VoidSteps ${version} is available`}
           </p>
           {notes && (
-            <p className="mt-1 max-h-24 overflow-y-auto whitespace-pre-line text-xs text-muted-foreground">
+            <p className="mt-1 max-h-24 overflow-y-auto whitespace-pre-line type-meta text-muted-foreground">
               {notes}
             </p>
           )}
           {installing ? (
-            <p className="mt-2 text-xs text-muted-foreground">
+            <p className="mt-2 type-meta text-muted-foreground">
               {status.percent === null ? "Downloading…" : `Downloading… ${status.percent}%`}
               <span className="block">The app restarts when it is done.</span>
             </p>

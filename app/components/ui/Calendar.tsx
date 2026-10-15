@@ -90,7 +90,7 @@ export function Calendar({ value, onSelect, autoFocus, className }: CalendarProp
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
-        <div aria-live="polite" className="text-sm font-medium">
+        <div aria-live="polite" className="type-label">
           {getMonthLabel(focusDate)}
         </div>
         <button
@@ -105,7 +105,7 @@ export function Calendar({ value, onSelect, autoFocus, className }: CalendarProp
 
       <div className="grid grid-cols-7">
         {DAY_NAMES.map((name) => (
-          <div key={name} className="py-1 text-center text-xs font-medium text-muted-foreground">
+          <div key={name} className="py-1 text-center type-meta text-muted-foreground">
             {name}
           </div>
         ))}
@@ -137,11 +137,11 @@ export function Calendar({ value, onSelect, autoFocus, className }: CalendarProp
                   aria-current={isToday ? "date" : undefined}
                   onClick={() => onSelect(formatDateForInput(date.getTime()))}
                   className={cn(
-                    "relative h-9 rounded-md text-sm transition-colors",
+                    "relative h-9 rounded-md type-body transition-colors",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     isOutside && "text-muted-foreground/50",
                     !isSelected && "hover:bg-muted",
-                    isSelected && "bg-primary text-primary-foreground font-medium hover:bg-primary",
+                    isSelected && "bg-primary text-primary-foreground hover:bg-primary",
                     isToday && !isSelected && "font-semibold text-primary"
                   )}
                 >

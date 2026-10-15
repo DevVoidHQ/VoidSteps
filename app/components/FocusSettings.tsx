@@ -109,8 +109,8 @@ export default function FocusSettings() {
     trackId === CUSTOM_TRACK_ID ? audioName : (findBundledTrack(trackId)?.title ?? null);
 
   const swatch = (selected: boolean) =>
-    `h-12 rounded-lg text-xs font-medium transition ${
-      selected ? "ring-2 ring-primary" : "ring-1 ring-border/40 hover:ring-border"
+    `h-12 rounded-lg type-label transition ${
+      selected ? "ring-2 ring-primary" : "bg-field shadow-elev-1 hover:shadow-elev-2"
     }`;
 
   return (
@@ -118,10 +118,10 @@ export default function FocusSettings() {
       {/* Preview. The reason this tab exists. */}
       <div>
         <div
-          className="flex h-56 flex-col items-center justify-center rounded-xl bg-background bg-cover bg-center ring-1 ring-border/40"
+          className="flex h-56 flex-col items-center justify-center rounded-xl bg-background bg-cover bg-center shadow-elev-1"
           style={{ backgroundImage: previewBackground }}
         >
-          <div className="text-xs text-muted-foreground">
+          <div className="type-meta text-muted-foreground">
             <span className="font-mono text-foreground">9:41</span>
             <span className="mx-2">·</span>
             <span>Wednesday, September 2</span>
@@ -132,22 +132,20 @@ export default function FocusSettings() {
               </>
             )}
           </div>
-          <div className="mt-5 rounded-full px-3 py-1 text-[11px] text-muted-foreground ring-1 ring-border/50">
+          <div className="mt-5 rounded-full px-3 py-1 type-meta text-muted-foreground bg-field">
             Launch
           </div>
-          <p className="mt-3 text-lg font-semibold text-foreground">
-            Write the launch announcement
-          </p>
-          <p className="mt-2 font-mono text-4xl font-bold tabular-nums text-primary">24:13</p>
+          <p className="mt-3 type-section text-foreground">Write the launch announcement</p>
+          <p className="mt-2 font-mono type-display-sm text-primary">24:13</p>
         </div>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className="mt-2 type-body text-muted-foreground">
           A preview of the fullscreen focus view. Presets are drawn from your current theme, so they
           follow it when you switch.
         </p>
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium">Background</label>
+        <label className="type-label">Background</label>
         <div className="grid max-w-2xl grid-cols-3 gap-2 sm:grid-cols-5">
           {FOCUS_BACKGROUNDS.map((bg) => (
             <button
@@ -191,7 +189,7 @@ export default function FocusSettings() {
           </Button>
           {wallpaperName && (
             <>
-              <span className="max-w-[16rem] truncate text-sm text-muted-foreground">
+              <span className="max-w-[16rem] truncate type-body text-muted-foreground">
                 {wallpaperName}
               </span>
               <Button variant="ghost" size="sm" onClick={() => clear("wallpaper")}>
@@ -203,14 +201,14 @@ export default function FocusSettings() {
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium">Sound</label>
-        <p className="text-sm text-muted-foreground">
+        <label className="type-label">Sound</label>
+        <p className="type-body text-muted-foreground">
           Plays while a step timer is running, and in the focus view. The tracks ship with the app,
           so nothing streams and nothing is fetched.
         </p>
 
         <div className="flex max-w-2xl items-center gap-3 pt-1">
-          <label htmlFor="focus-volume" className="text-sm text-muted-foreground">
+          <label htmlFor="focus-volume" className="type-body text-muted-foreground">
             Volume
           </label>
           <input
@@ -223,12 +221,12 @@ export default function FocusSettings() {
             className="w-40 accent-primary"
             onChange={(e) => setFocusVolume(Number(e.target.value))}
           />
-          <span className="font-mono text-xs tabular-nums text-muted-foreground">
+          <span className="font-mono type-meta tabular-nums text-muted-foreground">
             {Math.round(volume * 100)}%
           </span>
         </div>
 
-        <ul className="max-w-2xl divide-y divide-border/50 pt-1">
+        <ul className="max-w-2xl pt-1">
           {BUNDLED_TRACKS.map((t) => (
             <TrackRow
               key={t.id}
@@ -272,7 +270,7 @@ export default function FocusSettings() {
         </div>
       </div>
 
-      <div className="space-y-2 border-t border-border pt-6">
+      <div className="space-y-2 pt-6">
         <Toggle
           size="sm"
           checked={openOnPlay}
@@ -287,7 +285,7 @@ export default function FocusSettings() {
           label="Show the running timer bar"
           description="The floating bar with the live clock. Turning it off hides the bar and the focus view, and does not stop anything: timers keep running and still show on their step cards."
         />
-        <p className="text-sm text-muted-foreground">
+        <p className="type-body text-muted-foreground">
           Your own image and track are not included in backups, because they would add tens of
           megabytes to every export. On a new machine, pick them again.
         </p>
@@ -334,7 +332,7 @@ function TrackRow({
         className="min-w-0 flex-1 rounded-md px-2 py-1 text-left transition hover:bg-muted"
       >
         <span
-          className={`block truncate text-sm ${selected ? "text-foreground" : "text-muted-foreground"}`}
+          className={`block truncate type-body ${selected ? "text-foreground" : "text-muted-foreground"}`}
         >
           {title}
         </span>
@@ -344,15 +342,15 @@ function TrackRow({
         <button
           type="button"
           onClick={() => openExternal(subtitleHref)}
-          className="shrink-0 text-xs text-muted-foreground/70 underline-offset-2 hover:text-foreground hover:underline"
+          className="shrink-0 type-meta text-muted-foreground/70 underline-offset-2 hover:text-foreground hover:underline"
         >
           {subtitle}
         </button>
       ) : (
-        <span className="shrink-0 text-xs text-muted-foreground/70">{subtitle}</span>
+        <span className="shrink-0 type-meta text-muted-foreground/70">{subtitle}</span>
       )}
 
-      {selected && <span className="shrink-0 text-xs text-primary">Selected</span>}
+      {selected && <span className="shrink-0 type-meta text-primary">Selected</span>}
 
       {onRemove && (
         <Button variant="ghost" size="sm" onClick={onRemove}>

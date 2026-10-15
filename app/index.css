@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./styles/typography.css";
 @config "../tailwind.config.js";
 
 @font-face {
@@ -17,21 +18,20 @@
 }
 
 /*
- * DevVoid theme model - 6 colors per theme.
- * Source of truth: --background, --foreground, --primary, --accent,
- *                  --primary-light, --accent-light.
+ * DevVoid theme model: 4 colors per theme.
+ * Source of truth: --background, --foreground, --primary, --accent.
+ * The primary and accent tints are mixed from these (see "Surfaces" below).
  * Everything else is derived in tailwind.config.js via alpha over
- * --foreground, or by aliasing one of the six.
- * --primary-foreground and --accent-foreground are auto-computed
- * by `applyTheme()` based on brand-color luminance.
+ * --foreground, or by aliasing one of the four.
+ * applyTheme() computes the values that keep text at WCAG AA (lib/contrast.ts):
+ * text on primary/accent fills, muted text opacity, tint strength, and the
+ * accent as text (--accent-ink).
  */
 :root {
   --background: 44 10% 97%;
   --foreground: 43 8% 10%;
   --primary: 222 90% 30%; /* #083291 */
   --accent: 348 42% 58%; /* #c26579 */
-  --primary-light: 221 83% 95%; /* #e8effc */
-  --accent-light: 348 83% 95%; /* #fce8ed */
 
   --primary-foreground: 0 0% 100%;
   --accent-foreground: 0 0% 100%;
@@ -58,6 +58,57 @@
   --font-ui: "Geist", system-ui, sans-serif;
 }
 
+/*
+ * Surfaces and elevation. The layout separates by tone and depth instead of
+ * outlines: lines are kept only where they carry meaning (focus rings, the
+ * day log grid, checkboxes). Levels: 1 docked panels, 2 cards, 3 floating.
+ * Everything is mixed from the theme's own background and foreground, so all
+ * presets and imported themes get it. data-scheme is set by applyTheme().
+ */
+:root {
+  /* Soft fills of the brand colours, behind selected and active things. */
+  --primary-tint: color-mix(
+    in oklab,
+    hsl(var(--background)),
+    hsl(var(--primary)) var(--primary-tint-amount, 12%)
+  );
+  --accent-tint: color-mix(
+    in oklab,
+    hsl(var(--background)),
+    hsl(var(--accent)) var(--accent-tint-amount, 12%)
+  );
+  --raise: 0 0% 100%;
+  --shade: hsl(var(--foreground) / 0.08);
+  /* Light Layers is paper on a desk: the page is the tinted desk, cards and
+     popovers are near-white sheets with a tight contact shadow plus a soft
+     ambient one, docked panels sit a step darker than the page. */
+  --surface-1: color-mix(in oklab, hsl(var(--background)), hsl(var(--foreground)) 5%);
+  --surface-2: color-mix(in oklab, hsl(var(--background)), white 92%);
+  --surface-3: white;
+  --field: color-mix(in oklab, hsl(var(--background)), hsl(var(--foreground)) 6%);
+  --elev-1: 0 1px 2px hsl(var(--foreground) / 0.1), 0 2px 6px hsl(var(--foreground) / 0.06);
+  --elev-2: 0 1px 3px hsl(var(--foreground) / 0.1), 0 8px 20px hsl(var(--foreground) / 0.1);
+  --elev-3: 0 2px 6px hsl(var(--foreground) / 0.12), 0 16px 40px hsl(var(--foreground) / 0.18);
+}
+:root[data-scheme="dark"] {
+  --primary-tint: color-mix(
+    in oklab,
+    hsl(var(--background)),
+    hsl(var(--primary)) var(--primary-tint-amount, 22%)
+  );
+  --accent-tint: color-mix(
+    in oklab,
+    hsl(var(--background)),
+    hsl(var(--accent)) var(--accent-tint-amount, 22%)
+  );
+  --surface-1: color-mix(in oklab, hsl(var(--background)), hsl(var(--foreground)) 4%);
+  --surface-2: color-mix(in oklab, hsl(var(--background)), hsl(var(--foreground)) 7%);
+  --surface-3: color-mix(in oklab, hsl(var(--background)), hsl(var(--foreground)) 10%);
+  --field: color-mix(in oklab, hsl(var(--background)), hsl(var(--foreground)) 9%);
+  --elev-1: inset 0 1px 0 hsl(var(--foreground) / 0.05), 0 1px 2px rgb(0 0 0 / 0.4);
+  --elev-2: inset 0 1px 0 hsl(var(--foreground) / 0.06), 0 6px 16px rgb(0 0 0 / 0.45);
+  --elev-3: inset 0 1px 0 hsl(var(--foreground) / 0.07), 0 16px 40px rgb(0 0 0 / 0.55);
+}
 html {
   font-size: var(--app-font-size);
 }
@@ -98,6 +149,9 @@ body {
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
+  /* Text without a type-* role inherits the body role, so nothing falls back
+     to the browser's 16px. Sizes live only in styles/typography.css. */
+  @apply type-body;
 }
 
 /* React Flow graph controls (Paths page): match the app theme instead of the
@@ -114,7 +168,7 @@ body {
   border-bottom: 1px solid hsl(var(--foreground) / 0.1);
 }
 .react-flow__controls-button:hover {
-  background: hsl(var(--primary-light));
+  background: var(--primary-tint);
   color: hsl(var(--primary));
 }
 .react-flow__controls-button svg {
@@ -199,116 +253,6 @@ body {
   animation: btn-glow 3s ease-in-out infinite;
 }
 
-/* Markdown rendered output - scoped to .markdown-body */
-.markdown-body h1 {
-  font-size: 1.75rem;
-  font-weight: 700;
-  margin: 1.25em 0 0.5em;
-  line-height: 1.25;
-}
-.markdown-body h2 {
-  font-size: 1.4rem;
-  font-weight: 700;
-  margin: 1.15em 0 0.5em;
-  line-height: 1.3;
-}
-.markdown-body h3 {
-  font-size: 1.15rem;
-  font-weight: 600;
-  margin: 1em 0 0.4em;
-}
-.markdown-body h4 {
-  font-size: 1rem;
-  font-weight: 600;
-  margin: 0.9em 0 0.35em;
-}
-.markdown-body p {
-  margin: 0.6em 0;
-  line-height: 1.65;
-}
-.markdown-body ul,
-.markdown-body ol {
-  margin: 0.6em 0;
-  padding-left: 1.5em;
-}
-.markdown-body ul {
-  list-style: disc;
-}
-.markdown-body ol {
-  list-style: decimal;
-}
-.markdown-body li {
-  margin: 0.2em 0;
-}
-.markdown-body li > p {
-  margin: 0.2em 0;
-}
-.markdown-body blockquote {
-  border-left: 3px solid hsl(var(--primary) / 0.4);
-  padding-left: 1em;
-  margin: 0.8em 0;
-  color: hsl(var(--foreground) / 0.7);
-}
-.markdown-body code {
-  background: hsl(var(--foreground) / 0.07);
-  padding: 0.15em 0.35em;
-  border-radius: 4px;
-  font-size: 0.875em;
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
-}
-.markdown-body pre {
-  background: hsl(var(--foreground) / 0.05);
-  border: 1px solid hsl(var(--foreground) / 0.1);
-  padding: 0.75em 1em;
-  border-radius: 6px;
-  overflow-x: auto;
-  margin: 0.8em 0;
-  font-size: 0.85em;
-  line-height: 1.5;
-}
-.markdown-body pre code {
-  background: transparent;
-  padding: 0;
-  border-radius: 0;
-  font-size: inherit;
-}
-.markdown-body a {
-  color: hsl(var(--primary));
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-.markdown-body a:hover {
-  color: hsl(var(--accent));
-}
-.markdown-body hr {
-  border: none;
-  border-top: 1px solid hsl(var(--foreground) / 0.1);
-  margin: 1.5em 0;
-}
-.markdown-body table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 0.8em 0;
-  font-size: 0.9em;
-}
-.markdown-body th,
-.markdown-body td {
-  border: 1px solid hsl(var(--foreground) / 0.12);
-  padding: 0.5em 0.75em;
-  text-align: left;
-}
-.markdown-body th {
-  background: hsl(var(--foreground) / 0.04);
-  font-weight: 600;
-}
-.markdown-body img {
-  max-width: 100%;
-  border-radius: 6px;
-}
-.markdown-body input[type="checkbox"] {
-  margin-right: 0.4em;
-}
-
 /* Marquee animations */
 @keyframes marquee-left {
   0% {
@@ -333,22 +277,27 @@ body {
   animation: marquee-right 30s linear infinite;
 }
 
-/* Native color picker: remove the browser's inner padding so the swatch fills
-   the box edge-to-edge, but keep the outer border (set on the element) so a
-   swatch that matches the background still reads as a control. */
-input[type="color"].swatch-input {
-  padding: 0;
+/* Theme colour sliders (HslPicker): the gradient is the track, so the thumb
+   is a plain ring that reads on any colour. */
+.hsl-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 9999px;
+  background: white;
+  box-shadow:
+    0 0 0 2px rgb(0 0 0 / 0.35),
+    0 1px 3px rgb(0 0 0 / 0.3);
 }
-input[type="color"].swatch-input::-webkit-color-swatch-wrapper {
-  padding: 0;
-}
-input[type="color"].swatch-input::-webkit-color-swatch {
+.hsl-slider::-moz-range-thumb {
+  width: 1rem;
+  height: 1rem;
   border: none;
-  border-radius: 0.375rem;
-}
-input[type="color"].swatch-input::-moz-color-swatch {
-  border: none;
-  border-radius: 0.375rem;
+  border-radius: 9999px;
+  background: white;
+  box-shadow:
+    0 0 0 2px rgb(0 0 0 / 0.35),
+    0 1px 3px rgb(0 0 0 / 0.3);
 }
 
 /* ---------------------------------------------------------------------------

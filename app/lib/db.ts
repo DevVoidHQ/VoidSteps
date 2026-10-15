@@ -157,6 +157,23 @@ export interface ErrorLogEntry {
   timestamp: number;
 }
 
+/** One row's before and after images within an undoable action (see undo.ts). */
+export interface UndoChange {
+  table: string;
+  key: string;
+  before: unknown;
+  after: unknown;
+}
+
+/** One user action in the undo history. `undone` is 0 or 1 so it can be indexed. */
+export interface UndoEntry {
+  id?: number;
+  label: string;
+  at: number;
+  undone: 0 | 1;
+  changes: UndoChange[];
+}
+
 // --- Database class ---
 
 /**
@@ -202,6 +219,7 @@ export class VoidStepsDB extends Dexie {
   errorLog!: EntityTable<ErrorLogEntry, "id">;
   focusMedia!: EntityTable<LocalFocusMedia, "_id">;
   userFonts!: EntityTable<LocalUserFont, "_id">;
+  undoLog!: EntityTable<UndoEntry, "id">;
 
   constructor(name = "voidsteps") {
     super(name);
@@ -348,6 +366,13 @@ export class VoidStepsDB extends Dexie {
     // recurrence.ts, which was already right, so there is nothing to rewrite.
     this.version(12).stores({
       userFonts: "_id",
+    });
+
+    // v13: `undoLog` is the persistent undo and redo history (undo.ts). Not in
+    // SNAPSHOT_TABLES: it holds copies of rows, not data of its own, and wipe
+    // and restore clear it so an old image can never bring data back.
+    this.version(13).stores({
+      undoLog: "++id, undone",
     });
   }
 }

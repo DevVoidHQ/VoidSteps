@@ -204,7 +204,7 @@ export default function QuickCreateRoutineDialog({
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
             maxLength={MAX_DESCRIPTION_LENGTH}
-            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
+            className="flex w-full rounded-md border-transparent bg-field px-3 py-2 type-body ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
           />
           <HierarchicalPathSelector
             paths={activePaths || []}
@@ -216,7 +216,7 @@ export default function QuickCreateRoutineDialog({
 
           {/* Frequency */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Frequency</label>
+            <label className="type-label">Frequency</label>
             <Select
               value={frequency}
               onValueChange={(v) => setFrequency(v)}
@@ -238,7 +238,7 @@ export default function QuickCreateRoutineDialog({
                   key={i}
                   type="button"
                   onClick={() => toggleDay(i)}
-                  className={`flex-1 py-1.5 rounded text-xs font-medium transition-colors ${daysOfWeek.includes(i) ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                  className={`flex-1 py-1.5 rounded type-meta transition-colors ${daysOfWeek.includes(i) ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
                 >
                   {label}
                 </button>
@@ -279,7 +279,7 @@ export default function QuickCreateRoutineDialog({
 
           {/* Due date, counted from the day each step is created */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Due date</label>
+            <label className="type-label">Due date</label>
             <div className="flex items-center gap-3">
               <Select
                 className="flex-1"
@@ -292,7 +292,7 @@ export default function QuickCreateRoutineDialog({
                 ]}
               />
               {dueMode === "later" && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2 type-body text-muted-foreground">
                   <Input
                     type="number"
                     min={1}
@@ -307,7 +307,7 @@ export default function QuickCreateRoutineDialog({
               )}
             </div>
             {dueMode === "same" && (
-              <p className="text-xs text-muted-foreground">
+              <p className="type-meta text-muted-foreground">
                 Due today also adds it to Today's Focus.
               </p>
             )}

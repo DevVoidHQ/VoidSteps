@@ -275,11 +275,11 @@ export default function GraphView({
 
   if (!paths.length) {
     return (
-      <div className="h-full border border-border rounded-lg overflow-hidden bg-background flex items-center justify-center">
+      <div className="h-full rounded-lg overflow-hidden bg-background flex items-center justify-center">
         <EmptyState
           icon={GitBranch}
           message="No paths to visualize"
-          hint="A path is a goal you are working toward. Create one with New Path."
+          hint="Create a path from the sidebar to see your graph"
         />
       </div>
     );
@@ -287,7 +287,7 @@ export default function GraphView({
 
   return (
     <div
-      className="h-full border border-border rounded-lg overflow-hidden bg-background"
+      className="h-full rounded-lg overflow-hidden bg-background"
       style={{ touchAction: "none" }}
     >
       <ReactFlow

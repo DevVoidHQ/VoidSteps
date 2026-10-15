@@ -8,7 +8,6 @@ const NAV_ACTIONS = [
   "navPaths",
   "navRoutines",
   "navReminders",
-  "navNotes",
   "navAnalytics",
   "navSettings",
 ] as const;
@@ -19,13 +18,13 @@ const NAV_ROUTES: Record<string, string> = {
   navPaths: "/paths",
   navRoutines: "/routines",
   navReminders: "/reminders",
-  navNotes: "/notes",
   navAnalytics: "/analytics",
   navSettings: "/settings",
 };
 
 interface ShortcutHandlers {
   onToggleSidebar?: () => void;
+  onToggleShortcuts?: () => void;
   onOpenCommandBar?: () => void;
   onQuickAdd?: () => void;
   onQuickAddRoutine?: () => void;
@@ -50,6 +49,12 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
       if (matchesKeybind(e, keybinds.openCommandBar)) {
         e.preventDefault();
         handlers.onOpenCommandBar?.();
+        return;
+      }
+
+      if (matchesKeybind(e, keybinds.toggleShortcuts)) {
+        e.preventDefault();
+        handlers.onToggleShortcuts?.();
         return;
       }
 

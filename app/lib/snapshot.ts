@@ -209,8 +209,11 @@ export async function restoreSnapshot(snapshot: Snapshot): Promise<SnapshotCount
       db.userSettings,
       db.timeEntries,
       db.activityEvents,
+      db.undoLog,
     ],
     async () => {
+      // Undo history describes the data being replaced, so it goes too.
+      await db.undoLog.clear();
       // Written out per table rather than looped: Dexie's bulkAdd overloads
       // don't resolve across a union of differently-typed tables.
       await db.steps.clear();

@@ -1,0 +1,118 @@
+/*
+ * Typography: the one place text sizes are decided.
+ *
+ * Components never pick a size, weight or line height directly. They use one
+ * of these roles, so the same kind of text looks the same everywhere and a
+ * change here changes it everywhere. Everything is in rem, so Settings >
+ * Appearance > Text size scales the whole scale together.
+ *
+ * Floor: nothing below 11px (key chips only); meta text is 12px.
+ * A test (app/styles/typography.test.ts) fails if a raw size such as text-sm or
+ * text-[10px] appears anywhere else in app/.
+ *
+ *   type-page      page titles                              28px bold
+ *   type-section   section and card headings                18px semibold
+ *   type-step      step titles on step cards                17px medium
+ *   type-title     routine and list item titles             15px medium
+ *   type-prompt    big inputs (quick capture, command bar)  16px
+ *   type-body      text, descriptions, inputs, menu items   14px
+ *   type-label     form labels, buttons, tabs               14px medium
+ *   type-meta      timestamps, hints, badges, counts        12px
+ *   type-overline  small caps group labels                  12px semibold
+ *   type-kbd       key chips                                11px mono
+ *   type-focus     the step title in focus mode             30px semibold
+ *   type-display   the focus timer and other big numbers    72 to 96px bold
+ *   type-display-sm  smaller big numbers (previews)         36px bold
+ *
+ * Colour is not part of a role: pair with text-foreground / text-muted-foreground.
+ */
+
+@utility type-page {
+  font-size: 1.75rem;
+  line-height: 2.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+@utility type-section {
+  font-size: 1.125rem;
+  line-height: 1.625rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+@utility type-step {
+  font-size: 1.0625rem;
+  line-height: 1.5rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+
+@utility type-title {
+  font-size: 0.9375rem;
+  line-height: 1.375rem;
+  font-weight: 500;
+}
+
+@utility type-prompt {
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 400;
+}
+
+@utility type-body {
+  font-size: 0.875rem;
+  line-height: 1.375rem;
+  font-weight: 400;
+}
+
+@utility type-label {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+}
+
+@utility type-meta {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 400;
+}
+
+@utility type-overline {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+@utility type-kbd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  font-weight: 500;
+}
+
+@utility type-focus {
+  font-size: 1.875rem;
+  line-height: 2.375rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+@utility type-display {
+  font-size: 4.5rem;
+  line-height: 1;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  @media (width >= 40rem) {
+    font-size: 6rem;
+  }
+}
+
+@utility type-display-sm {
+  font-size: 2.25rem;
+  line-height: 2.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}

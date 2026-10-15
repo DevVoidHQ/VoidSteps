@@ -1,5 +1,5 @@
 import { useClock } from "@/hooks/useClock";
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { Step } from "@/types";
 import {
@@ -9,16 +9,14 @@ import {
   useToggleStepFailed,
   useStartTimer,
   useStopTimer,
-  useSetTotalTime,
 } from "@/lib/local-mutations";
 import { useData } from "@/contexts/DataContext";
+import { useLensedData } from "@/contexts/LensContext";
 import { reportError } from "@/lib/error-store";
 import { useToast } from "@/contexts/ToastContext";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
-import { HierarchicalPathSelector } from "@/components/HierarchicalPathSelector";
-import { getDescendantPathIds } from "@/lib/path-utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { addMonths, getMonthGrid, getStartOfDay } from "@/lib/calendar-utils";
@@ -35,7 +33,6 @@ type CalendarView = "today" | "daylog" | "month";
 const VIEW_KEY = "voidsteps-today-view";
 const DATE_KEY = "voidsteps-today-date";
 // Shared with Steps/Today so a chosen path stays consistent across the app.
-const PATH_FILTER_KEY = "voidsteps-path-filter";
 const ALLOWED_VIEWS: CalendarView[] = ["today", "daylog", "month"];
 
 function persistedView(): CalendarView | null {
@@ -57,7 +54,9 @@ function persistedDate(): string | null {
 export default function Calendar() {
   const now = useClock();
   const toast = useToast();
-  const { allSteps, reminders, activePaths, runningTimerStepIds } = useData();
+  // Steps come through the app-wide lens, which replaced this page's path filter.
+  const { reminders, activePaths } = useData();
+  const { allSteps, runningTimerStepIds } = useLensedData();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const urlView = searchParams.get("view") as CalendarView | null;
@@ -77,22 +76,6 @@ export default function Calendar() {
 
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
-  const [selectedPathFilter, setSelectedPathFilter] = useState<string>(() => {
-    try {
-      return localStorage.getItem(PATH_FILTER_KEY) || "";
-    } catch {
-      return "";
-    }
-  });
-  useEffect(() => {
-    try {
-      if (selectedPathFilter) localStorage.setItem(PATH_FILTER_KEY, selectedPathFilter);
-      else localStorage.removeItem(PATH_FILTER_KEY);
-    } catch {
-      /* ignore */
-    }
-  }, [selectedPathFilter]);
-
   // Mutations (needed for month/timeline day detail panel)
   const updateStepMutation = useUpdateStep();
   const deleteStepMutation = useDeleteStep();
@@ -100,7 +83,6 @@ export default function Calendar() {
   const toggleFailedMutation = useToggleStepFailed();
   const startTimerMutation = useStartTimer();
   const stopTimerMutation = useStopTimer();
-  const setTotalTimeMutation = useSetTotalTime();
 
   // URL sync
   const setView = useCallback(
@@ -145,19 +127,7 @@ export default function Calendar() {
     };
   }, [viewDate]);
 
-  // Filter steps by the selected path (including its descendants).
-  const descendantPathIds = useMemo(
-    () => getDescendantPathIds(selectedPathFilter, activePaths ?? []),
-    [selectedPathFilter, activePaths]
-  );
-  const filteredSteps = useMemo(() => {
-    const steps = allSteps ?? [];
-    if (!selectedPathFilter) return steps;
-    return steps.filter((s) => {
-      const pid = s.path?._id || (typeof s.pathId === "string" ? s.pathId : null);
-      return pid ? descendantPathIds.has(pid) : false;
-    });
-  }, [allSteps, selectedPathFilter, descendantPathIds]);
+  const filteredSteps = useMemo(() => allSteps ?? [], [allSteps]);
 
   // Routines are intentionally excluded from the calendar - recurring routine
   // occurrences clutter the month/timeline. The calendar shows steps only.
@@ -295,18 +265,6 @@ export default function Calendar() {
     [runningTimerStepIds, startTimerMutation, stopTimerMutation, toast]
   );
 
-  const handleSetTotalTime = useCallback(
-    async (id: string, totalTimeSpentMs: number) => {
-      try {
-        await setTotalTimeMutation({ id, totalTimeSpentMs });
-      } catch (e) {
-        reportError("mutation", e, { action: "setTotalTime", stepId: id });
-        toast.error("Failed to update time");
-      }
-    },
-    [setTotalTimeMutation, toast]
-  );
-
   const stepActions = {
     onToggle: handleToggle,
     onToggleFailed: handleToggleFailed,
@@ -314,7 +272,6 @@ export default function Calendar() {
     onSaveEdit: handleSaveEdit,
     onTogglePriority: handleTogglePriority,
     onToggleTimer: handleToggleTimer,
-    onSetTotalTime: handleSetTotalTime,
     paths: activePaths ?? [],
   };
 
@@ -322,7 +279,7 @@ export default function Calendar() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">
+        <h1 className="type-page">
           {currentView === "today"
             ? "Today's focus"
             : currentView === "daylog"
@@ -368,14 +325,6 @@ export default function Calendar() {
               options={yearOptions}
             />
           </div>
-          <HierarchicalPathSelector
-            paths={activePaths ?? []}
-            selectedPathId={selectedPathFilter || null}
-            onChange={(id) => setSelectedPathFilter(id || "")}
-            placeholder="All paths"
-            allowEmpty
-            className="lg:w-56"
-          />
         </div>
       )}
 

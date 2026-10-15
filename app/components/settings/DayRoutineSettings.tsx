@@ -42,16 +42,16 @@ export default function DayRoutineSettings() {
     <Card>
       <CardContent className="p-6 space-y-6">
         <div className="space-y-1">
-          <h2 className="text-xl font-semibold">Day &amp; Routines</h2>
-          <p className="text-sm text-muted-foreground">
+          <h2 className="type-section">Day &amp; Routines</h2>
+          <p className="type-body text-muted-foreground">
             When your day rolls over and when routines appear. Changing these reschedules all
             routines immediately.
           </p>
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">End of day</label>
-          <p className="text-sm text-muted-foreground">
+          <label className="type-label">End of day</label>
+          <p className="type-body text-muted-foreground">
             When "today" becomes tomorrow. With 3:00 AM, work at 1 AM still counts toward the
             previous day - deferred steps arrive and due-today prioritization runs at this time.
           </p>
@@ -64,8 +64,8 @@ export default function DayRoutineSettings() {
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">Start of day (routines spawn)</label>
-          <p className="text-sm text-muted-foreground">
+          <label className="type-label">Start of day (routines spawn)</label>
+          <p className="type-body text-muted-foreground">
             The time your routines materialize on their scheduled day. Can't be earlier than the
             end-of-day rollover.
           </p>

@@ -6,8 +6,12 @@ import { useEffect } from "react";
  * AppKit routes an unhandled Escape to NSWindow's cancelOperation:, which for a
  * full-screen window means "leave full screen". WebKit only forwards the key up
  * the responder chain when the page did not handle it, so marking every Escape
- * as handled keeps the window where it is. Propagation is left alone, so the
- * app's own Escape handling still runs.
+ * as handled keeps the window where it is.
+ *
+ * This listens in the bubble phase on purpose. A capture listener on window
+ * runs before everything else, and marking the key handled there made every
+ * component that checks defaultPrevented (Radix dialogs included) ignore
+ * Escape, so dialogs never closed in the desktop app.
  */
 export function useEscapeFullscreenGuard() {
   useEffect(() => {
@@ -17,7 +21,7 @@ export function useEscapeFullscreenGuard() {
       if (e.key === "Escape") e.preventDefault();
     };
 
-    window.addEventListener("keydown", onKeyDown, true);
-    return () => window.removeEventListener("keydown", onKeyDown, true);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 }

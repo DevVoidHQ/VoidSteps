@@ -80,13 +80,9 @@ const Toggle = React.forwardRef<HTMLInputElement, ToggleProps>(
 
         {(label || description) && (
           <div className="flex flex-col gap-0.5">
-            {label && (
-              <span className={cn("text-sm font-medium leading-none", disabled && "opacity-70")}>
-                {label}
-              </span>
-            )}
+            {label && <span className={cn("type-label", disabled && "opacity-70")}>{label}</span>}
             {description && (
-              <p id={descriptionId} className="text-sm text-muted-foreground">
+              <p id={descriptionId} className="type-body text-muted-foreground">
                 {description}
               </p>
             )}

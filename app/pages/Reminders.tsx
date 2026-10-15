@@ -81,17 +81,17 @@ export default function Reminders() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Reminders</h1>
+        <h1 className="type-page">Reminders</h1>
         <Button onClick={openCreate} size="sm">
           <Plus className="w-4 h-4 mr-2" />
           New Reminder
-          <kbd className="ml-2 hidden sm:inline-flex h-5 items-center rounded border border-primary-foreground/30 bg-primary-foreground/10 px-1.5 font-mono text-[10px]">
+          <kbd className="ml-2 hidden sm:inline-flex h-5 items-center rounded bg-primary-foreground/10 px-1.5 type-kbd">
             {formatKeybindDisplay(getKeybinds().quickCreateReminder)}
           </kbd>
         </Button>
       </div>
 
-      <p className="text-sm text-muted-foreground -mt-2">
+      <p className="type-body text-muted-foreground -mt-2">
         Birthdays, anniversaries, holidays - they show up on your calendar. No steps, no completion.
       </p>
 
@@ -100,18 +100,18 @@ export default function Reminders() {
       {sorted.length > 0 ? (
         <div className="space-y-3">
           {sorted.map((r) => (
-            <Card key={r._id} className="hover:border-primary/50 transition-colors">
+            <Card key={r._id} className="hover:shadow-elev-2 transition-shadow">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <Bell className="w-4 h-4 text-warning flex-shrink-0" />
-                      <h3 className="font-medium truncate">{r.title}</h3>
+                      <h3 className="type-title truncate">{r.title}</h3>
                     </div>
                     {r.note && (
-                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{r.note}</p>
+                      <p className="type-body text-muted-foreground mt-1 line-clamp-2">{r.note}</p>
                     )}
-                    <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1 mt-2 type-meta text-muted-foreground">
                       <Calendar className="w-3 h-3" />
                       {describeReminder(r)}
                     </div>
@@ -134,7 +134,7 @@ export default function Reminders() {
                       size="icon-sm"
                       className={
                         confirmDelete === r._id
-                          ? "ring-1 ring-destructive text-destructive"
+                          ? "ring-1 ring-destructive text-destructive-ink"
                           : undefined
                       }
                       onClick={() => handleDelete(r._id)}

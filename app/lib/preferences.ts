@@ -7,7 +7,6 @@ import { BUNDLED_TRACKS } from "./focus-tracks";
 const DEFER_DATES_KEY = "voidsteps-defer-dates";
 const DUE_DATES_KEY = "voidsteps-due-dates";
 const PRIORITIZE_DEFAULT_KEY = "voidsteps-prioritize-default";
-const STEP_ACTIONS_KEY = "voidsteps-step-actions";
 const OPEN_FOCUS_ON_PLAY_KEY = "voidsteps-open-focus-on-play";
 const POSTPONE_DEPRIORITIZES_KEY = "voidsteps-postpone-deprioritizes";
 const TIMER_BAR_HIDDEN_KEY = "voidsteps-timer-bar-hidden";
@@ -18,143 +17,7 @@ const FOCUS_BACKGROUND_KEY = "voidsteps-focus-background";
 const FOCUS_AUDIO_KEY = "voidsteps-focus-audio";
 const FOCUS_VOLUME_KEY = "voidsteps-focus-volume";
 const FOCUS_TRACK_KEY = "voidsteps-focus-track";
-const WELCOME_DISMISSED_KEY = "voidsteps-welcome-dismissed";
 const PREFS_EVENT = "voidsteps-prefs-changed";
-
-// Per-action placement on a step: "open" = its own inline icon, "compact" =
-// tucked into the step's "more" menu.
-export type StepActionKey =
-  "failed" | "timer" | "priority" | "postpone" | "time" | "open" | "edit" | "delete";
-export type StepActionMode = "open" | "compact";
-export type StepActionsConfig = Record<StepActionKey, StepActionMode>;
-
-export const STEP_ACTION_LABELS: Record<StepActionKey, string> = {
-  failed: "Mark failed",
-  timer: "Timer",
-  priority: "Prioritize",
-  postpone: "Postpone to tomorrow",
-  time: "Edit time",
-  open: "Activity",
-  edit: "Edit",
-  delete: "Delete",
-};
-export const STEP_ACTION_ORDER: StepActionKey[] = [
-  "timer",
-  "priority",
-  "postpone",
-  "failed",
-  "time",
-  "open",
-  "edit",
-  "delete",
-];
-
-const DEFAULT_STEP_ACTIONS: StepActionsConfig = {
-  failed: "open",
-  timer: "open",
-  priority: "open",
-  postpone: "compact",
-  time: "compact",
-  open: "compact",
-  edit: "compact",
-  delete: "compact",
-};
-
-export function getStepActions(): StepActionsConfig {
-  try {
-    const raw = localStorage.getItem(STEP_ACTIONS_KEY);
-    if (!raw) return { ...DEFAULT_STEP_ACTIONS };
-    return { ...DEFAULT_STEP_ACTIONS, ...JSON.parse(raw) };
-  } catch {
-    return { ...DEFAULT_STEP_ACTIONS };
-  }
-}
-
-export function setStepActionMode(key: StepActionKey, mode: StepActionMode): void {
-  try {
-    const next = { ...getStepActions(), [key]: mode };
-    localStorage.setItem(STEP_ACTIONS_KEY, JSON.stringify(next));
-  } catch {
-    /* ignore */
-  }
-  window.dispatchEvent(new Event(PREFS_EVENT));
-}
-
-export function useStepActions(): StepActionsConfig {
-  const [cfg, setCfg] = useState(getStepActions);
-  useEffect(() => {
-    const handler = () => setCfg(getStepActions());
-    window.addEventListener(PREFS_EVENT, handler);
-    window.addEventListener("storage", handler);
-    return () => {
-      window.removeEventListener(PREFS_EVENT, handler);
-      window.removeEventListener("storage", handler);
-    };
-  }, []);
-  return cfg;
-}
-
-// What clicking a step row does, configurable per page. Steps page defaults to
-// toggling priority; Today defaults to starting/stopping the timer.
-export type StepClickAction = "prioritize" | "play" | "complete" | "open" | "none";
-const STEPS_CLICK_ACTION_KEY = "voidsteps-steps-click-action";
-const TODAY_CLICK_ACTION_KEY = "voidsteps-today-click-action";
-
-function readClickAction(key: string, fallback: StepClickAction): StepClickAction {
-  try {
-    const v = localStorage.getItem(key);
-    if (v === "prioritize" || v === "play" || v === "complete" || v === "open" || v === "none")
-      return v;
-    return fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-export function getStepsClickAction(): StepClickAction {
-  return readClickAction(STEPS_CLICK_ACTION_KEY, "prioritize");
-}
-export function getTodayClickAction(): StepClickAction {
-  return readClickAction(TODAY_CLICK_ACTION_KEY, "play");
-}
-
-export function setStepsClickAction(action: StepClickAction): void {
-  try {
-    localStorage.setItem(STEPS_CLICK_ACTION_KEY, action);
-  } catch {
-    /* ignore */
-  }
-  window.dispatchEvent(new Event(PREFS_EVENT));
-}
-export function setTodayClickAction(action: StepClickAction): void {
-  try {
-    localStorage.setItem(TODAY_CLICK_ACTION_KEY, action);
-  } catch {
-    /* ignore */
-  }
-  window.dispatchEvent(new Event(PREFS_EVENT));
-}
-
-function useClickAction(read: () => StepClickAction): StepClickAction {
-  const [action, setAction] = useState<StepClickAction>(read);
-  useEffect(() => {
-    const handler = () => setAction(read());
-    window.addEventListener(PREFS_EVENT, handler);
-    window.addEventListener("storage", handler);
-    return () => {
-      window.removeEventListener(PREFS_EVENT, handler);
-      window.removeEventListener("storage", handler);
-    };
-  }, [read]);
-  return action;
-}
-
-export function useStepsClickAction(): StepClickAction {
-  return useClickAction(getStepsClickAction);
-}
-export function useTodayClickAction(): StepClickAction {
-  return useClickAction(getTodayClickAction);
-}
 
 // Whether new steps default to "Prioritize for today". Default off.
 export function getPrioritizeDefault(): boolean {
@@ -254,41 +117,6 @@ export function useTimerBarHidden(): boolean {
   const [value, setValue] = useState(getTimerBarHidden);
   useEffect(() => {
     const handler = () => setValue(getTimerBarHidden());
-    window.addEventListener(PREFS_EVENT, handler);
-    window.addEventListener("storage", handler);
-    return () => {
-      window.removeEventListener(PREFS_EVENT, handler);
-      window.removeEventListener("storage", handler);
-    };
-  }, []);
-  return value;
-}
-
-// Whether the first-run welcome card on Paths has been dismissed. Off by
-// default, so a fresh install sees it once. Kept out of Reset All on purpose:
-// resetting layout preferences should not bring the welcome back, Settings
-// has its own "Show again" for that.
-export function getWelcomeDismissed(): boolean {
-  try {
-    return localStorage.getItem(WELCOME_DISMISSED_KEY) === "true";
-  } catch {
-    return false;
-  }
-}
-
-export function setWelcomeDismissed(dismissed: boolean): void {
-  try {
-    localStorage.setItem(WELCOME_DISMISSED_KEY, String(dismissed));
-  } catch {
-    /* ignore */
-  }
-  window.dispatchEvent(new Event(PREFS_EVENT));
-}
-
-export function useWelcomeDismissed(): boolean {
-  const [value, setValue] = useState(getWelcomeDismissed);
-  useEffect(() => {
-    const handler = () => setValue(getWelcomeDismissed());
     window.addEventListener(PREFS_EVENT, handler);
     window.addEventListener("storage", handler);
     return () => {
@@ -508,14 +336,12 @@ export function resetGeneralPreferences(): void {
   const keys = [
     PRIORITIZE_DEFAULT_KEY,
     POSTPONE_DEPRIORITIZES_KEY,
-    STEPS_CLICK_ACTION_KEY,
-    TODAY_CLICK_ACTION_KEY,
-    STEP_ACTIONS_KEY,
     DUE_DATES_KEY,
     DEFER_DATES_KEY,
     OPEN_FOCUS_ON_PLAY_KEY,
     SHOW_STEP_DATES_KEY,
     FONT_SCALE_KEY,
+    SIDEBAR_RAIL_KEY,
   ];
   try {
     for (const k of keys) localStorage.removeItem(k);
@@ -600,7 +426,10 @@ export function useFocusAudioOn(): boolean {
 
 export function getFocusVolume(): number {
   try {
-    const raw = Number(localStorage.getItem(FOCUS_VOLUME_KEY));
+    // Number(null) is 0, so an unset volume must be caught before parsing or
+    // a fresh install starts silent.
+    const stored = localStorage.getItem(FOCUS_VOLUME_KEY);
+    const raw = stored === null || stored.trim() === "" ? NaN : Number(stored);
     return Number.isFinite(raw) && raw >= 0 && raw <= 1 ? raw : 0.5;
   } catch {
     return 0.5;
@@ -664,4 +493,84 @@ export function useFocusTrack(): string {
     };
   }, []);
   return value;
+}
+
+// Whether the keyboard shortcuts panel is docked open on the right. Open by
+// default, so the shortcuts are discoverable; closing it is remembered.
+const SHORTCUTS_PANEL_KEY = "voidsteps-shortcuts-panel";
+
+export function getShortcutsPanelOpen(): boolean {
+  try {
+    return localStorage.getItem(SHORTCUTS_PANEL_KEY) !== "false";
+  } catch {
+    return true;
+  }
+}
+
+// Whether a closed sidebar leaves an icon rail behind. Off by default: closing
+// hides it completely, and a small button in the corner brings it back.
+const SIDEBAR_RAIL_KEY = "voidsteps-sidebar-rail";
+
+export function getSidebarRail(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_RAIL_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function setSidebarRail(on: boolean): void {
+  try {
+    localStorage.setItem(SIDEBAR_RAIL_KEY, String(on));
+  } catch {
+    /* ignore */
+  }
+  window.dispatchEvent(new Event(PREFS_EVENT));
+}
+
+export function useSidebarRail(): boolean {
+  const [value, setValue] = useState(getSidebarRail);
+  useEffect(() => {
+    const handler = () => setValue(getSidebarRail());
+    window.addEventListener(PREFS_EVENT, handler);
+    window.addEventListener("storage", handler);
+    return () => {
+      window.removeEventListener(PREFS_EVENT, handler);
+      window.removeEventListener("storage", handler);
+    };
+  }, []);
+  return value;
+}
+
+// How each side panel was last closed. Closed from the keyboard, it comes back
+// from the keyboard and leaves nothing on screen; closed with a click, a small
+// handle stays in the corner so the mouse can bring it back.
+export type PanelCloseSource = "keyboard" | "mouse";
+const PANEL_CLOSED_BY_KEY = {
+  sidebar: "voidsteps-sidebar-closed-by",
+  shortcuts: "voidsteps-shortcuts-closed-by",
+};
+
+export function getPanelClosedBy(panel: "sidebar" | "shortcuts"): PanelCloseSource {
+  try {
+    return localStorage.getItem(PANEL_CLOSED_BY_KEY[panel]) === "mouse" ? "mouse" : "keyboard";
+  } catch {
+    return "keyboard";
+  }
+}
+
+export function setPanelClosedBy(panel: "sidebar" | "shortcuts", source: PanelCloseSource): void {
+  try {
+    localStorage.setItem(PANEL_CLOSED_BY_KEY[panel], source);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function setShortcutsPanelOpen(open: boolean): void {
+  try {
+    localStorage.setItem(SHORTCUTS_PANEL_KEY, String(open));
+  } catch {
+    /* ignore */
+  }
 }

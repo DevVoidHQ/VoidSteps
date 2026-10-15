@@ -1,7 +1,6 @@
 import { memo, useMemo, useCallback, useState } from "react";
 import {
   DndContext,
-  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
@@ -12,7 +11,6 @@ import type { DragEndEvent, DragStartEvent, UniqueIdentifier } from "@dnd-kit/co
 import {
   arrayMove,
   SortableContext,
-  sortableKeyboardCoordinates,
   verticalListSortingStrategy,
   useSortable,
 } from "@dnd-kit/sortable";
@@ -20,7 +18,6 @@ import { CSS } from "@dnd-kit/utilities";
 import type { Step, Path } from "@/types/index";
 import { StepCard } from "./StepCard";
 import type { StepCardProps } from "./StepCard";
-import { GripVertical } from "lucide-react";
 
 interface DraggableStepListProps {
   steps: Step[];
@@ -36,8 +33,6 @@ interface DraggableStepListProps {
   showStartDateBadge?: boolean;
   // Timer props
   onToggleTimer?: (id: string) => void;
-  onSetTotalTime?: (id: string, totalTimeMs: number) => void;
-  clickAction?: StepCardProps["clickAction"];
 }
 
 interface SortableStepItemProps extends StepCardProps {
@@ -51,7 +46,7 @@ const SortableStepItem = memo(function SortableStepItem({
   isOverlay,
   ...props
 }: SortableStepItemProps) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
+  const { listeners, setNodeRef, transform, transition } = useSortable({
     id: step._id,
   });
 
@@ -67,32 +62,25 @@ const SortableStepItem = memo(function SortableStepItem({
   if (isOverlay) {
     return (
       <div className="opacity-90 shadow-lg">
-        <div className="flex items-center space-x-2">
-          <div className="flex-shrink-0 p-2 text-muted-foreground">
-            <GripVertical className="w-4 h-4" />
-          </div>
-          <div className="flex-1">
-            <StepCard step={step} {...props} />
-          </div>
-        </div>
+        <StepCard step={step} {...props} />
       </div>
     );
   }
 
+  // The whole card is the drag target; the 8px activation distance keeps plain
+  // clicks on its controls working. Pointer events from the card's portaled
+  // dialog and menu still bubble here through React, so only presses that
+  // start inside the card itself may begin a drag.
+  const onPointerDown = listeners?.onPointerDown;
   return (
-    <div ref={setNodeRef} style={style} className="relative group">
-      <div className="flex items-center space-x-2">
-        <button
-          {...attributes}
-          {...listeners}
-          className="flex-shrink-0 cursor-grab active:cursor-grabbing p-2 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        >
-          <GripVertical className="w-4 h-4" />
-        </button>
-        <div className="flex-1">
-          <StepCard step={step} {...props} />
-        </div>
-      </div>
+    <div
+      ref={setNodeRef}
+      style={style}
+      onPointerDown={(event) => {
+        if (event.currentTarget.contains(event.target as Node)) onPointerDown?.(event);
+      }}
+    >
+      <StepCard step={step} {...props} />
     </div>
   );
 });
@@ -109,14 +97,13 @@ export function DraggableStepList({
   onSaveEdit,
   showStartDateBadge,
   onToggleTimer,
-  onSetTotalTime,
-  clickAction,
 }: DraggableStepListProps) {
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    // Pointer only. With the card as the drag target, a keyboard sensor would
+    // start a drag whenever Space or Enter is pressed on any control inside it.
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -163,8 +150,6 @@ export function DraggableStepList({
               isDragging={activeId === step._id}
               showStartDateBadge={showStartDateBadge}
               onToggleTimer={onToggleTimer}
-              onSetTotalTime={onSetTotalTime}
-              clickAction={clickAction}
             />
           ))}
         </div>

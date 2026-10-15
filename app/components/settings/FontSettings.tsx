@@ -26,8 +26,8 @@ export default function FontSettings() {
 
   return (
     <div className="space-y-1.5">
-      <label className="text-sm font-medium">UI font</label>
-      <p className="text-sm text-muted-foreground">
+      <label className="type-label">UI font</label>
+      <p className="type-body text-muted-foreground">
         VoidSteps ships Geist by default. Import a font file you own and the whole app renders in
         it. One file is used at every weight, so pick a regular rather than a bold. It stays on this
         machine and is never uploaded.
@@ -49,7 +49,7 @@ export default function FontSettings() {
         </Button>
         {name && (
           <>
-            <span className="max-w-[16rem] truncate text-sm text-muted-foreground">
+            <span className="max-w-[16rem] truncate type-body text-muted-foreground">
               {name}
               {family && family !== name ? ` (${family})` : ""}
             </span>

@@ -221,7 +221,7 @@ export function HierarchicalPathSelector({
           }
           if (!mouseDownRef.current) setIsOpen(true);
         }}
-        className="flex items-center justify-between w-full h-11 rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-muted/50 transition-colors ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        className="flex items-center justify-between w-full h-11 rounded-md border-transparent bg-field px-3 py-2 type-body hover:bg-muted/50 transition-colors ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
         <span
           className={`flex-1 min-w-0 truncate text-left ${selectedPathId ? "" : "text-muted-foreground"}`}
@@ -235,13 +235,10 @@ export function HierarchicalPathSelector({
 
       {/* Dropdown */}
       {isOpen && (
-        <div
-          className="absolute z-50 w-full mt-1 rounded-md border border-input shadow-md overflow-hidden"
-          style={{ backgroundColor: "hsl(var(--background))" }}
-        >
+        <div className="absolute z-50 w-full mt-1 rounded-md bg-popover shadow-elev-3 overflow-hidden">
           {/* Search input */}
-          <div className="p-2 border-b border-input">
-            <div className="flex items-center gap-2 px-2 py-1.5 rounded-md border border-input bg-muted/30">
+          <div className="p-2">
+            <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-field">
               <Search className="w-4 h-4 text-muted-foreground" />
               <input
                 ref={inputRef}
@@ -249,14 +246,14 @@ export function HierarchicalPathSelector({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search paths..."
-                className="flex-1 bg-transparent text-sm outline-none focus-visible:outline-none placeholder:text-muted-foreground"
+                className="flex-1 bg-transparent type-body outline-none focus-visible:outline-none placeholder:text-muted-foreground"
               />
             </div>
           </div>
 
           {/* Breadcrumb header (when drilled in and not searching) - back + current. */}
           {currentParentId && !isSearching && (
-            <div className="flex items-center gap-1.5 px-2 py-2 border-b border-input bg-muted/30">
+            <div className="flex items-center gap-1.5 px-2 py-2 bg-field">
               <button
                 type="button"
                 onClick={handleBack}
@@ -265,9 +262,7 @@ export function HierarchicalPathSelector({
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <span className="text-sm font-medium truncate">
-                {pathMap.get(currentParentId)?.title}
-              </span>
+              <span className="type-title truncate">{pathMap.get(currentParentId)?.title}</span>
             </div>
           )}
 
@@ -282,7 +277,7 @@ export function HierarchicalPathSelector({
                       key={path._id}
                       type="button"
                       onClick={() => handleSelect(path._id)}
-                      className={`flex items-center justify-between w-full px-3 py-2 rounded-md text-sm transition-colors text-left ${
+                      className={`flex items-center justify-between w-full px-3 py-2 rounded-md type-body transition-colors text-left ${
                         selectedPathId === path._id
                           ? "bg-primary-light text-primary font-medium"
                           : "hover:bg-muted"
@@ -293,7 +288,7 @@ export function HierarchicalPathSelector({
                     </button>
                   ))
                 ) : (
-                  <div className="px-3 py-4 text-sm text-muted-foreground text-center">
+                  <div className="px-3 py-4 type-body text-muted-foreground text-center">
                     No paths match "{searchQuery}"
                   </div>
                 )}
@@ -305,7 +300,7 @@ export function HierarchicalPathSelector({
                   <button
                     type="button"
                     onClick={() => handleSelect(null)}
-                    className={`flex items-center justify-between w-full px-3 py-2 rounded-md text-sm transition-colors ${
+                    className={`flex items-center justify-between w-full px-3 py-2 rounded-md type-body transition-colors ${
                       selectedPathId === null
                         ? "bg-primary-light text-primary font-medium"
                         : "hover:bg-muted"
@@ -323,7 +318,7 @@ export function HierarchicalPathSelector({
                   <button
                     type="button"
                     onClick={() => handleSelect(currentParentId)}
-                    className={`flex items-center justify-between w-full px-3 py-2 mb-1 rounded-md text-sm transition-colors ${
+                    className={`flex items-center justify-between w-full px-3 py-2 mb-1 rounded-md type-body transition-colors ${
                       selectedPathId === currentParentId
                         ? "bg-primary-light font-medium"
                         : "hover:bg-muted"
@@ -346,7 +341,7 @@ export function HierarchicalPathSelector({
                       key={path._id}
                       type="button"
                       onClick={() => (childed ? handleDrillDown(path._id) : handleSelect(path._id))}
-                      className={`flex items-center w-full px-3 py-2 rounded-md text-sm text-left transition-colors ${
+                      className={`flex items-center w-full px-3 py-2 rounded-md type-body text-left transition-colors ${
                         selectedPathId === path._id
                           ? "bg-primary-light text-primary font-medium"
                           : "hover:bg-muted"
@@ -363,7 +358,7 @@ export function HierarchicalPathSelector({
 
                 {/* Empty state */}
                 {currentPaths.length === 0 && (
-                  <div className="px-3 py-4 text-sm text-muted-foreground text-center">
+                  <div className="px-3 py-4 type-body text-muted-foreground text-center">
                     {currentParentId ? "No children" : "No paths available"}
                   </div>
                 )}

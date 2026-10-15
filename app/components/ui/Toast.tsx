@@ -20,9 +20,9 @@ const icons = {
 };
 
 const styles = {
-  success: "border-success/30 bg-success/10",
-  error: "border-destructive/30 bg-destructive/10",
-  info: "border-primary/30 bg-primary/10",
+  success: "bg-success/10",
+  error: "bg-destructive/10",
+  info: "bg-primary/10",
 };
 
 function Toast({ toast, onDismiss }: ToastProps) {
@@ -37,13 +37,13 @@ function Toast({ toast, onDismiss }: ToastProps) {
       exit={{ opacity: 0, y: 10, scale: 0.95 }}
       transition={{ duration: 0.2 }}
       className={cn(
-        "flex items-center gap-3 rounded-lg border px-4 py-3 shadow-lg backdrop-blur-sm",
-        "bg-card text-card-foreground",
+        "flex items-center gap-3 rounded-lg px-4 py-3 shadow-elev-3 backdrop-blur-sm",
+        "bg-popover text-card-foreground",
         styles[type]
       )}
     >
       <Icon className="w-4 h-4 shrink-0" />
-      <span className="text-sm flex-1">{toast.message}</span>
+      <span className="type-body flex-1">{toast.message}</span>
       <button onClick={() => onDismiss(toast.id)} className="shrink-0 p-0.5 hover:bg-muted rounded">
         <X className="w-3.5 h-3.5" />
       </button>

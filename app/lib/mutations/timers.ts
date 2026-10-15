@@ -1,6 +1,6 @@
 import type { LocalStep } from "../db";
 import { db } from "../db";
-import { generateLocalId, stopTimerOnStep, TIMER_STARTED_EVENT } from "./helpers";
+import { stopTimerOnStep, TIMER_STARTED_EVENT } from "./helpers";
 
 export const startTimer = async (args: { id: string }) => {
   const now = Date.now();
@@ -16,32 +16,6 @@ export const startTimer = async (args: { id: string }) => {
     await db.steps.update(args.id, { timerStartedAt: now, updatedAt: now });
   });
   window.dispatchEvent(new CustomEvent(TIMER_STARTED_EVENT, { detail: { id: args.id } }));
-};
-
-export const setTotalTime = async (args: { id: string; totalTimeSpentMs: number }) => {
-  const now = Date.now();
-  const totalTimeSpentMs = Math.max(0, args.totalTimeSpentMs);
-  // When resetting to 0, clear the field entirely so the badge disappears
-  const value = totalTimeSpentMs === 0 ? undefined : totalTimeSpentMs;
-  await db.transaction("rw", [db.steps, db.activityEvents], async () => {
-    const step = await db.steps.get(args.id);
-    if (!step) throw new Error("Step not found");
-    const oldTotal = step.totalTimeSpentMs ?? 0;
-    await db.steps.update(args.id, { totalTimeSpentMs: value, updatedAt: now });
-    if (oldTotal !== totalTimeSpentMs) {
-      const ev = {
-        _id: generateLocalId(),
-        stepId: args.id,
-        type: "time_adjusted" as const,
-        oldValue: oldTotal,
-        newValue: totalTimeSpentMs,
-        at: now,
-        createdAt: now,
-        updatedAt: now,
-      };
-      await db.activityEvents.add(ev);
-    }
-  });
 };
 
 export const stopTimer = async (args: { id: string }) => {

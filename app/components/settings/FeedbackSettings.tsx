@@ -46,15 +46,15 @@ export default function FeedbackSettings() {
     <Card>
       <CardContent className="p-6 space-y-4">
         <div>
-          <h2 className="text-xl font-semibold">Feedback</h2>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h2 className="type-section">Feedback</h2>
+          <p className="type-body text-muted-foreground mt-1">
             Found a bug or have an idea? This opens a draft in your mail app. Nothing is sent from
             VoidSteps itself.
           </p>
         </div>
 
         <div className="space-y-1.5 max-w-xs">
-          <label className="text-sm font-medium">Type</label>
+          <label className="type-label">Type</label>
           <Select
             value={type}
             onValueChange={(v) => setType(v as "general" | "bug" | "feature")}
@@ -63,7 +63,7 @@ export default function FeedbackSettings() {
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">Message</label>
+          <label className="type-label">Message</label>
           <Textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}

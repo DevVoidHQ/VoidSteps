@@ -20,7 +20,7 @@ export default function LoadingScreen({
       <div className="flex flex-col items-center gap-8">
         {/* Logo */}
         <motion.span
-          className="text-2xl font-bold text-primary"
+          className="type-page text-primary"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
@@ -50,7 +50,7 @@ export default function LoadingScreen({
 
         {/* Message */}
         <motion.p
-          className="text-sm text-muted-foreground"
+          className="type-body text-muted-foreground"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3 }}
@@ -60,7 +60,7 @@ export default function LoadingScreen({
 
         {/* DevVoid branding */}
         <motion.p
-          className="text-xs text-muted-foreground/50"
+          className="type-meta text-muted-foreground/50"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.6 }}

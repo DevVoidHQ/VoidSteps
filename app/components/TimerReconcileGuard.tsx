@@ -136,15 +136,17 @@ export default function TimerReconcileGuard() {
 
         {trimming && (
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground block">Worked until</label>
+            <label className="type-meta text-muted-foreground block">Worked until</label>
             <input
               type="datetime-local"
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="w-full rounded-md bg-field px-3 py-2 type-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               value={trimValue}
               onChange={(e) => setTrimValue(e.target.value)}
             />
             {!trimValid && (
-              <p className="text-xs text-destructive">Pick a time between the start and now</p>
+              <p className="type-meta text-destructive-ink">
+                Pick a time between the start and now
+              </p>
             )}
           </div>
         )}
@@ -152,7 +154,7 @@ export default function TimerReconcileGuard() {
         <DialogFooter className="flex-wrap">
           <Button
             variant="outline"
-            className="mr-auto text-destructive hover:text-destructive"
+            className="mr-auto text-destructive-ink hover:text-destructive-ink"
             onClick={() => run(() => discardTimer({ id: staleStep._id }), "timerDiscard")}
           >
             Discard
