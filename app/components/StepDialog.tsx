@@ -24,19 +24,22 @@ export interface StepDialogProps {
   paths: Path[];
   open: boolean;
   initialTab?: StepDialogTab;
+  /** Open the time log with a new block ready to type into. */
+  addTime?: boolean;
   onOpenChange: (open: boolean) => void;
   onSaveEdit: (id: string, updates: Partial<Step>) => void;
 }
 
 /**
- * The step's detail surface: Details (edit form, formerly StepCard's inline
- * edit dialog) + Activity (per-session time entries and the audit timeline).
+ * The step's detail surface: Details (the edit form) and Time & activity (the
+ * time slots plus the audit timeline).
  */
 export function StepDialog({
   step,
   paths,
   open,
   initialTab = "details",
+  addTime = false,
   onOpenChange,
   onSaveEdit,
 }: StepDialogProps) {
@@ -108,7 +111,7 @@ export function StepDialog({
         <Tabs defaultValue="details" value={tab} onValueChange={(v) => setTab(v as StepDialogTab)}>
           <TabsList>
             <TabsTrigger value="details">Details</TabsTrigger>
-            <TabsTrigger value="activity">Activity</TabsTrigger>
+            <TabsTrigger value="activity">Time &amp; activity</TabsTrigger>
           </TabsList>
 
           <TabsContent value="details">
@@ -164,7 +167,7 @@ export function StepDialog({
           </TabsContent>
 
           <TabsContent value="activity">
-            <ActivityTimeline step={step} paths={paths} />
+            <ActivityTimeline step={step} paths={paths} autoAdd={addTime} />
           </TabsContent>
         </Tabs>
       </DialogContent>

@@ -1,3 +1,7 @@
+import { useSearchParams } from "react-router-dom";
+import KeyReference from "@/components/settings/KeyReference";
+import { HslPicker } from "@/components/settings/HslPicker";
+import NotesExportCard from "@/components/NotesExportCard";
 import BackupCard from "@/components/BackupCard";
 import DataSettings from "@/components/DataSettings";
 import FocusSettings from "@/components/FocusSettings";
@@ -17,14 +21,12 @@ import { THEME_AI_PROMPT } from "@/lib/theme-ai-prompt";
 import { Check, Copy, Dices, RotateCcw, Save, Shuffle, Sparkles, Trash2 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 
-// Every theme is exactly 6 colors. Everything else derives from these.
+// Every theme is exactly 4 colors. Everything else derives from these.
 const COLOR_LABELS: Record<keyof ThemeColors, string> = {
   background: "Background",
   foreground: "Foreground",
   primary: "Primary",
   accent: "Accent",
-  primaryLight: "Primary Light",
-  accentLight: "Accent Light",
 };
 
 // Helper to convert HSL string to hex for color input
@@ -69,46 +71,12 @@ const hslToHex = (hsl: string): string => {
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 };
 
-// Helper to convert hex to HSL string
-const hexToHsl = (hex: string): string => {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  if (!result) return "0 0% 0%";
-
-  const r = parseInt(result[1], 16) / 255;
-  const g = parseInt(result[2], 16) / 255;
-  const b = parseInt(result[3], 16) / 255;
-
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  let h = 0,
-    s = 0,
-    l = (max + min) / 2;
-
-  if (max !== min) {
-    const d = max - min;
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-
-    switch (max) {
-      case r:
-        h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
-        break;
-      case g:
-        h = ((b - r) / d + 2) / 6;
-        break;
-      case b:
-        h = ((r - g) / d + 4) / 6;
-        break;
-    }
-  }
-
-  h = Math.round(h * 360);
-  s = Math.round(s * 100);
-  l = Math.round(l * 100);
-
-  return `${h} ${s}% ${l}%`;
-};
+const SETTINGS_TABS = ["theme", "general", "focus", "keybinds", "data", "feedback"];
 
 export default function Settings() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requested = searchParams.get("tab");
+  const tab = requested && SETTINGS_TABS.includes(requested) ? requested : "theme";
   const {
     theme,
     setTheme,
@@ -128,11 +96,6 @@ export default function Settings() {
   const [seedStatus, setSeedStatus] = useState<string>("");
   const [seedArmed, setSeedArmed] = useState(false);
   const armRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleColorChange = (key: keyof ThemeColors, hexValue: string) => {
-    const hslValue = hexToHsl(hexValue);
-    setTheme({ ...theme, [key]: hslValue });
-  };
 
   const presetNames = Object.keys(PRESET_THEMES) as Array<keyof typeof PRESET_THEMES>;
 
@@ -163,15 +126,12 @@ export default function Settings() {
     const accentL = isDark
       ? 55 + Math.floor(Math.random() * 20)
       : 45 + Math.floor(Math.random() * 20);
-    const lightL = isDark ? 14 + Math.floor(Math.random() * 6) : 94 + Math.floor(Math.random() * 4);
 
     setTheme({
       background: `${hue1} ${isDark ? 10 + Math.floor(Math.random() * 20) : 0}% ${bgL}%`,
       foreground: `${hue1} ${Math.floor(Math.random() * 15)}% ${fgL}%`,
       primary: `${hue1} ${primaryS}% ${primaryL}%`,
       accent: `${hue2} ${accentS}% ${accentL}%`,
-      primaryLight: `${hue1} ${Math.min(primaryS, 85)}% ${lightL}%`,
-      accentLight: `${hue2} ${Math.min(accentS, 85)}% ${lightL}%`,
     });
   }, [setTheme]);
 
@@ -243,9 +203,15 @@ export default function Settings() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+      <h1 className="type-page">Settings</h1>
 
-      <Tabs defaultValue="theme">
+      {/* The open tab lives in the URL, so other places can link straight to
+          one (the shortcuts panel links to Keybinds). */}
+      <Tabs
+        defaultValue="theme"
+        value={tab}
+        onValueChange={(v) => setSearchParams({ tab: v }, { replace: true })}
+      >
         <TabsList className="mb-4">
           <TabsTrigger value="theme">Theme</TabsTrigger>
           <TabsTrigger value="general">General</TabsTrigger>
@@ -272,11 +238,15 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="keybinds">
-          <KeybindSettings />
+          <div className="space-y-6">
+            <KeybindSettings />
+            <KeyReference />
+          </div>
         </TabsContent>
 
         <TabsContent value="data">
           <div className="space-y-6">
+            <NotesExportCard />
             <BackupCard />
             <DataSettings />
           </div>
@@ -292,7 +262,7 @@ export default function Settings() {
             <Card>
               <CardContent className="p-6 space-y-6">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold">Preset Themes</h2>
+                  <h2 className="type-section">Preset Themes</h2>
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={generateRandomTheme}>
                       <Dices className="w-4 h-4 mr-2" />
@@ -315,21 +285,19 @@ export default function Settings() {
                         className={`group relative rounded-lg border-2 p-3 text-left transition-all hover:scale-[1.02] ${
                           isActive
                             ? "border-primary ring-2 ring-primary/30"
-                            : "border-border hover:border-muted-foreground/40"
+                            : "border-transparent shadow-elev-1 hover:shadow-elev-2"
                         }`}
                         style={{ backgroundColor: `hsl(${preset.background})` }}
                       >
-                        {/* 4 brand swatches: primary, accent + their lights */}
+                        {/* Brand swatches: primary and accent */}
                         <div className="flex gap-1 mb-2">
-                          {(["primary", "accent", "primaryLight", "accentLight"] as const).map(
-                            (token) => (
-                              <div
-                                key={token}
-                                className="h-4 flex-1 rounded-sm"
-                                style={{ backgroundColor: `hsl(${preset[token]})` }}
-                              />
-                            )
-                          )}
+                          {(["primary", "accent"] as const).map((token) => (
+                            <div
+                              key={token}
+                              className="h-4 flex-1 rounded-sm"
+                              style={{ backgroundColor: `hsl(${preset[token]})` }}
+                            />
+                          ))}
                         </div>
                         {/* Foreground tone line */}
                         <div
@@ -339,7 +307,7 @@ export default function Settings() {
                         {/* Label */}
                         <div className="flex items-center justify-between">
                           <span
-                            className="text-xs font-medium capitalize truncate"
+                            className="type-label capitalize truncate"
                             style={{ color: `hsl(${preset.foreground})` }}
                           >
                             {presetName.replace(/([A-Z])/g, " $1").trim()}
@@ -362,32 +330,24 @@ export default function Settings() {
             <Card>
               <CardContent className="p-6 space-y-6">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold">Custom Colors</h2>
+                  <h2 className="type-section">Custom Colors</h2>
                   <Button variant="outline" size="sm" onClick={resetToDefault}>
                     <RotateCcw className="w-4 h-4 mr-2" />
                     Reset
                   </Button>
                 </div>
 
-                <p className="text-xs text-muted-foreground">
+                <p className="type-meta text-muted-foreground">
                   Pick your colors. Everything else in the app adjusts to match.
                 </p>
                 <ColorGroup
-                  keys={[
-                    "background",
-                    "foreground",
-                    "primary",
-                    "accent",
-                    "primaryLight",
-                    "accentLight",
-                  ]}
+                  keys={["background", "foreground", "primary", "accent"]}
                   theme={theme}
                   labels={COLOR_LABELS}
-                  onColorChange={handleColorChange}
                   onHslChange={(key, val) => setTheme({ ...theme, [key]: val })}
                 />
 
-                <div className="flex flex-col gap-2 border-t border-border pt-4 sm:flex-row sm:items-center">
+                <div className="flex flex-col gap-2 pt-4 sm:flex-row sm:items-center">
                   <div className="flex-1">
                     <Input
                       value={saveName}
@@ -412,7 +372,7 @@ export default function Settings() {
             {savedThemes.length > 0 && (
               <Card>
                 <CardContent className="p-6 space-y-6">
-                  <h2 className="text-xl font-semibold">My Themes</h2>
+                  <h2 className="type-section">My Themes</h2>
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
                     {savedThemes.map((saved) => {
                       const c = saved.colors;
@@ -425,7 +385,7 @@ export default function Settings() {
                           className={`group relative rounded-lg border-2 p-3 transition-all ${
                             isActive
                               ? "border-primary ring-2 ring-primary/30"
-                              : "border-border hover:border-muted-foreground/40"
+                              : "border-transparent shadow-elev-1 hover:shadow-elev-2"
                           }`}
                           style={{ backgroundColor: `hsl(${c.background})` }}
                         >
@@ -434,15 +394,13 @@ export default function Settings() {
                             className="block w-full text-left transition-transform hover:scale-[1.02]"
                           >
                             <div className="mb-2 flex gap-1">
-                              {(["primary", "accent", "primaryLight", "accentLight"] as const).map(
-                                (token) => (
-                                  <div
-                                    key={token}
-                                    className="h-4 flex-1 rounded-sm"
-                                    style={{ backgroundColor: `hsl(${c[token]})` }}
-                                  />
-                                )
-                              )}
+                              {(["primary", "accent"] as const).map((token) => (
+                                <div
+                                  key={token}
+                                  className="h-4 flex-1 rounded-sm"
+                                  style={{ backgroundColor: `hsl(${c[token]})` }}
+                                />
+                              ))}
                             </div>
                             <div
                               className="mb-2 h-1.5 rounded-sm"
@@ -450,7 +408,7 @@ export default function Settings() {
                             />
                             <div className="flex items-center justify-between">
                               <span
-                                className="truncate text-xs font-medium"
+                                className="truncate type-label"
                                 style={{ color: `hsl(${c.foreground})` }}
                               >
                                 {saved.name}
@@ -466,7 +424,7 @@ export default function Settings() {
                           <button
                             onClick={() => deleteSavedTheme(saved.id)}
                             aria-label={`Delete ${saved.name}`}
-                            className="absolute right-1.5 top-1.5 rounded-md bg-background/80 p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                            className="absolute right-1.5 top-1.5 rounded-md bg-background/80 p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive-ink group-hover:opacity-100"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -483,9 +441,9 @@ export default function Settings() {
               <CardContent className="p-6 space-y-6">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-5 w-5 text-primary" />
-                  <h2 className="text-xl font-semibold">Design a theme with AI</h2>
+                  <h2 className="type-section">Design a theme with AI</h2>
                 </div>
-                <p className="text-sm text-muted-foreground">
+                <p className="type-body text-muted-foreground">
                   Copy the prompt below, paste it into your favorite AI (ChatGPT, Claude, Gemini),
                   describe the vibe you want, then paste its JSON answer here to apply.
                 </p>
@@ -493,7 +451,7 @@ export default function Settings() {
                 {/* Step 1 - copy prompt */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">1. Copy this prompt</span>
+                    <span className="type-label">1. Copy this prompt</span>
                     <Button variant="outline" size="sm" onClick={handleCopyPrompt}>
                       {promptCopied ? (
                         <Check className="mr-2 h-4 w-4" />
@@ -503,14 +461,14 @@ export default function Settings() {
                       {promptCopied ? "Copied" : "Copy prompt"}
                     </Button>
                   </div>
-                  <pre className="max-h-40 overflow-auto rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground whitespace-pre-wrap">
+                  <pre className="max-h-40 overflow-auto rounded-md bg-field p-3 type-meta text-muted-foreground whitespace-pre-wrap">
                     {THEME_AI_PROMPT}
                   </pre>
                 </div>
 
                 {/* Step 2 - paste result */}
                 <div className="space-y-2">
-                  <span className="text-sm font-medium">2. Paste the AI's answer</span>
+                  <span className="type-label">2. Paste the AI's answer</span>
                   <textarea
                     value={importText}
                     onChange={(e) => {
@@ -518,9 +476,9 @@ export default function Settings() {
                       setImportError("");
                     }}
                     placeholder='{ "background": "...", "foreground": "...", "primary": "..." }'
-                    className="h-32 w-full resize-none rounded-md border border-input bg-background p-3 font-mono text-sm"
+                    className="h-32 w-full resize-none rounded-md border-transparent bg-field p-3 font-mono type-body"
                   />
-                  {importError && <p className="text-sm text-destructive">{importError}</p>}
+                  {importError && <p className="type-body text-destructive-ink">{importError}</p>}
                   <Button
                     onClick={handleApplyPasted}
                     disabled={!importText.trim()}
@@ -536,8 +494,8 @@ export default function Settings() {
             {import.meta.env.DEV && (
               <Card>
                 <CardContent className="p-6 space-y-6">
-                  <h2 className="text-xl font-semibold">Demo data</h2>
-                  <p className="text-sm text-muted-foreground">
+                  <h2 className="type-section">Demo data</h2>
+                  <p className="type-body text-muted-foreground">
                     Wipes everything, then populates the app with a polished set of paths, steps,
                     routines, and notes (with 30 days of history for analytics) for screenshots.
                   </p>
@@ -550,7 +508,7 @@ export default function Settings() {
                     <Sparkles className="mr-2 h-4 w-4" />
                     {seeding ? "Seeding…" : seedArmed ? "Click again to confirm" : "Seed demo data"}
                   </Button>
-                  {seedStatus && <p className="text-sm text-muted-foreground">{seedStatus}</p>}
+                  {seedStatus && <p className="type-body text-muted-foreground">{seedStatus}</p>}
                 </CardContent>
               </Card>
             )}
@@ -565,36 +523,39 @@ function ColorGroup({
   keys,
   theme,
   labels,
-  onColorChange,
   onHslChange,
 }: {
   keys: (keyof ThemeColors)[];
   theme: ThemeColors;
   labels: Record<keyof ThemeColors, string>;
-  onColorChange: (key: keyof ThemeColors, hex: string) => void;
   onHslChange: (key: keyof ThemeColors, val: string) => void;
 }) {
+  // The picker comes first: each colour is a big swatch that opens an in-app
+  // picker. The typed value is there for exact edits.
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {keys.map((key) => (
-        <div key={String(key)} className="space-y-2">
-          <label className="text-sm font-medium">{labels[key]}</label>
-          <div className="flex space-x-2">
-            <input
-              type="color"
-              value={hslToHex(theme[key] ?? "0 0% 0%")}
-              onChange={(e) => onColorChange(key, e.target.value)}
-              className="swatch-input h-11 w-12 cursor-pointer overflow-hidden rounded-md border border-input"
+    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      {keys.map((key) => {
+        const value = theme[key] ?? "0 0% 0%";
+        const hex = hslToHex(value);
+        return (
+          <div key={String(key)} className="space-y-2">
+            <HslPicker
+              label={labels[key]}
+              value={value}
+              hex={hex}
+              onChange={(hsl) => onHslChange(key, hsl)}
             />
+            <div className="type-label">{labels[key]}</div>
             <input
+              aria-label={`${labels[key]} HSL value`}
               value={theme[key] ?? ""}
               onChange={(e) => onHslChange(key, e.target.value)}
               placeholder="H S% L%"
-              className="flex-1 h-11 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              className="h-8 w-full rounded-md bg-field px-2 font-mono type-meta text-muted-foreground focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

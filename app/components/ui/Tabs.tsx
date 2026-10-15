@@ -1,20 +1,9 @@
 import * as React from "react";
+import { Tabs as TabsPrimitive } from "radix-ui";
 import { cn } from "@/lib/cn";
 
-interface TabsContextType {
-  value: string;
-  onValueChange: (value: string) => void;
-}
-
-const TabsContext = React.createContext<TabsContextType | undefined>(undefined);
-
-function useTabsContext() {
-  const context = React.useContext(TabsContext);
-  if (!context) {
-    throw new Error("Tabs components must be used within a Tabs provider");
-  }
-  return context;
-}
+// Radix Tabs: arrow keys move between tabs, only the active tab sits in the
+// Tab order, and each panel is labelled by its own trigger.
 
 export interface TabsProps {
   defaultValue: string;
@@ -24,22 +13,16 @@ export interface TabsProps {
   className?: string;
 }
 
-function Tabs({
-  defaultValue,
-  value: controlledValue,
-  onValueChange,
-  children,
-  className,
-}: TabsProps) {
-  const [internalValue, setInternalValue] = React.useState(defaultValue);
-
-  const value = controlledValue ?? internalValue;
-  const handleValueChange = onValueChange ?? setInternalValue;
-
+function Tabs({ defaultValue, value, onValueChange, children, className }: TabsProps) {
   return (
-    <TabsContext.Provider value={{ value, onValueChange: handleValueChange }}>
-      <div className={className}>{children}</div>
-    </TabsContext.Provider>
+    <TabsPrimitive.Root
+      defaultValue={defaultValue}
+      value={value}
+      onValueChange={onValueChange}
+      className={className}
+    >
+      {children}
+    </TabsPrimitive.Root>
   );
 }
 
@@ -50,9 +33,11 @@ export interface TabsListProps {
 
 function TabsList({ children, className }: TabsListProps) {
   return (
-    <div role="tablist" className={cn("inline-flex items-center gap-2", className)}>
+    <TabsPrimitive.List
+      className={cn("inline-flex items-center gap-1 rounded-lg bg-field p-1", className)}
+    >
       {children}
-    </div>
+    </TabsPrimitive.List>
   );
 }
 
@@ -64,34 +49,23 @@ export interface TabsTriggerProps {
 }
 
 function TabsTrigger({ value, children, disabled = false, className }: TabsTriggerProps) {
-  const context = useTabsContext();
-  const isActive = context.value === value;
-
   return (
-    <button
-      role="tab"
-      aria-selected={isActive}
-      aria-controls={`tabpanel-${value}`}
+    <TabsPrimitive.Trigger
+      value={value}
       disabled={disabled}
-      onClick={() => !disabled && context.onValueChange(value)}
       className={cn(
-        "inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium",
-        "border transition-all duration-150",
+        "inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-1.5 type-label",
+        "transition-all duration-150",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         "disabled:pointer-events-none disabled:opacity-50",
         "active:scale-[0.97]",
-        isActive
-          ? ["bg-accent text-accent-foreground border-accent shadow-sm", "hover:bg-accent/90"]
-          : [
-              "bg-background text-foreground border-input",
-              "hover:bg-primary-light hover:text-primary hover:-translate-y-0.5 hover:shadow-sm",
-              "active:translate-y-0 active:shadow-none",
-            ],
+        "data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-elev-1 data-[state=active]:hover:bg-accent/90",
+        "data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground",
         className
       )}
     >
       {children}
-    </button>
+    </TabsPrimitive.Trigger>
   );
 }
 
@@ -102,19 +76,10 @@ export interface TabsContentProps {
 }
 
 function TabsContent({ value, children, className }: TabsContentProps) {
-  const context = useTabsContext();
-
-  if (context.value !== value) return null;
-
   return (
-    <div
-      role="tabpanel"
-      id={`tabpanel-${value}`}
-      aria-labelledby={`tab-${value}`}
-      className={cn("mt-4", className)}
-    >
+    <TabsPrimitive.Content value={value} className={cn("mt-4 outline-none", className)}>
       {children}
-    </div>
+    </TabsPrimitive.Content>
   );
 }
 

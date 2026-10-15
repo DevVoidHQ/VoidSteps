@@ -13,3 +13,11 @@ import "@testing-library/jest-dom/vitest";
 // clearing tables rather than recreating the database is what keeps tests
 // isolated without fighting Dexie's open/close lifecycle.
 import "fake-indexeddb/auto";
+
+// jsdom lacks the pointer capture and scrolling APIs Radix Select calls when it
+// opens. They do nothing useful in a DOM without layout, so stubs are enough.
+if (!Element.prototype.hasPointerCapture) {
+  Element.prototype.hasPointerCapture = () => false;
+  Element.prototype.releasePointerCapture = () => {};
+}
+if (!Element.prototype.scrollIntoView) Element.prototype.scrollIntoView = () => {};

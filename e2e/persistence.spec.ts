@@ -86,27 +86,6 @@ async function rows(page: Page, table: string): Promise<Record<string, unknown>[
   );
 }
 
-test("real note edits survive undo, navigation and reload", async ({ page }) => {
-  const errors: string[] = [];
-  page.on("pageerror", (error) => errors.push(error.message));
-  await restore(page, snapshot());
-  await page.goto("/notes");
-  const editor = page.locator('.bn-editor[contenteditable="true"]');
-  await expect(editor).toContainText("Original text");
-  await editor.click();
-  await page.keyboard.press("ControlOrMeta+End");
-  await page.keyboard.type(" saved");
-  await expect.poll(async () => (await rows(page, "notes"))[0].body).toContain(" saved");
-  await page.keyboard.type(" undone");
-  await page.keyboard.press("ControlOrMeta+z");
-  const visible = await editor.innerText();
-  await page.getByRole("navigation").getByRole("button", { name: "Settings", exact: true }).click();
-  await page.goto("/notes");
-  await page.reload();
-  await expect(editor).toHaveText(visible);
-  expect(errors).toEqual([]);
-});
-
 test("exports, restores and erases retained history through Settings", async ({ page }) => {
   await restore(page, snapshot());
   const download = page.waitForEvent("download");

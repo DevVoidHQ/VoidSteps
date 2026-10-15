@@ -1,6 +1,7 @@
 import { useClock } from "@/hooks/useClock";
 import { useCallback, useMemo, useState } from "react";
 import { useData } from "@/contexts/DataContext";
+import { useLensedData } from "@/contexts/LensContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
 import { useUpdateStep } from "@/lib/local-mutations";
@@ -81,7 +82,8 @@ interface DayLogViewProps {
 }
 
 export default function DayLogView({ viewDate, onNavigate }: DayLogViewProps) {
-  const { allSteps, activePaths, runningTimerStepIds } = useData();
+  const { activePaths } = useData();
+  const { allSteps, runningTimerStepIds, lensActive } = useLensedData();
   const seriesColors = useSeriesColors();
   const toast = useToast();
   const updateStepMutation = useUpdateStep();
@@ -103,7 +105,7 @@ export default function DayLogView({ viewDate, onNavigate }: DayLogViewProps) {
   const todayStart = getStartOfDay(new Date());
   const isToday = dayStart === todayStart;
 
-  const entries = useDayTimeEntries(dayStart);
+  const dayEntries = useDayTimeEntries(dayStart);
 
   const stepsById = useMemo(() => {
     const map = new Map<string, StepForTimeline>();
@@ -117,6 +119,14 @@ export default function DayLogView({ viewDate, onNavigate }: DayLogViewProps) {
     }
     return map;
   }, [allSteps]);
+
+  // With a lens on, only sessions of steps inside it. Sessions of deleted steps
+  // carry no path, so they only show when nothing is filtered.
+  const entries = useMemo(
+    () =>
+      lensActive && dayEntries ? dayEntries.filter((e) => stepsById.has(e.stepId)) : dayEntries,
+    [lensActive, dayEntries, stepsById]
+  );
 
   const runningSteps = useMemo(
     () => runningTimerStepIds.map((id) => stepsById.get(id)).filter((s) => s !== undefined),
@@ -198,7 +208,7 @@ export default function DayLogView({ viewDate, onNavigate }: DayLogViewProps) {
           >
             <ChevronLeft className="w-4 h-4" />
           </Button>
-          <span className="min-w-[8.5rem] text-center text-sm font-semibold">
+          <span className="min-w-[8.5rem] text-center type-label">
             {isToday ? `Today · ${dayLabel}` : dayLabel}
           </span>
           <Button
@@ -217,7 +227,7 @@ export default function DayLogView({ viewDate, onNavigate }: DayLogViewProps) {
           )}
         </div>
         {intervals.length > 0 && (
-          <p className="text-sm text-muted-foreground">
+          <p className="type-body text-muted-foreground">
             Tracked <span className="font-medium text-foreground">{formatDurationHM(totalMs)}</span>
             {hasOverlap && (
               <span title="Timers that ran at the same time are counted once here">
@@ -267,7 +277,7 @@ export default function DayLogView({ viewDate, onNavigate }: DayLogViewProps) {
                   type="button"
                   disabled={seg.other || seg.deletedStep}
                   onClick={() => openActivity(seg.stepId)}
-                  className="flex items-center gap-1.5 text-xs text-muted-foreground enabled:hover:text-foreground transition-colors"
+                  className="flex items-center gap-1.5 type-meta text-muted-foreground enabled:hover:text-foreground transition-colors"
                 >
                   <span
                     className="inline-block h-2 w-2 shrink-0 rounded-full"
@@ -339,11 +349,11 @@ function DayGrid({
   const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => hourTs(startHour + i));
 
   return (
-    <div className="rounded-lg border border-border bg-card px-2 py-4 sm:px-3">
+    <div className="rounded-lg bg-card shadow-elev-1 px-2 py-4 sm:px-3">
       <div className="relative" style={{ height: y(gridEnd) }}>
         {hours.map((ts) => (
           <div key={ts} className="absolute inset-x-0" style={{ top: y(ts) }}>
-            <span className="absolute left-0 w-12 -translate-y-1/2 pr-2 text-right text-[11px] tabular-nums text-muted-foreground/70">
+            <span className="absolute left-0 w-12 -translate-y-1/2 pr-2 text-right type-meta tabular-nums text-muted-foreground/70">
               {new Date(ts).toLocaleTimeString(undefined, { hour: "numeric" })}
             </span>
             <span className="absolute left-12 right-0 h-px bg-border/60" />
@@ -433,17 +443,17 @@ function DayBlockButton({
           </span>
         )}
         <span
-          className={`truncate text-xs font-medium ${interval.deletedStep ? "text-muted-foreground line-through" : "text-foreground"}`}
+          className={`truncate type-label ${interval.deletedStep ? "text-muted-foreground line-through" : "text-foreground"}`}
         >
           {title}
         </span>
       </span>
       {compact ? (
-        <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
+        <span className="shrink-0 font-mono type-meta tabular-nums text-muted-foreground">
           {duration}
         </span>
       ) : (
-        <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-[11px] text-muted-foreground">
+        <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 type-meta text-muted-foreground">
           <span className="font-mono tabular-nums">
             {from} to {to} · {duration}
           </span>
@@ -453,7 +463,7 @@ function DayBlockButton({
               {interval.pathTitle}
             </Badge>
           )}
-          {interval.source === "manual" && <span className="uppercase tracking-wide">manual</span>}
+          {interval.source === "manual" && <span className="type-overline">manual</span>}
         </span>
       )}
     </button>

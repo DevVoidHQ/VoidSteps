@@ -13,8 +13,8 @@ const THEME_VARS = [
   "--foreground",
   "--primary",
   "--accent",
-  "--primary-light",
-  "--accent-light",
+  "--primary-tint",
+  "--accent-tint",
 ];
 
 /** Anything that names a colour directly instead of deriving it from the theme. */

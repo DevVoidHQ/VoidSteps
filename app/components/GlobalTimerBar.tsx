@@ -266,8 +266,8 @@ export default function GlobalTimerBar() {
   const controls = (size: "sm" | "lg") => {
     const btnClass =
       size === "lg"
-        ? "flex items-center gap-2 rounded-lg px-5 py-2.5 text-base font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        : "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+        ? "flex items-center gap-2 rounded-lg px-5 py-2.5 type-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        : "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 type-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
     const iconSize = size === "lg" ? "w-5 h-5" : "w-4 h-4";
     return (
       <div className={size === "lg" ? "flex items-center gap-3" : "flex items-center gap-1"}>
@@ -289,7 +289,7 @@ export default function GlobalTimerBar() {
         </button>
         <button
           onClick={handleStopComplete}
-          className={`${btnClass} text-accent hover:bg-accent-light`}
+          className={`${btnClass} text-accent-ink hover:bg-accent-light`}
           aria-label="Stop and complete step"
         >
           <CheckCircle2 className={iconSize} />
@@ -317,39 +317,40 @@ export default function GlobalTimerBar() {
           <button
             onClick={() => setCollapsed(false)}
             aria-label="Expand timer"
-            className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-border bg-card/95 px-3 py-1.5 shadow-lg backdrop-blur"
+            className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-popover px-3 py-1.5 shadow-elev-3"
           >
             <Timer
               className={`w-4 h-4 shrink-0 ${isRunning ? "text-primary animate-pulse" : "text-muted-foreground"}`}
             />
-            <span className="font-mono text-sm tabular-nums text-primary">{elapsed}</span>
+            <span className="font-mono type-body tabular-nums text-primary">{elapsed}</span>
             {otherRunningCount > 0 && (
-              <span className="font-mono text-xs tabular-nums text-muted-foreground">
+              <span className="font-mono type-meta tabular-nums text-muted-foreground">
                 +{otherRunningCount}
               </span>
             )}
           </button>
         ) : (
-          <div className="pointer-events-auto flex max-w-full items-center gap-1.5 rounded-xl border border-border bg-card/95 px-2 py-1 shadow-lg backdrop-blur md:gap-2 md:px-3 md:py-1.5">
+          <div className="pointer-events-auto flex max-w-full items-center gap-1.5 rounded-xl bg-popover px-2 py-1 shadow-elev-3 md:gap-2 md:px-3 md:py-1.5">
             <Timer
               className={`w-4 h-4 shrink-0 ${isRunning ? "text-primary animate-pulse" : "text-muted-foreground"}`}
             />
-            <span className="min-w-0 max-w-[90px] truncate text-sm font-medium text-foreground sm:max-w-[180px]">
+            <span className="min-w-0 max-w-[90px] truncate type-title text-foreground sm:max-w-[180px]">
               {step.title}
             </span>
-            <span className="shrink-0 font-mono text-sm tabular-nums text-primary">{elapsed}</span>
+            <span className="shrink-0 font-mono type-body tabular-nums text-primary">
+              {elapsed}
+            </span>
             {otherRunningCount > 0 && (
               <button
                 type="button"
                 onClick={switchToNext}
                 title={`${otherRunningCount} more running. Click to switch.`}
                 aria-label="Switch to the next running timer"
-                className="shrink-0 rounded-full border border-border px-1.5 py-0.5 font-mono text-xs tabular-nums text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="shrink-0 rounded-full bg-field px-1.5 py-0.5 font-mono type-meta tabular-nums text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 +{otherRunningCount}
               </button>
             )}
-            <div className="mx-1 h-4 w-px shrink-0 bg-border" />
             {controls("sm")}
             <IconButton
               icon={<Maximize2 className="w-4 h-4 text-muted-foreground" />}
@@ -403,7 +404,7 @@ function RunningChip({ step, onSelect }: { step: Step; onSelect: () => void }) {
     <button
       type="button"
       onClick={onSelect}
-      className="flex items-center gap-2 rounded-full border border-border/60 bg-background/40 px-3 py-1.5 text-sm text-muted-foreground backdrop-blur transition-colors hover:border-border hover:text-foreground"
+      className="flex items-center gap-2 rounded-full bg-field px-3 py-1.5 type-body text-muted-foreground transition-colors hover:text-foreground"
     >
       <span className="relative flex h-1.5 w-1.5 shrink-0">
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
@@ -469,7 +470,7 @@ function FocusMode({
     >
       {/* Top bar: wall clock + exit */}
       <div className="absolute inset-x-0 top-0 flex items-center justify-between px-6 py-5">
-        <div className="text-sm text-muted-foreground">
+        <div className="type-body text-muted-foreground">
           <span className="font-mono text-foreground">{clock}</span>
           <span className="mx-2">·</span>
           <span>{date}</span>
@@ -522,13 +523,13 @@ function FocusMode({
       {/* Center: step + big timer */}
       <div className="flex flex-col items-center gap-6 text-center px-6">
         {step.path?.title && (
-          <span className="rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground">
+          <span className="rounded-full bg-field px-3 py-1 type-meta text-muted-foreground">
             {step.path.title}
           </span>
         )}
-        <h1 className="max-w-2xl text-3xl font-semibold text-foreground">{step.title}</h1>
+        <h1 className="max-w-2xl type-focus text-foreground">{step.title}</h1>
         <div
-          className={`font-mono text-7xl font-bold tabular-nums sm:text-8xl ${
+          className={`font-mono type-display ${
             isRunning ? "text-primary" : "text-muted-foreground"
           }`}
         >
@@ -542,9 +543,7 @@ function FocusMode({
             that lies about what is running. */}
         {others.length > 0 && (
           <div className="mt-6 flex flex-col items-center gap-2">
-            <span className="text-xs uppercase tracking-wide text-muted-foreground/70">
-              Also running
-            </span>
+            <span className="type-overline text-muted-foreground/70">Also running</span>
             <div className="flex flex-wrap items-center justify-center gap-2">
               {others.map((other) => (
                 <RunningChip key={other._id} step={other} onSelect={() => onSwitch(other._id)} />

@@ -73,9 +73,9 @@ export function PathDeleteDialog({
           {/* Step list */}
           {hasSteps && (
             <>
-              <div className="max-h-40 overflow-y-auto rounded-md border border-input p-2 space-y-1">
+              <div className="max-h-40 overflow-y-auto rounded-md bg-field p-2 space-y-1">
                 {stepsInPath.map((step) => (
-                  <div key={step._id} className="text-sm px-2 py-1 rounded bg-muted/30">
+                  <div key={step._id} className="type-body px-2 py-1 rounded bg-muted/30">
                     {step.title}
                   </div>
                 ))}
@@ -83,7 +83,7 @@ export function PathDeleteDialog({
 
               {/* Destination selector */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">Move steps to:</label>
+                <label className="type-label">Move steps to:</label>
                 <HierarchicalPathSelector
                   paths={allPaths}
                   selectedPathId={destinationPathId}
@@ -98,7 +98,7 @@ export function PathDeleteDialog({
 
           {/* Child paths info */}
           {childPaths.length > 0 && (
-            <p className="text-sm text-muted-foreground">
+            <p className="type-body text-muted-foreground">
               {childPaths.length} child path{childPaths.length !== 1 ? "s" : ""} will be moved to{" "}
               {path.parentId ? "the parent path" : "root level"}.
             </p>

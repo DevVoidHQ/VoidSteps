@@ -1,3 +1,4 @@
+import { EVERYTHING_DIGIT, lensDigit } from "@/lib/lens";
 import { motion } from "framer-motion";
 import {
   Settings,
@@ -6,19 +7,26 @@ import {
   Target,
   Zap,
   Bell,
-  BookOpen,
   BarChart3,
   X,
   ChevronsLeft,
   ChevronsRight,
   Search,
   Lock,
+  Filter,
+  Layers,
+  Pencil,
+  Plus,
+  Check,
+  ChevronsUpDown,
 } from "lucide-react";
 import { getKeybinds, formatKeybindDisplay, type KeybindMap } from "@/lib/keybind-config";
 import type { LucideIcon } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useMemo, useEffect } from "react";
+import { useMemo, useEffect, useState } from "react";
+import { Popover } from "radix-ui";
 import { useData } from "@/contexts/DataContext";
+import { useLens } from "@/contexts/LensContext";
 import { getStartOfDay, projectReminderOccurrences } from "@/lib/calendar-utils";
 
 interface SidebarProps {
@@ -27,6 +35,8 @@ interface SidebarProps {
   isCollapsed: boolean;
   onToggleCollapse: () => void;
   onOpenCommandBar: () => void;
+  /** Leave the icon rail when collapsed instead of hiding fully (md+). */
+  railWhenClosed?: boolean;
 }
 
 interface SidebarItemProps {
@@ -107,10 +117,10 @@ function SidebarItem({
       )}
       {!hideLabel && !locked && shortcut && (
         <kbd
-          className={`relative z-10 hidden sm:inline-flex h-5 items-center rounded border px-1.5 font-mono text-[10px] ${
+          className={`relative z-10 hidden sm:inline-flex h-5 items-center rounded px-1.5 type-kbd ${
             active
-              ? "border-primary-foreground/30 bg-primary-foreground/10 text-primary-foreground"
-              : "border-border bg-muted/50 text-muted-foreground"
+              ? "bg-primary-foreground/10 text-primary-foreground"
+              : "bg-field text-muted-foreground"
           }`}
         >
           {shortcut}
@@ -146,8 +156,12 @@ export default function Sidebar({
   isCollapsed,
   onToggleCollapse,
   onOpenCommandBar,
+  railWhenClosed = false,
 }: SidebarProps) {
   const navigate = useNavigate();
+  // Closed on md+: an icon rail when closed with a click (or when the rail is
+  // kept in Settings), fully hidden when closed from the keyboard.
+  const hidden = isCollapsed && !railWhenClosed;
   const location = useLocation();
   const { reminders } = useData();
 
@@ -181,7 +195,6 @@ export default function Sidebar({
     { path: "/paths", label: "Paths", icon: Target, keybindKey: "navPaths" },
     { path: "/routines", label: "Routines", icon: Zap, keybindKey: "navRoutines" },
     { path: "/reminders", label: "Reminders", icon: Bell, keybindKey: "navReminders" },
-    { path: "/notes", label: "Notes", icon: BookOpen, keybindKey: "navNotes" },
     { path: "/analytics", label: "Analytics", icon: BarChart3, keybindKey: "navAnalytics" },
     { path: "/settings", label: "Settings", icon: Settings, keybindKey: "navSettings" },
   ];
@@ -209,12 +222,15 @@ export default function Sidebar({
       )}
 
       {/* Sidebar. On mobile it's an overlay drawer (always full width + elevated);
-          on md+ it's static and can collapse to an icon rail. */}
+          on md+ it's a floating panel, inset from the window with rounded
+          corners. Closing slides it away completely, or down to an icon rail
+          when that is turned on in Settings. */}
       <div
         className={`
           fixed md:static
-          ${isCollapsed ? "w-64 md:w-16" : "w-64"} h-screen bg-card border-r border-border flex flex-col overflow-hidden
-          shadow-2xl md:shadow-none
+          ${hidden ? "w-64 md:w-0 md:ml-0 md:opacity-0 md:invisible md:shadow-none" : isCollapsed ? "w-64 md:w-16 md:ml-3 md:shadow-elev-2" : "w-64 md:ml-3 md:shadow-elev-2"}
+          h-screen bg-surface-1 flex flex-col overflow-hidden shadow-elev-3
+          md:bg-surface-2 md:shrink-0 md:my-3 md:h-[calc(100vh-1.5rem)] md:rounded-2xl
           z-50
           transition-all duration-200 ease-in-out
           ${isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
@@ -222,19 +238,19 @@ export default function Sidebar({
         style={{ opacity: 1 }}
       >
         {/* Header */}
-        <div className={`shrink-0 border-b border-border ${isCollapsed ? "p-3" : "p-6"}`}>
+        <div className={`shrink-0 ${isCollapsed ? "p-3" : "p-6"}`}>
           {isCollapsed ? (
             <div className="flex items-center justify-center">
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary-light text-lg font-bold tracking-tight">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary-light type-section">
                 <span className="text-primary">V</span>
-                <span className="text-accent">S</span>
+                <span className="text-accent-ink">S</span>
               </span>
             </div>
           ) : (
             <>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex-1">
-                  <h2 className="text-2xl font-bold">Today</h2>
+                  <h2 className="type-page">Today</h2>
                 </div>
                 {/* Close button for mobile */}
                 <button
@@ -244,7 +260,7 @@ export default function Sidebar({
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="type-meta text-muted-foreground">
                 {new Date().toLocaleDateString("en-US", {
                   weekday: "long",
                   month: "short",
@@ -263,14 +279,14 @@ export default function Sidebar({
             className={
               isCollapsed
                 ? "w-full flex items-center justify-center rounded-lg py-3 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                : "w-full flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                : "w-full flex items-center gap-2 rounded-lg bg-field px-3 py-2 type-label text-muted-foreground hover:bg-muted hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             }
           >
             <Search className="w-4 h-4 shrink-0" />
             {!isCollapsed && (
               <>
                 <span className="flex-1 text-left">Search…</span>
-                <kbd className="hidden sm:inline-flex h-5 items-center rounded border border-border bg-card px-1.5 font-mono text-[10px]">
+                <kbd className="hidden sm:inline-flex h-5 items-center rounded bg-field px-1.5 type-kbd">
                   {formatKeybindDisplay(keybinds.openCommandBar)}
                 </kbd>
               </>
@@ -282,6 +298,7 @@ export default function Sidebar({
         <nav
           className={`flex-1 min-h-0 overflow-y-auto scrollbar-hide ${isCollapsed ? "p-2" : "p-4"} space-y-1`}
         >
+          <LensSwitcher isCollapsed={isCollapsed} onNavigate={handleNavigate} />
           {navItems.map((item) => (
             <div key={item.path}>
               <SidebarItem
@@ -303,7 +320,7 @@ export default function Sidebar({
         </nav>
 
         {/* Footer */}
-        <div className={`shrink-0 border-t border-border ${isCollapsed ? "p-2" : "p-4"} space-y-1`}>
+        <div className={`shrink-0 ${isCollapsed ? "p-2" : "p-4"} space-y-1`}>
           <SidebarItem
             icon={isCollapsed ? ChevronsRight : ChevronsLeft}
             label={isCollapsed ? "Expand" : "Collapse"}
@@ -315,5 +332,167 @@ export default function Sidebar({
         </div>
       </div>
     </>
+  );
+}
+
+/**
+ * The lens switcher: one sidebar row showing the lens the app is in, opening a
+ * searchable list (any number of lenses, like the path picker). Editing lives
+ * on the Lenses page.
+ */
+function LensSwitcher({
+  isCollapsed,
+  onNavigate,
+}: {
+  isCollapsed: boolean;
+  onNavigate: (path: string) => void;
+}) {
+  const { saved, activeId, activate } = useLens();
+  const active = saved.find((s) => s.id === activeId);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [index, setIndex] = useState(0);
+
+  const options = [
+    {
+      id: null as string | null,
+      name: "Everything",
+      shortcut: `⌘${EVERYTHING_DIGIT}` as string | undefined,
+    },
+    ...saved.map((s, i) => ({
+      id: s.id as string | null,
+      name: s.name,
+      shortcut: lensDigit(i) ? `⌘${lensDigit(i)}` : undefined,
+    })),
+  ].filter((o) => o.name.toLowerCase().includes(query.trim().toLowerCase()));
+
+  const choose = (id: string | null) => {
+    activate(id);
+    setOpen(false);
+  };
+  const go = (path: string) => {
+    setOpen(false);
+    onNavigate(path);
+  };
+
+  const label = active ? active.name : "Everything";
+  const triggerClass = `relative flex w-full items-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+    isCollapsed ? "justify-center px-2 py-3" : "gap-3 px-4 py-3 text-left"
+  } ${
+    active
+      ? "bg-accent-light text-accent-ink"
+      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+  }`;
+
+  return (
+    <Popover.Root
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) {
+          setQuery("");
+          setIndex(0);
+        }
+      }}
+    >
+      <Popover.Trigger
+        className={triggerClass}
+        title={`Lens: ${label}`}
+        aria-label={`Lens: ${label}`}
+      >
+        {active ? <Filter className="h-5 w-5 shrink-0" /> : <Layers className="h-5 w-5 shrink-0" />}
+        {!isCollapsed && (
+          <>
+            <span className="min-w-0 flex-1 truncate">{label}</span>
+            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-60" />
+          </>
+        )}
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          side={isCollapsed ? "right" : "bottom"}
+          align="start"
+          sideOffset={6}
+          className="z-50 w-64 rounded-lg bg-popover p-1 shadow-elev-3 animate-in fade-in-0 zoom-in-95"
+        >
+          <input
+            autoFocus
+            value={query}
+            placeholder="Find a lens"
+            aria-label="Find a lens"
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setIndex(0);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setIndex((i) => Math.min(i + 1, options.length - 1));
+              } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setIndex((i) => Math.max(i - 1, 0));
+              } else if (e.key === "Enter" && options[index]) {
+                e.preventDefault();
+                choose(options[index].id);
+              }
+            }}
+            className="type-body mb-1 h-9 w-full rounded-md bg-field px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          <ul role="listbox" aria-label="Lenses" className="max-h-64 overflow-y-auto">
+            {options.map((o, i) => (
+              <li key={o.id ?? "everything"}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={o.id === (active?.id ?? null)}
+                  ref={i === index ? (el) => el?.scrollIntoView({ block: "nearest" }) : undefined}
+                  onMouseMove={() => setIndex(i)}
+                  onClick={() => choose(o.id)}
+                  className={`type-body flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left ${
+                    i === index ? "bg-muted" : ""
+                  }`}
+                >
+                  {o.id ? (
+                    <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <Layers className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  )}
+                  <span className="min-w-0 flex-1 truncate">{o.name}</span>
+                  {o.id === (active?.id ?? null) && (
+                    <Check className="h-4 w-4 shrink-0 text-accent-ink" />
+                  )}
+                  {o.shortcut && (
+                    <kbd className="type-kbd rounded bg-field px-1.5 text-muted-foreground">
+                      {o.shortcut}
+                    </kbd>
+                  )}
+                </button>
+              </li>
+            ))}
+            {options.length === 0 && (
+              <li className="type-meta px-2 py-1.5 text-muted-foreground">No lens matches</li>
+            )}
+          </ul>
+          <div className="mt-1 flex gap-1 pt-1">
+            <button
+              type="button"
+              onClick={() => go("/lenses?new")}
+              className="type-label flex flex-1 items-center gap-1.5 rounded-md px-2 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <Plus className="h-4 w-4" />
+              New lens
+            </button>
+            <button
+              type="button"
+              onClick={() => go(active ? `/lenses?edit=${active.id}` : "/lenses")}
+              className="type-label flex flex-1 items-center gap-1.5 rounded-md px-2 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <Pencil className="h-4 w-4" />
+              Manage
+            </button>
+          </div>
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }

@@ -125,8 +125,8 @@ export default function DataSettings() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold">Data</h2>
-        <p className="text-sm text-muted-foreground mt-1">
+        <h2 className="type-section">Data</h2>
+        <p className="type-body text-muted-foreground mt-1">
           Permanently delete your data. This applies to this device and can't be undone.
         </p>
       </div>
@@ -152,7 +152,7 @@ export default function DataSettings() {
 
       {/* Per-type actions */}
       <div>
-        <h3 className="text-sm font-medium text-muted-foreground mb-2">By type</h3>
+        <h3 className="type-label text-muted-foreground mb-2">By type</h3>
         <Card>
           <CardContent className="p-4 space-y-3">
             {WIPE_ENTITIES.map((e) => (
@@ -177,7 +177,7 @@ export default function DataSettings() {
         <DialogContent size="md" className="w-[28rem] max-w-[calc(100vw-2rem)]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-destructive" />
+              <AlertTriangle className="w-5 h-5 text-destructive-ink" />
               Delete data
             </DialogTitle>
             <DialogDescription>
@@ -199,7 +199,7 @@ export default function DataSettings() {
             )}
 
             <div>
-              <label className="text-sm text-muted-foreground">
+              <label className="type-body text-muted-foreground">
                 Type <span className="font-mono font-semibold text-foreground">{requiredText}</span>{" "}
                 to confirm
               </label>
@@ -247,10 +247,10 @@ function DangerRow({
   return (
     <div className="flex items-center justify-between gap-4">
       <div className="min-w-0">
-        <div className={`text-sm ${emphasize ? "font-semibold" : "font-medium"}`}>
+        <div className={`type-title ${emphasize ? "font-semibold" : ""}`}>
           {label} <span className="text-muted-foreground font-normal">({count})</span>
         </div>
-        {description && <p className="text-xs text-muted-foreground mt-0.5">{description}</p>}
+        {description && <p className="type-meta text-muted-foreground mt-0.5">{description}</p>}
       </div>
       <Button
         variant={emphasize ? "destructive" : "outline"}

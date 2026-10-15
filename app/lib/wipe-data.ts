@@ -116,8 +116,11 @@ export async function wipeData(
       db.notes,
       db.timeEntries,
       db.activityEvents,
+      db.undoLog,
     ],
     async () => {
+      // Undo history holds copies of rows; after a wipe it could bring them back.
+      await db.undoLog.clear();
       const removedStepIds = new Set<string>();
       // Forced: notebooks take all their notes.
       if (set.has("notebooks")) {

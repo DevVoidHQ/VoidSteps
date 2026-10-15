@@ -1,3 +1,4 @@
+import { deriveContrast, hslToRgb, isDarkBackground, textOn } from "./contrast";
 import type { ThemeTokens, ThemeTokenKey } from "./theme-types";
 
 const TOKEN_TO_CSS_VAR: Record<ThemeTokenKey, string> = {
@@ -5,45 +6,12 @@ const TOKEN_TO_CSS_VAR: Record<ThemeTokenKey, string> = {
   foreground: "--foreground",
   primary: "--primary",
   accent: "--accent",
-  primaryLight: "--primary-light",
-  accentLight: "--accent-light",
 };
 
-// Parse an "H S% L%" string and convert to sRGB in [0,1]. Returns null on a
-// malformed string so callers can pick their own fallback.
-function hslToRgb(hsl: string): { r: number; g: number; b: number } | null {
-  const m = hsl.trim().match(/^(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)%\s+(\d+(?:\.\d+)?)%$/);
-  if (!m) return null;
-
-  const h = parseFloat(m[1]);
-  const s = parseFloat(m[2]) / 100;
-  const l = parseFloat(m[3]) / 100;
-
-  const c = (1 - Math.abs(2 * l - 1)) * s;
-  const hp = (h % 360) / 60;
-  const x = c * (1 - Math.abs((hp % 2) - 1));
-  let r: number, g: number, b: number;
-  if (hp < 1) [r, g, b] = [c, x, 0];
-  else if (hp < 2) [r, g, b] = [x, c, 0];
-  else if (hp < 3) [r, g, b] = [0, c, x];
-  else if (hp < 4) [r, g, b] = [0, x, c];
-  else if (hp < 5) [r, g, b] = [x, 0, c];
-  else [r, g, b] = [c, 0, x];
-  const off = l - c / 2;
-  return { r: r + off, g: g + off, b: b + off };
-}
-
-// Pick black or white text for a brand surface using WCAG relative luminance.
-// HSL lightness alone isn't perceptual - rose at L=58% reads dark, yellow at
-// L=58% reads bright. Convert to sRGB and compute Y for a correct choice.
-function contrastForeground(hsl: string): string {
+// White or near-black against a brand colour, whichever reads better.
+function onColor(hsl: string): string {
   const rgb = hslToRgb(hsl);
-  if (!rgb) return "0 0% 100%";
-
-  const toLinear = (v: number) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
-  const Y = 0.2126 * toLinear(rgb.r) + 0.7152 * toLinear(rgb.g) + 0.0722 * toLinear(rgb.b);
-
-  return Y > 0.5 ? "0 0% 10%" : "0 0% 100%";
+  return rgb ? textOn(rgb) : "0 0% 100%";
 }
 
 // Convert an "H S% L%" string to a #rrggbb hex (data-URI cursors need a literal).
@@ -54,7 +22,19 @@ function hslToHex(hsl: string): string {
     Math.round(v * 255)
       .toString(16)
       .padStart(2, "0");
-  return `#${to(rgb.r)}${to(rgb.g)}${to(rgb.b)}`;
+  return `#${to(rgb[0])}${to(rgb[1])}${to(rgb[2])}`;
+}
+
+// Mix two #rrggbb colours, `amount` of b into a. Close enough to --primary-tint
+// for a 64px favicon tile.
+function mixHex(a: string, b: string, amount: number): string {
+  const ch = (hex: string, i: number) => parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16);
+  const out = [0, 1, 2].map((i) =>
+    Math.round(ch(a, i) * (1 - amount) + ch(b, i) * amount)
+      .toString(16)
+      .padStart(2, "0")
+  );
+  return `#${out.join("")}`;
 }
 
 // Build a circular dot cursor data-URI from theme colors (hotspot centered).
@@ -70,18 +50,18 @@ function dotCursor(fillHex: string, ringHex: string, opacity: string, fallback: 
 function applyCursorVars(theme: ThemeTokens, target: HTMLElement): void {
   const primaryHex = hslToHex(theme.primary);
   const accentHex = hslToHex(theme.accent);
-  const ringPrimary = hslToHex(contrastForeground(theme.primary));
-  const ringAccent = hslToHex(contrastForeground(theme.accent));
+  const ringPrimary = hslToHex(onColor(theme.primary));
+  const ringAccent = hslToHex(onColor(theme.accent));
   target.style.setProperty("--cursor-default", dotCursor(primaryHex, ringPrimary, "0.9", "auto"));
   target.style.setProperty("--cursor-pointer", dotCursor(accentHex, ringAccent, "1", "pointer"));
 }
 
-// Branded "VS" mark, same as the collapsed sidebar logo: primary-light tile,
+// Branded "VS" mark, same as the collapsed sidebar logo: primary tint tile,
 // V in primary, S in accent. Rebuilt on each theme change so the favicon and
 // tab theme-color track the active theme.
 function applyFavicon(theme: ThemeTokens): void {
   if (typeof document === "undefined") return;
-  const bgHex = hslToHex(theme.primaryLight || theme.background);
+  const bgHex = mixHex(hslToHex(theme.background), hslToHex(theme.primary), 0.12);
   const primaryHex = hslToHex(theme.primary);
   const accentHex = hslToHex(theme.accent);
   const svg =
@@ -114,9 +94,21 @@ export function applyTheme(
       target.style.setProperty(cssVar, value);
     }
   }
-  // Derived contrast colors for text on brand surfaces.
-  target.style.setProperty("--primary-foreground", contrastForeground(theme.primary));
-  target.style.setProperty("--accent-foreground", contrastForeground(theme.accent));
+  // Derived values that keep every text pair at WCAG AA (lib/contrast.ts).
+  const derived = deriveContrast(theme);
+  if (derived) {
+    target.style.setProperty("--primary-foreground", derived.primaryForeground);
+    target.style.setProperty("--accent-foreground", derived.accentForeground);
+    target.style.setProperty("--muted-alpha", String(derived.mutedAlpha));
+    target.style.setProperty("--primary-tint-amount", `${derived.primaryTint}%`);
+    target.style.setProperty("--accent-tint-amount", `${derived.accentTint}%`);
+    target.style.setProperty("--accent-ink", derived.accentInk);
+  }
+  // Light or dark scheme, from the background. Surfaces and elevation in
+  // index.css key off this: depth reads as shadow on light themes and as
+  // lighter layers on dark ones, where a shadow on near-black disappears.
+  const bgRgb = hslToRgb(theme.background);
+  target.dataset.scheme = bgRgb && isDarkBackground(bgRgb) ? "dark" : "light";
   // Theme-aware branded cursor.
   applyCursorVars(theme, target);
   // Theme-aware "VS" favicon + tab color.

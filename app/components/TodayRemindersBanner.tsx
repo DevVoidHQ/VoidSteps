@@ -20,9 +20,9 @@ export default function TodayRemindersBanner() {
   if (todays.length === 0) return null;
 
   return (
-    <div className="flex items-start gap-2.5 rounded-lg border border-warning/30 bg-warning/10 px-4 py-2.5">
+    <div className="flex items-start gap-2.5 rounded-lg bg-warning/10 px-4 py-2.5">
       <Bell className="mt-0.5 w-4 h-4 text-warning shrink-0" />
-      <div className="min-w-0 text-sm">
+      <div className="min-w-0 type-body">
         <span className="font-medium text-foreground">Today: </span>
         <span className="text-foreground">{todays.map((r) => r.title).join(", ")}</span>
       </div>

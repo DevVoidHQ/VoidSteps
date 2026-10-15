@@ -5,7 +5,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { CheckCircle2, Clock, TrendingUp, Flame } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { useData } from "@/contexts/DataContext";
+import { useLensedData } from "@/contexts/LensContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import type { Step } from "@/types";
 import {
@@ -53,20 +53,25 @@ const TIME_BY_PATH_TOP_N = 8;
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
+// Chart axis labels are SVG text, which cannot take a class. 12px matches the
+// type-meta role in app/styles/typography.css.
+// type-exempt: SVG needs a numeric size
+const AXIS_TICK = { fontSize: 12 };
+
 export default function Analytics() {
   const now = useClock();
-  const { allSteps, isLoading } = useData();
+  // Every chart answers for what the app-wide lens shows.
+  const { allSteps, isLoading } = useLensedData();
   const [selectedRange, setSelectedRange] = useState<RangeKey>("30d");
   const colors = useChartColors();
 
-  // Solid, readable tooltip box. NOTE: only --background/--foreground/etc. exist
-  // as CSS vars here - `--card`/`--border` do not, so referencing them yields a
-  // transparent box (the old bug). Stick to the real variables.
+  // Solid, readable tooltip box: the floating surface and elevation from
+  // index.css (--surface-3, --elev-3), which are complete colour values.
   const tooltipStyle = {
-    backgroundColor: "hsl(var(--background))",
-    border: "1px solid hsl(var(--foreground) / 0.12)",
+    backgroundColor: "var(--surface-3)",
+    border: "none",
     borderRadius: 8,
-    boxShadow: "0 6px 20px hsl(var(--foreground) / 0.15)",
+    boxShadow: "var(--elev-3)",
     padding: "8px 12px",
   } as const;
 
@@ -234,7 +239,7 @@ export default function Analytics() {
     <div className="space-y-8 pb-12">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
+        <h1 className="type-page">Analytics</h1>
         <Tabs
           defaultValue="30d"
           value={selectedRange}
@@ -289,10 +294,10 @@ export default function Analytics() {
               <CartesianGrid strokeDasharray="3 3" stroke={colors.muted + "33"} />
               <XAxis
                 dataKey="day"
-                tick={{ fontSize: 12, fill: colors.mutedForeground }}
+                tick={{ ...AXIS_TICK, fill: colors.mutedForeground }}
                 interval="preserveStartEnd"
               />
-              <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: colors.mutedForeground }} />
+              <YAxis allowDecimals={false} tick={{ ...AXIS_TICK, fill: colors.mutedForeground }} />
               <Tooltip
                 cursor={{ fill: "hsl(var(--foreground) / 0.06)" }}
                 contentStyle={tooltipStyle}
@@ -313,12 +318,12 @@ export default function Analytics() {
               <CartesianGrid strokeDasharray="3 3" stroke={colors.muted + "33"} />
               <XAxis
                 dataKey="day"
-                tick={{ fontSize: 12, fill: colors.mutedForeground }}
+                tick={{ ...AXIS_TICK, fill: colors.mutedForeground }}
                 interval="preserveStartEnd"
               />
               <YAxis
                 allowDecimals={false}
-                tick={{ fontSize: 12, fill: colors.mutedForeground }}
+                tick={{ ...AXIS_TICK, fill: colors.mutedForeground }}
                 unit="h"
               />
               <Tooltip
@@ -346,11 +351,11 @@ export default function Analytics() {
               <div className="space-y-2">
                 {timeByPathData.map((row, i) => (
                   <div key={row.name} className="space-y-1">
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="w-5 text-right text-muted-foreground text-xs shrink-0">
+                    <div className="flex items-center gap-2 type-body">
+                      <span className="w-5 text-right text-muted-foreground type-meta shrink-0">
                         {i + 1}
                       </span>
-                      <span className="font-medium truncate min-w-0 flex-1">{row.name}</span>
+                      <span className="type-title truncate min-w-0 flex-1">{row.name}</span>
                       <span className="text-muted-foreground whitespace-nowrap shrink-0">
                         {formatDurationHM(row.ms)}
                       </span>
@@ -375,8 +380,8 @@ export default function Analytics() {
               <div className="space-y-3">
                 {pathBreakdown.map((row) => (
                   <div key={row.name} className="space-y-1">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium truncate mr-4">{row.name}</span>
+                    <div className="flex items-center justify-between type-body">
+                      <span className="type-title truncate mr-4">{row.name}</span>
                       <span className="text-muted-foreground whitespace-nowrap">
                         {row.done}/{row.total}
                         <span className={`ml-2 font-medium ${rateColor(row.rate)}`}>
@@ -402,18 +407,18 @@ export default function Analytics() {
       {timeLogData.length > 0 && (
         <Section title="Time log" subtitle="Individual completed tasks, most recent first">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full type-body">
               <thead>
-                <tr className="border-b border-border text-left text-muted-foreground">
-                  <th className="pb-2 pr-4 font-medium">Task</th>
-                  <th className="pb-2 pr-4 font-medium">Path</th>
-                  <th className="pb-2 pr-4 font-medium">Time Spent</th>
-                  <th className="pb-2 font-medium">Completed</th>
+                <tr className="text-left text-muted-foreground">
+                  <th className="pb-2 pr-4 type-label">Task</th>
+                  <th className="pb-2 pr-4 type-label">Path</th>
+                  <th className="pb-2 pr-4 type-label">Time Spent</th>
+                  <th className="pb-2 type-label">Completed</th>
                 </tr>
               </thead>
               <tbody>
                 {timeLogData.map((row, i) => (
-                  <tr key={i} className="border-b border-border/50 even:bg-muted/20">
+                  <tr key={i} className="even:bg-muted/20">
                     <td className="py-2 pr-4 truncate max-w-[200px]">{row.title}</td>
                     <td className="py-2 pr-4 text-muted-foreground">{row.path}</td>
                     <td className={`py-2 pr-4 ${row.tracked ? "" : "text-muted-foreground"}`}>
@@ -432,7 +437,7 @@ export default function Analytics() {
             </table>
           </div>
           {completedInRange.length > TIME_LOG_CAP && (
-            <p className="text-xs text-muted-foreground mt-2">
+            <p className="type-meta text-muted-foreground mt-2">
               Showing {TIME_LOG_CAP} of {completedInRange.length} completed tasks
             </p>
           )}
@@ -460,8 +465,8 @@ function StatCard({
       <CardContent className="p-4 flex items-center gap-3">
         {icon}
         <div>
-          <p className="text-xs text-muted-foreground">{label}</p>
-          <p className="text-xl font-bold">{String(value)}</p>
+          <p className="type-meta text-muted-foreground">{label}</p>
+          <p className="type-section">{String(value)}</p>
         </div>
       </CardContent>
     </Card>
@@ -481,8 +486,8 @@ function Section({
     <Card>
       <CardContent className="p-4 space-y-4">
         <div>
-          <h2 className="text-base font-semibold">{title}</h2>
-          {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+          <h2 className="type-section">{title}</h2>
+          {subtitle && <p className="type-meta text-muted-foreground">{subtitle}</p>}
         </div>
         {children}
       </CardContent>
@@ -510,6 +515,6 @@ function stepPathName(step: Step): string {
 
 function rateColor(rate: number): string {
   if (rate >= 70) return "text-primary";
-  if (rate < 40) return "text-destructive";
+  if (rate < 40) return "text-destructive-ink";
   return "";
 }

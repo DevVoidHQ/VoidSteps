@@ -21,7 +21,6 @@ export interface StepActions {
   onSaveEdit: (id: string, updates: Partial<Step>) => void;
   onTogglePriority: (id: string, current: boolean) => void;
   onToggleTimer: (id: string) => void;
-  onSetTotalTime: (id: string, totalTimeSpentMs: number) => void;
   paths: Path[];
 }
 
@@ -49,9 +48,9 @@ function EventSection({
   return (
     <div className="space-y-2">
       <h3
-        className={`text-sm font-medium flex items-center gap-2 ${
+        className={`type-label flex items-center gap-2 ${
           variant === "destructive"
-            ? "text-destructive"
+            ? "text-destructive-ink"
             : variant === "muted"
               ? "text-muted-foreground"
               : "text-foreground"
@@ -75,18 +74,17 @@ function EventSection({
                 stepActions.onTogglePriority(event.step!._id, event.step!.prioritizedToday)
               }
               onToggleTimer={() => stepActions.onToggleTimer(event.step!._id)}
-              onSetTotalTime={(id, ms) => stepActions.onSetTotalTime(id, ms)}
             />
           ) : event.type === "reminder" ? (
             <div
               key={event.id}
-              className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-border bg-muted/30"
+              className="flex items-center gap-3 p-3 rounded-lg bg-card shadow-elev-1"
             >
               <Bell className="w-4 h-4 text-warning shrink-0" />
               <div className="flex-1 min-w-0">
-                <span className="text-sm font-medium truncate block">{event.title}</span>
+                <span className="type-title truncate block">{event.title}</span>
                 {event.reminder?.note && (
-                  <span className="text-xs text-muted-foreground truncate block">
+                  <span className="type-meta text-muted-foreground truncate block">
                     {event.reminder.note}
                   </span>
                 )}
@@ -98,13 +96,13 @@ function EventSection({
           ) : (
             <div
               key={event.id}
-              className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-border bg-muted/30"
+              className="flex items-center gap-3 p-3 rounded-lg bg-card shadow-elev-1"
             >
               <RefreshCw className="w-4 h-4 text-routine shrink-0" />
               <div className="flex-1 min-w-0">
-                <span className="text-sm font-medium truncate block">{event.title}</span>
+                <span className="type-title truncate block">{event.title}</span>
                 {event.pathTitle && (
-                  <span className="text-xs text-muted-foreground">{event.pathTitle}</span>
+                  <span className="type-meta text-muted-foreground">{event.pathTitle}</span>
                 )}
               </div>
               <Badge variant="outline" size="sm">

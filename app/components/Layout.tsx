@@ -1,5 +1,7 @@
-import { useState, useCallback } from "react";
-import { useLocation } from "react-router-dom";
+import { EVERYTHING_DIGIT, lensDigit, lensForDigit } from "@/lib/lens";
+import { useState, useCallback, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { openStep } from "@/lib/expanded-step";
 import { AnimatePresence, motion } from "framer-motion";
 import Sidebar from "./Sidebar";
 import QuickCapture from "./QuickCapture";
@@ -7,29 +9,42 @@ import GlobalTimerBar from "./GlobalTimerBar";
 import TimerReconcileGuard from "./TimerReconcileGuard";
 import UpdateBanner from "./UpdateBanner";
 import CommandBar from "./CommandBar";
+import ShortcutsPanel from "./ShortcutsPanel";
+import { useLens, useLensedData } from "@/contexts/LensContext";
+import {
+  getPanelClosedBy,
+  getShortcutsPanelOpen,
+  setPanelClosedBy,
+  type PanelCloseSource,
+  setShortcutsPanelOpen,
+  useSidebarRail,
+  useTimerBarHidden,
+} from "@/lib/preferences";
 import { Button } from "@/components/ui/Button";
 import {
   CalendarClock,
   Check,
-  Clock,
+  Filter,
+  FilterX,
   History,
   Menu,
   Pencil,
   Play,
+  Redo2,
   Star,
   Trash2,
+  Undo2,
   XCircle,
 } from "lucide-react";
 import { POSTPONE_TARGETS, resolvePostponeDate } from "@/lib/postpone";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useUndoActions, useUndoShortcuts } from "@/hooks/useUndoShortcuts";
 import { StepDialog, type StepDialogTab } from "./StepDialog";
-import { TimeEditDialog } from "./TimeEditDialog";
 import { useData } from "@/contexts/DataContext";
 import { useToast } from "@/contexts/ToastContext";
 import { reportError } from "@/lib/error-store";
 import {
   useDeleteStep,
-  useSetTotalTime,
   useStartTimer,
   useStopTimer,
   useToggleStepCompletion,
@@ -38,6 +53,32 @@ import {
 } from "@/lib/local-mutations";
 import type { Step } from "@/types/index";
 import type { StepAction } from "./CommandBar";
+
+/** Two quiet dots in a bottom corner that reopen a panel closed by click. */
+function ReopenHandle({
+  side,
+  label,
+  onClick,
+}: {
+  side: "left" | "right";
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className={`fixed bottom-4 z-40 hidden items-center gap-1 rounded-full px-2.5 py-2 text-muted-foreground opacity-60 transition hover:bg-surface-2 hover:opacity-100 hover:shadow-elev-2 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex ${
+        side === "left" ? "left-4" : "right-4"
+      }`}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+    </button>
+  );
+}
 
 const SIDEBAR_COLLAPSED_KEY = "voidsteps-sidebar-collapsed";
 
@@ -50,16 +91,29 @@ function getInitialCollapsed(): boolean {
   }
 }
 
+// Page frames. "reading" centres lists you read: an 800px reading area on
+// each row plus the row's actions after it, with headers and filters on the
+// same axis. "wide" is for spatial pages (graph, month, day log, analytics).
+// "full" hands the whole area to the page (Notes has its own panes).
+export type PageWidth = "reading" | "wide" | "full";
+
+const PAGE_WIDTH_CLASS: Record<Exclude<PageWidth, "full">, string> = {
+  reading: "max-w-[68rem]",
+  wide: "max-w-7xl",
+};
+
 export default function Layout({
   children,
-  fullWidth = false,
+  width = "reading",
 }: {
   children: React.ReactNode;
-  fullWidth?: boolean;
+  width?: PageWidth;
 }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(getInitialCollapsed);
+  const keepRail = useSidebarRail();
   const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
   const [isQuickCreateRoutineOpen, setIsQuickCreateRoutineOpen] = useState(false);
   const [isQuickCreatePathOpen, setIsQuickCreatePathOpen] = useState(false);
@@ -71,7 +125,29 @@ export default function Layout({
     view: StepDialogTab | "time";
   } | null>(null);
 
-  const { activeSteps, activePaths } = useData();
+  const { activePaths, runningTimerStepIds } = useData();
+  // The running-timer bar floats over the top of the page on desktop. Reserve
+  // room for it so it never covers the filter bar or page titles.
+  const timerBarHidden = useTimerBarHidden();
+  const reserveTimerBar = runningTimerStepIds.length > 0 && !timerBarHidden;
+  // The command bar searches what the lens shows.
+  const { activeSteps } = useLensedData();
+  const { saved: savedLenses, activeId: activeLensId, activate: activateLens } = useLens();
+
+  // ⌘1 is Everything, ⌘2 to ⌘9 the first eight saved lenses (lib/lens.ts).
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey) return;
+      const n = Number(e.key);
+      if (!Number.isInteger(n) || n < 1 || n > 9) return;
+      const target = lensForDigit(n, savedLenses);
+      if (target === undefined) return;
+      e.preventDefault();
+      activateLens(target);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [savedLenses, activateLens]);
   const toast = useToast();
   const toggleCompletion = useToggleStepCompletion();
   const toggleFailed = useToggleStepFailed();
@@ -79,7 +155,6 @@ export default function Layout({
   const deleteStep = useDeleteStep();
   const startTimer = useStartTimer();
   const stopTimer = useStopTimer();
-  const setTotalTime = useSetTotalTime();
 
   /** Runs a mutation and reports failure the same way every caller does. */
   const run = useCallback(
@@ -93,6 +168,18 @@ export default function Layout({
       }
     },
     [toast]
+  );
+
+  // Open a step's card from the command bar. It is revealed where it is
+  // shown on this page; if this page does not show it, go to Steps.
+  const openStepCard = useCallback(
+    (step: Step) => {
+      openStep(step._id, { reveal: true });
+      requestAnimationFrame(() => {
+        if (!document.querySelector(`[data-step-id="${CSS.escape(step._id)}"]`)) navigate("/steps");
+      });
+    },
+    [navigate]
   );
 
   const buildStepActions = useCallback(
@@ -152,12 +239,6 @@ export default function Layout({
             ),
         },
         {
-          id: "time",
-          label: "Edit time tracked",
-          icon: Clock,
-          run: () => setPaletteStep({ step, view: "time" }),
-        },
-        {
           id: "edit",
           label: "Edit step",
           icon: Pencil,
@@ -165,7 +246,7 @@ export default function Layout({
         },
         {
           id: "activity",
-          label: "Activity",
+          label: "Time & activity",
           icon: History,
           run: () => setPaletteStep({ step, view: "activity" }),
         },
@@ -205,8 +286,31 @@ export default function Layout({
     });
   }, []);
 
+  // Remember how each panel was closed (see getPanelClosedBy).
+  const [sidebarClosedBy, setSidebarClosedBy] = useState(() => getPanelClosedBy("sidebar"));
+  const [shortcutsClosedBy, setShortcutsClosedBy] = useState(() => getPanelClosedBy("shortcuts"));
+  const toggleSidebarFrom = (source: PanelCloseSource) => {
+    setPanelClosedBy("sidebar", source);
+    setSidebarClosedBy(source);
+    toggleCollapse();
+  };
+
+  useUndoShortcuts();
+  // Layout remounts on every route, so the panel's open state lives in prefs.
+  const [shortcutsOpen, setShortcutsOpenState] = useState(getShortcutsPanelOpen);
+  const toggleShortcuts = (source: PanelCloseSource = "keyboard") => {
+    setPanelClosedBy("shortcuts", source);
+    setShortcutsClosedBy(source);
+    setShortcutsOpenState((open) => {
+      setShortcutsPanelOpen(!open);
+      return !open;
+    });
+  };
+  const { undo: runUndo, redo: runRedo } = useUndoActions();
+
   useKeyboardShortcuts({
-    onToggleSidebar: toggleCollapse,
+    onToggleSidebar: () => toggleSidebarFrom("keyboard"),
+    onToggleShortcuts: () => toggleShortcuts("keyboard"),
     onOpenCommandBar: () => setIsCommandBarOpen((o) => !o),
     onQuickAdd: () => setIsQuickCreateOpen(true),
     onQuickAddRoutine: () => setIsQuickCreateRoutineOpen(true),
@@ -228,7 +332,7 @@ export default function Layout({
         <Button
           variant="outline"
           size="icon"
-          className="rounded-full shadow-lg h-11 w-11"
+          className="rounded-full shadow-elev-3 h-11 w-11"
           aria-label="Open menu"
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         >
@@ -242,6 +346,7 @@ export default function Layout({
         onOpenChange={setIsCommandBarOpen}
         steps={activeSteps || []}
         buildStepActions={buildStepActions}
+        onOpenStep={openStepCard}
         actions={[
           { label: "New step", keybindKey: "quickCreate", run: () => setIsQuickCreateOpen(true) },
           {
@@ -259,7 +364,35 @@ export default function Layout({
             keybindKey: "quickCreateReminder",
             run: () => setIsQuickCreateReminderOpen(true),
           },
-          { label: "Toggle sidebar", keybindKey: "toggleSidebar", run: toggleCollapse },
+          {
+            label: "Toggle sidebar",
+            keybindKey: "toggleSidebar",
+            run: () => toggleSidebarFrom("keyboard"),
+          },
+          {
+            label: "Toggle shortcuts panel",
+            keybindKey: "toggleShortcuts",
+            run: () => toggleShortcuts("keyboard"),
+          },
+          ...savedLenses.map((s, i) => ({
+            label: `Lens: ${s.name}`,
+            shortcut: lensDigit(i) ? `meta+${lensDigit(i)}` : undefined,
+            icon: Filter,
+            run: () => activateLens(s.id),
+          })),
+          ...(activeLensId
+            ? [
+                {
+                  label: "Lens: Everything",
+                  shortcut: `meta+${EVERYTHING_DIGIT}`,
+                  icon: FilterX,
+                  run: () => activateLens(null),
+                },
+              ]
+            : []),
+          { label: "Manage lenses", icon: Filter, run: () => navigate("/lenses") },
+          { label: "Undo", shortcut: "meta+z", icon: Undo2, run: () => void runUndo() },
+          { label: "Redo", shortcut: "shift+meta+z", icon: Redo2, run: () => void runRedo() },
         ]}
       />
 
@@ -277,7 +410,8 @@ export default function Layout({
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
         isCollapsed={isCollapsed}
-        onToggleCollapse={toggleCollapse}
+        onToggleCollapse={() => toggleSidebarFrom("mouse")}
+        railWhenClosed={keepRail || sidebarClosedBy === "mouse"}
         onOpenCommandBar={() => setIsCommandBarOpen(true)}
       />
 
@@ -291,13 +425,31 @@ export default function Layout({
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
             className={
-              fullWidth ? "w-full h-screen" : "container mx-auto px-3 md:px-8 py-6 pb-24 md:py-6"
+              width === "full"
+                ? "w-full h-screen"
+                : `mx-auto w-full ${PAGE_WIDTH_CLASS[width]} px-3 md:px-8 py-6 pb-24 md:py-6 ${reserveTimerBar ? "md:pt-16" : ""}`
             }
           >
             {children}
           </motion.div>
         </AnimatePresence>
       </main>
+
+      <AnimatePresence initial={false}>
+        {shortcutsOpen && (
+          <ShortcutsPanel key="shortcuts" onClose={() => toggleShortcuts("mouse")} />
+        )}
+      </AnimatePresence>
+
+      {/* Shortcuts closed with a click: a quiet handle in the corner brings it
+          back. (The sidebar leaves its icon rail instead.) */}
+      {!shortcutsOpen && shortcutsClosedBy === "mouse" && (
+        <ReopenHandle
+          side="right"
+          label="Open shortcuts"
+          onClick={() => toggleShortcuts("mouse")}
+        />
+      )}
 
       {/* Quick Create Dialogs */}
       <QuickCapture open={isQuickCreateOpen} onOpenChange={setIsQuickCreateOpen} />
@@ -332,24 +484,6 @@ export default function Layout({
               "updateStep",
               () => updateStep({ id, ...updates } as Parameters<typeof updateStep>[0]),
               "Step updated"
-            )
-          }
-        />
-      )}
-
-      {paletteStep && paletteStep.view === "time" && (
-        <TimeEditDialog
-          open
-          onOpenChange={(open) => {
-            if (!open) setPaletteStep(null);
-          }}
-          currentTimeMs={paletteStep.step.totalTimeSpentMs || 0}
-          isTimerRunning={paletteStep.step.timerStartedAt != null}
-          onApply={(totalMs) =>
-            run(
-              "setTotalTime",
-              () => setTotalTime({ id: paletteStep.step._id, totalTimeSpentMs: totalMs }),
-              "Time updated"
             )
           }
         />

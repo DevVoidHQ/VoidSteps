@@ -1,5 +1,5 @@
 import { useClock } from "@/hooks/useClock";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { Step, Path } from "@/types/index";
 import type { LocalActivityEvent, LocalTimeEntry } from "@/lib/db";
 import { useStepTimesheet } from "@/hooks/useTimesheet";
@@ -13,7 +13,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
-import { TimeEntryDialog } from "@/components/TimeEntryDialog";
+import { TimeSlotEditor } from "@/components/TimeSlotEditor";
 import {
   Archive,
   ArchiveRestore,
@@ -37,6 +37,8 @@ import {
 interface ActivityTimelineProps {
   step: Step;
   paths: Path[];
+  /** Start with a new block open for today, focused and ready to type. */
+  autoAdd?: boolean;
 }
 
 function formatDay(dayStart: number): string {
@@ -68,11 +70,14 @@ function describeEvent(
   const iconCls = "w-3.5 h-3.5";
   switch (event.type) {
     case "completed":
-      return { icon: <Check className={`${iconCls} text-accent`} />, text: "Completed" };
+      return { icon: <Check className={`${iconCls} text-accent-ink`} />, text: "Completed" };
     case "uncompleted":
       return { icon: <RotateCcw className={iconCls} />, text: "Reopened" };
     case "failed":
-      return { icon: <XCircle className={`${iconCls} text-destructive`} />, text: "Marked failed" };
+      return {
+        icon: <XCircle className={`${iconCls} text-destructive-ink`} />,
+        text: "Marked failed",
+      };
     case "unfailed":
       return { icon: <XCircle className={iconCls} />, text: "Unmarked failed" };
     case "archived":
@@ -147,23 +152,27 @@ function RunningRow({ startedAt }: { startedAt: number }) {
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
         <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
       </span>
-      <span className="text-sm font-medium text-foreground">{formatClock(startedAt)} to now</span>
-      <span className="ml-auto font-mono text-sm tabular-nums text-primary">{elapsed}</span>
+      <span className="type-label text-foreground">{formatClock(startedAt)} to now</span>
+      <span className="ml-auto font-mono type-body tabular-nums text-primary">{elapsed}</span>
     </div>
   );
 }
 
-export function ActivityTimeline({ step, paths }: ActivityTimelineProps) {
+export function ActivityTimeline({ step, paths, autoAdd = false }: ActivityTimelineProps) {
   const toast = useToast();
   const { entries, events } = useStepTimesheet(step._id);
   const addTimeEntry = useAddTimeEntry();
   const updateTimeEntry = useUpdateTimeEntry();
   const deleteTimeEntry = useDeleteTimeEntry();
 
-  const [entryDialog, setEntryDialog] = useState<{ open: boolean; entry?: LocalTimeEntry }>({
-    open: false,
-  });
+  // Editing happens in place, in this list. `adding` holds the day a new slot
+  // is being added to, so the clock values land on the right date.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [adding, setAdding] = useState<number | null>(() =>
+    autoAdd ? new Date().setHours(0, 0, 0, 0) : null
+  );
   const [deleteTarget, setDeleteTarget] = useState<LocalTimeEntry | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const pathsById = useMemo(() => new Map(paths.map((p) => [p._id, p])), [paths]);
 
@@ -186,17 +195,34 @@ export function ActivityTimeline({ step, paths }: ActivityTimelineProps) {
     );
   }, [entries, events, step, now]);
 
-  const handleSubmitEntry = async (start: number, end: number) => {
+  const handleSaveSlot = async (id: string | null, start: number, end: number) => {
     try {
-      if (entryDialog.entry) await updateTimeEntry({ id: entryDialog.entry._id, start, end });
+      if (id) await updateTimeEntry({ id, start, end });
       else await addTimeEntry({ stepId: step._id, start, end });
+      setEditingId(null);
+      setAdding(null);
     } catch (e) {
       reportError("mutation", e, {
-        action: entryDialog.entry ? "updateTimeEntry" : "addTimeEntry",
+        action: id ? "updateTimeEntry" : "addTimeEntry",
         stepId: step._id,
       });
-      toast.error("Failed to save time entry");
+      toast.error("Failed to save time slot");
     }
+  };
+
+  // Arrow keys walk the slot rows. They are the only rows you can act on, so
+  // moving between them is the whole navigation model for this panel.
+  const handleListKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    const rows = Array.from(
+      listRef.current?.querySelectorAll<HTMLElement>("[data-slot-row]") ?? []
+    );
+    if (rows.length === 0) return;
+    const at = rows.indexOf(document.activeElement as HTMLElement);
+    if (at === -1) return;
+    e.preventDefault();
+    const next = e.key === "ArrowDown" ? at + 1 : at - 1;
+    rows[Math.max(0, Math.min(rows.length - 1, next))]?.focus();
   };
 
   const handleDeleteEntry = async () => {
@@ -210,6 +236,13 @@ export function ActivityTimeline({ step, paths }: ActivityTimelineProps) {
     }
   };
 
+  // A new block starts where the last one today ended, so logging a day is
+  // mostly typing the end time. Otherwise it defaults to the last half hour.
+  const todayStart = new Date(now).setHours(0, 0, 0, 0);
+  const lastEndToday = (entries ?? [])
+    .filter((e) => e.end >= todayStart && e.end < now)
+    .reduce<number | undefined>((latest, e) => Math.max(latest ?? 0, e.end), undefined);
+
   if (!groups) return null;
 
   const hasAnything = groups.some((g) => g.items.length > 0);
@@ -217,67 +250,120 @@ export function ActivityTimeline({ step, paths }: ActivityTimelineProps) {
   return (
     <div className="space-y-1">
       <div className="flex justify-end">
-        <Button variant="outline" size="sm" onClick={() => setEntryDialog({ open: true })}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setEditingId(null);
+            setAdding(new Date().setHours(0, 0, 0, 0));
+          }}
+        >
           <Plus className="w-3.5 h-3.5 mr-1.5" />
-          Add time entry
+          Add time slot
         </Button>
       </div>
+
+      {adding !== null && (
+        <TimeSlotEditor
+          day={adding}
+          defaultStart={lastEndToday}
+          onCancel={() => setAdding(null)}
+          onSave={(start, end) => handleSaveSlot(null, start, end)}
+        />
+      )}
 
       {!hasAnything ? (
         <EmptyState
           icon={History}
           message="No activity yet"
-          hint="Press play to start tracking, or add time manually"
+          hint="Press play to start tracking, or add a time slot"
         />
       ) : (
-        <div className="max-h-96 space-y-3 overflow-y-auto scrollbar-hide pr-1">
+        <div ref={listRef} onKeyDown={handleListKeyDown} className="space-y-3">
           {groups.map((group) => (
             <div key={group.dayStart}>
               <div className="sticky top-0 z-10 flex items-center justify-between bg-card py-1">
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <span className="type-overline text-muted-foreground">
                   {formatDay(group.dayStart)}
                 </span>
                 {group.trackedMs > 0 && (
-                  <span className="text-xs font-medium text-muted-foreground">
+                  <span className="type-meta text-muted-foreground">
                     {formatDurationHM(group.trackedMs)}
                   </span>
                 )}
               </div>
-              <div className="divide-y divide-border/50">
+              <div className="space-y-1">
                 {group.items.map((item, i) => {
                   if (item.kind === "running") {
                     return <RunningRow key={`running-${i}`} startedAt={item.startedAt} />;
                   }
                   if (item.kind === "entry") {
                     const e = item.entry;
+                    if (editingId === e._id) {
+                      return (
+                        <TimeSlotEditor
+                          key={e._id}
+                          day={group.dayStart}
+                          initial={{ start: e.start, end: e.end }}
+                          onCancel={() => setEditingId(null)}
+                          onSave={(start, end) => handleSaveSlot(e._id, start, end)}
+                        />
+                      );
+                    }
                     return (
-                      <div key={e._id} className="group/entry flex items-center gap-2.5 py-1.5">
+                      <div
+                        key={e._id}
+                        data-slot-row
+                        tabIndex={0}
+                        role="button"
+                        aria-label={`Time slot ${formatClock(e.start)} to ${formatClock(e.end)}, ${formatDurationHM(e.durationMs)}. Enter to edit.`}
+                        onKeyDown={(ev) => {
+                          if (ev.key === "Enter") {
+                            ev.preventDefault();
+                            setAdding(null);
+                            setEditingId(e._id);
+                          } else if (ev.key === "Delete" || ev.key === "Backspace") {
+                            ev.preventDefault();
+                            setDeleteTarget(e);
+                          }
+                        }}
+                        onClick={() => {
+                          setAdding(null);
+                          setEditingId(e._id);
+                        }}
+                        className="group/entry flex cursor-pointer items-center gap-2.5 rounded-md py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
                         <Timer className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
-                        <span className="text-sm text-foreground">
+                        <span className="type-body text-foreground">
                           {formatClock(e.start)} to {formatClock(e.end)}
                         </span>
                         {e.source === "manual" && (
-                          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                            manual
-                          </span>
+                          <span className="type-overline text-muted-foreground">manual</span>
                         )}
-                        <span className="ml-auto font-mono text-sm tabular-nums text-muted-foreground">
+                        <span className="ml-auto font-mono type-body tabular-nums text-muted-foreground">
                           {formatDurationHM(e.durationMs)}
                         </span>
-                        <span className="hidden shrink-0 items-center group-hover/entry:inline-flex">
+                        <span className="inline-flex shrink-0 items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover/entry:opacity-100">
                           <IconButton
                             icon={<Pencil className="w-3.5 h-3.5" />}
                             aria-label="Edit time entry"
                             variant="ghost"
                             size="icon-sm"
-                            onClick={() => setEntryDialog({ open: true, entry: e })}
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              setAdding(null);
+                              setEditingId(e._id);
+                            }}
                           />
                           <IconButton
                             icon={<Trash2 className="w-3.5 h-3.5" />}
                             aria-label="Delete time entry"
                             variant="ghost"
                             size="icon-sm"
-                            onClick={() => setDeleteTarget(e)}
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              setDeleteTarget(e);
+                            }}
                           />
                         </span>
                       </div>
@@ -294,10 +380,10 @@ export function ActivityTimeline({ step, paths }: ActivityTimelineProps) {
                         ) : (
                           <Sparkles className="w-3.5 h-3.5 shrink-0" />
                         )}
-                        <span className="text-sm">
+                        <span className="type-body">
                           {item.viaRoutine ? "Created by routine" : "Created"}
                         </span>
-                        <span className="ml-auto text-xs">{formatClock(item.at)}</span>
+                        <span className="ml-auto type-meta">{formatClock(item.at)}</span>
                       </div>
                     );
                   }
@@ -308,7 +394,7 @@ export function ActivityTimeline({ step, paths }: ActivityTimelineProps) {
                         className="flex items-center gap-2.5 py-1.5 text-muted-foreground"
                       >
                         <History className="w-3.5 h-3.5 shrink-0" />
-                        <span className="text-sm">
+                        <span className="type-body">
                           {formatDurationHM(item.ms)} tracked before session history
                         </span>
                       </div>
@@ -321,8 +407,8 @@ export function ActivityTimeline({ step, paths }: ActivityTimelineProps) {
                       className="flex items-center gap-2.5 py-1.5 text-muted-foreground"
                     >
                       <span className="shrink-0">{icon}</span>
-                      <span className="text-sm">{text}</span>
-                      <span className="ml-auto text-xs">{formatClock(item.at)}</span>
+                      <span className="type-body">{text}</span>
+                      <span className="ml-auto type-meta">{formatClock(item.at)}</span>
                     </div>
                   );
                 })}
@@ -331,17 +417,6 @@ export function ActivityTimeline({ step, paths }: ActivityTimelineProps) {
           ))}
         </div>
       )}
-
-      <TimeEntryDialog
-        open={entryDialog.open}
-        onOpenChange={(open) => setEntryDialog((prev) => ({ ...prev, open }))}
-        initial={
-          entryDialog.entry
-            ? { start: entryDialog.entry.start, end: entryDialog.entry.end }
-            : undefined
-        }
-        onSubmit={handleSubmitEntry}
-      />
 
       <ConfirmDialog
         open={deleteTarget !== null}

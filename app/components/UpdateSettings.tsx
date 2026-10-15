@@ -30,8 +30,8 @@ export default function UpdateSettings() {
     <Card>
       <CardContent className="space-y-4 p-6">
         <div className="space-y-1">
-          <h2 className="text-sm font-medium">Updates</h2>
-          <p className="text-sm text-muted-foreground">
+          <h2 className="type-label">Updates</h2>
+          <p className="type-body text-muted-foreground">
             {version ? `You are running VoidSteps ${version}.` : "Running in a browser."} Checking
             for a new release is the only network call the app ever makes. Nothing about you or your
             data is sent.
@@ -49,7 +49,7 @@ export default function UpdateSettings() {
               {status.phase === "checking" ? "Checking…" : "Check for updates"}
             </Button>
             {status.phase === "current" && (
-              <span className="text-sm text-muted-foreground">You are up to date.</span>
+              <span className="type-body text-muted-foreground">You are up to date.</span>
             )}
             {status.phase === "available" && (
               <Button size="sm" onClick={() => void installUpdate()}>
@@ -57,13 +57,13 @@ export default function UpdateSettings() {
               </Button>
             )}
             {status.phase === "installing" && (
-              <span className="text-sm text-muted-foreground">
+              <span className="type-body text-muted-foreground">
                 Installing {status.version}
                 {status.percent === null ? "…" : `… ${status.percent}%`}
               </span>
             )}
             {status.phase === "error" && (
-              <span className="text-sm text-destructive">{status.message}</span>
+              <span className="type-body text-destructive-ink">{status.message}</span>
             )}
           </div>
         )}

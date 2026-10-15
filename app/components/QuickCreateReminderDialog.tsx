@@ -155,7 +155,7 @@ export default function QuickCreateReminderDialog({
             maxLength={MAX_DESCRIPTION_LENGTH}
           />
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Repeats</label>
+            <label className="type-label">Repeats</label>
             <Select
               value={recurrence}
               onValueChange={(v) => setRecurrence(v as ReminderRecurrence)}
@@ -170,7 +170,7 @@ export default function QuickCreateReminderDialog({
           {recurrence === "yearly" && (
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Month</label>
+                <label className="type-label">Month</label>
                 <Select
                   value={String(month)}
                   onValueChange={(v) => setMonth(Number(v))}
@@ -178,7 +178,7 @@ export default function QuickCreateReminderDialog({
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Day</label>
+                <label className="type-label">Day</label>
                 <Input
                   type="number"
                   min={1}
@@ -192,7 +192,7 @@ export default function QuickCreateReminderDialog({
 
           {recurrence === "monthly" && (
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Day of month</label>
+              <label className="type-label">Day of month</label>
               <Input
                 type="number"
                 min={1}

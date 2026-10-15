@@ -85,8 +85,8 @@ export default function BackupCard() {
       <Card>
         <CardContent className="p-6 space-y-4">
           <div>
-            <h2 className="text-xl font-semibold">Backup</h2>
-            <p className="text-sm text-muted-foreground mt-1">
+            <h2 className="type-section">Backup</h2>
+            <p className="type-body text-muted-foreground mt-1">
               Your data lives on this device only. Nothing is uploaded anywhere, so a backup file is
               the only way to move it to another machine or get it back after a reset. Keep one
               somewhere safe.

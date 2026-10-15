@@ -11,8 +11,8 @@ export default function StepNode({ data }: { data: StepNodeData }) {
   return (
     <div
       className={`
-      px-3 py-2 rounded border shadow-sm min-w-[120px] text-xs
-      ${data.prioritized ? "border-warning bg-warning/10" : "border-border bg-background"}
+      px-3 py-2 rounded shadow-elev-1 min-w-[120px] type-meta
+      ${data.prioritized ? "ring-1 ring-warning bg-warning/10" : "bg-card"}
     `}
     >
       <HiddenHandles />

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { createPortal } from "react-dom";
+import { Dialog as DialogPrimitive, VisuallyHidden } from "radix-ui";
 import { useNavigate } from "react-router-dom";
 import {
   Calendar,
@@ -7,18 +7,19 @@ import {
   Target,
   Zap,
   Bell,
-  BookOpen,
   BarChart3,
   Settings,
   Search,
   Plus,
   PanelLeft,
+  Keyboard,
   ChevronRight,
   ArrowLeft,
   type LucideIcon,
 } from "lucide-react";
 import { getKeybinds, formatKeybindDisplay, type KeybindMap } from "@/lib/keybind-config";
 import type { Step } from "@/types/index";
+import { useReturnFocus } from "@/components/ui/Dialog";
 
 /** One thing that can be done to a step, offered after drilling into it. */
 export interface StepAction {
@@ -33,7 +34,11 @@ export interface StepAction {
 /** App action commands provided by the parent (create dialogs, sidebar, …). */
 export interface CommandAction {
   label: string;
-  keybindKey: keyof KeybindMap;
+  /** A rebindable shortcut from Settings, shown beside the entry. */
+  keybindKey?: keyof KeybindMap;
+  /** A fixed shortcut (e.g. "meta+z"), for actions Settings does not rebind. */
+  shortcut?: string;
+  icon?: LucideIcon;
   run: () => void;
 }
 
@@ -43,6 +48,7 @@ interface Entry {
   icon: LucideIcon;
   group: string;
   keybindKey?: keyof KeybindMap;
+  shortcut?: string;
   run: () => void;
   keywords?: string;
   /** Set on step rows, which drill in rather than run. */
@@ -55,6 +61,7 @@ const ACTION_ICONS: Partial<Record<keyof KeybindMap, LucideIcon>> = {
   quickCreatePath: Plus,
   quickCreateReminder: Plus,
   toggleSidebar: PanelLeft,
+  toggleShortcuts: Keyboard,
 };
 
 // Navigation destinations. Mirrors the sidebar order.
@@ -82,7 +89,6 @@ const NAV: {
   },
   { label: "Routines", path: "/routines", icon: Zap, keybindKey: "navRoutines" },
   { label: "Reminders", path: "/reminders", icon: Bell, keybindKey: "navReminders" },
-  { label: "Notes", path: "/notes", icon: BookOpen, keybindKey: "navNotes" },
   {
     label: "Analytics",
     path: "/analytics",
@@ -105,13 +111,15 @@ export default function CommandBar({
   actions = [],
   steps = [],
   buildStepActions,
+  onOpenStep,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   actions?: CommandAction[];
-  /** Searchable steps. Picking one drills into its actions. */
+  /** Searchable steps. Enter opens the step's card; → drills into its actions. */
   steps?: Step[];
   buildStepActions?: (step: Step) => StepAction[];
+  onOpenStep?: (step: Step) => void;
 }) {
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -122,16 +130,18 @@ export default function CommandBar({
   // The step being acted on, once you drill into one.
   const [drilled, setDrilled] = useState<Step | null>(null);
   const [armedConfirm, setArmedConfirm] = useState<string | null>(null);
+  const onCloseAutoFocus = useReturnFocus(open);
 
   const close = useCallback(() => onOpenChange(false), [onOpenChange]);
 
   const entries = useMemo<Entry[]>(() => {
     const actionEntries: Entry[] = actions.map((a) => ({
-      id: `action:${a.keybindKey}`,
+      id: `action:${a.keybindKey ?? a.label}`,
       label: a.label,
-      icon: ACTION_ICONS[a.keybindKey] ?? Plus,
+      icon: a.icon ?? (a.keybindKey && ACTION_ICONS[a.keybindKey]) ?? Plus,
       group: "Actions",
       keybindKey: a.keybindKey,
+      shortcut: a.shortcut,
       run: () => {
         a.run();
         close();
@@ -157,12 +167,17 @@ export default function CommandBar({
           group: "Steps",
           keywords: step.path?.title ?? "",
           step,
-          run: () => setDrilled(step),
+          run: onOpenStep
+            ? () => {
+                close();
+                onOpenStep(step);
+              }
+            : () => setDrilled(step),
         }))
       : [];
 
     return [...navEntries, ...actionEntries, ...stepEntries];
-  }, [actions, navigate, close, steps, buildStepActions]);
+  }, [actions, navigate, close, steps, buildStepActions, onOpenStep]);
 
   const results = useMemo(() => {
     if (drilled && buildStepActions) {
@@ -200,8 +215,6 @@ export default function CommandBar({
     setActiveIndex(0);
     setDrilled(null);
     setArmedConfirm(null);
-    const id = setTimeout(() => inputRef.current?.focus(), 20);
-    return () => clearTimeout(id);
   }, [open]);
 
   useEffect(() => {
@@ -254,121 +267,127 @@ export default function CommandBar({
     } else if (e.key === "ArrowLeft" && !query && drilled) {
       e.preventDefault();
       setDrilled(null);
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      // Escape steps back out of a step before it closes the palette.
-      if (drilled) setDrilled(null);
-      else close();
     }
   };
 
-  if (!open) return null;
-
   let lastGroup = "";
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[110] flex items-start justify-center px-4 pt-[15vh]"
-      onClick={close}
-    >
-      <div
-        className="absolute inset-0 bg-black/60 animate-in fade-in-0 duration-150"
-        aria-hidden="true"
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Command bar"
-        className="relative z-10 w-full max-w-lg overflow-hidden rounded-xl border border-border bg-card shadow-2xl animate-in zoom-in-95 fade-in-0 duration-150"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center gap-2 border-b border-border px-4">
-          {drilled ? (
-            <button
-              type="button"
-              aria-label="Back to search"
-              onClick={() => setDrilled(null)}
-              className="flex shrink-0 items-center gap-1 rounded text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-          ) : (
-            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-          )}
+  return (
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>
+        <div className="fixed inset-0 z-[110] flex items-start justify-center px-4 pt-[15vh]">
+          <DialogPrimitive.Overlay className="absolute inset-0 bg-black/60 animate-in fade-in-0 duration-150" />
+          <DialogPrimitive.Content
+            aria-describedby={undefined}
+            className="relative z-10 w-full max-w-lg overflow-hidden rounded-xl bg-popover shadow-elev-3 outline-none animate-in zoom-in-95 fade-in-0 duration-150"
+            onOpenAutoFocus={(e) => {
+              e.preventDefault();
+              inputRef.current?.focus();
+            }}
+            onCloseAutoFocus={onCloseAutoFocus}
+            onEscapeKeyDown={(e) => {
+              // Escape steps back out of a step before it closes the palette.
+              if (drilled) {
+                e.preventDefault();
+                setDrilled(null);
+              }
+              // Either way the app's other Escape handlers stay out of it.
+              e.stopPropagation();
+            }}
+          >
+            <VisuallyHidden.Root asChild>
+              <DialogPrimitive.Title>Command bar</DialogPrimitive.Title>
+            </VisuallyHidden.Root>
+            <div className="flex items-center gap-2 px-4">
+              {drilled ? (
+                <button
+                  type="button"
+                  aria-label="Back to search"
+                  onClick={() => setDrilled(null)}
+                  className="flex shrink-0 items-center gap-1 rounded text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+              ) : (
+                <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+              )}
 
-          {drilled && (
-            <span className="flex max-w-[45%] shrink-0 items-center gap-1 rounded bg-muted px-2 py-1 text-xs text-muted-foreground">
-              <ListTodo className="h-3 w-3 shrink-0" />
-              <span className="truncate">{drilled.title}</span>
-            </span>
-          )}
+              {drilled && (
+                <span className="flex max-w-[45%] shrink-0 items-center gap-1 rounded bg-muted px-2 py-1 type-meta text-muted-foreground">
+                  <ListTodo className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{drilled.title}</span>
+                </span>
+              )}
 
-          <input
-            ref={inputRef}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={drilled ? "Do what?" : "Search steps and commands…"}
-            className="h-12 w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:!outline-none focus-visible:!outline-none"
-          />
-        </div>
+              <input
+                ref={inputRef}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={drilled ? "Do what?" : "Search steps and commands…"}
+                className="h-12 w-full bg-transparent type-prompt text-foreground placeholder:text-muted-foreground focus:!outline-none focus-visible:!outline-none"
+              />
+            </div>
 
-        <ul ref={listRef} role="listbox" className="max-h-80 overflow-y-auto p-2">
-          {results.length === 0 ? (
-            <li className="px-3 py-6 text-center text-sm text-muted-foreground">No results</li>
-          ) : (
-            results.map((item, i) => {
-              const Icon = item.icon;
-              const active = i === activeIndex;
-              const kb = item.keybindKey ? keybinds[item.keybindKey] : "";
-              const showHeader = item.group !== lastGroup;
-              lastGroup = item.group;
-              return (
-                <li key={item.id} ref={active ? activeRef : undefined}>
-                  {showHeader && (
-                    <div className="px-3 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
-                      {item.group}
-                    </div>
-                  )}
-                  <button
-                    role="option"
-                    aria-selected={active}
-                    onClick={item.run}
-                    onMouseMove={() => setActiveIndex(i)}
-                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
-                      active
-                        ? "bg-primary text-primary-foreground"
-                        : "text-foreground hover:bg-muted"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    <span className="flex-1 truncate">{item.label}</span>
-                    {item.step && <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60" />}
-                    {kb && (
-                      <kbd
-                        className={`hidden sm:inline-flex h-5 items-center rounded border px-1.5 font-mono text-[10px] ${
+            <ul ref={listRef} role="listbox" className="max-h-80 overflow-y-auto p-2">
+              {results.length === 0 ? (
+                <li className="px-3 py-6 text-center type-body text-muted-foreground">
+                  No results
+                </li>
+              ) : (
+                results.map((item, i) => {
+                  const Icon = item.icon;
+                  const active = i === activeIndex;
+                  const kb = item.keybindKey ? keybinds[item.keybindKey] : (item.shortcut ?? "");
+                  const showHeader = item.group !== lastGroup;
+                  lastGroup = item.group;
+                  return (
+                    <li key={item.id} ref={active ? activeRef : undefined}>
+                      {showHeader && (
+                        <div className="px-3 pb-1 pt-2 type-overline text-muted-foreground/70">
+                          {item.group}
+                        </div>
+                      )}
+                      <button
+                        role="option"
+                        aria-selected={active}
+                        onClick={item.run}
+                        onMouseMove={() => setActiveIndex(i)}
+                        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left type-body transition-colors ${
                           active
-                            ? "border-primary-foreground/30 bg-primary-foreground/10 text-primary-foreground"
-                            : "border-border bg-muted/50 text-muted-foreground"
+                            ? "bg-primary text-primary-foreground"
+                            : "text-foreground hover:bg-muted"
                         }`}
                       >
-                        {formatKeybindDisplay(kb)}
-                      </kbd>
-                    )}
-                  </button>
-                </li>
-              );
-            })
-          )}
-        </ul>
+                        <Icon className="h-4 w-4 shrink-0" />
+                        <span className="flex-1 truncate">{item.label}</span>
+                        {item.step && <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60" />}
+                        {kb && (
+                          <kbd
+                            className={`hidden sm:inline-flex h-5 items-center rounded px-1.5 type-kbd ${
+                              active
+                                ? "bg-primary-foreground/10 text-primary-foreground"
+                                : "bg-field text-muted-foreground"
+                            }`}
+                          >
+                            {formatKeybindDisplay(kb)}
+                          </kbd>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })
+              )}
+            </ul>
 
-        <div className="border-t border-border px-4 py-2 text-[11px] text-muted-foreground/70">
-          {drilled
-            ? "↑↓ action · enter run · ← back · esc back"
-            : "↑↓ move · enter pick · → step actions · esc close"}
+            <div className="mt-1 px-4 py-2 type-meta text-muted-foreground/70">
+              {drilled
+                ? "↑↓ action · enter run · ← back · esc back"
+                : "↑↓ move · enter open · → step actions · esc close"}
+            </div>
+          </DialogPrimitive.Content>
         </div>
-      </div>
-    </div>,
-    document.body
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }

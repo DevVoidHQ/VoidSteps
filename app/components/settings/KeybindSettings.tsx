@@ -66,7 +66,7 @@ export default function KeybindSettings() {
       <Card>
         <CardContent className="p-6 space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Keyboard Shortcuts</h2>
+            <h2 className="type-section">Keyboard Shortcuts</h2>
             <Button variant="outline" size="sm" onClick={handleResetAll}>
               <RotateCcw className="w-4 h-4 mr-2" />
               Reset All
@@ -85,18 +85,18 @@ export default function KeybindSettings() {
                     isEditing ? "bg-accent/10 ring-2 ring-accent" : "hover:bg-muted/50"
                   }`}
                 >
-                  <span className="text-sm">{KEYBIND_LABELS[action]}</span>
+                  <span className="type-body">{KEYBIND_LABELS[action]}</span>
                   <div className="flex items-center gap-2">
                     {isEditing ? (
-                      <kbd className="inline-flex h-8 items-center rounded border border-accent bg-accent/10 px-3 text-xs font-mono text-accent animate-pulse">
+                      <kbd className="inline-flex h-8 items-center rounded bg-accent/10 px-3 type-kbd text-accent-ink animate-pulse">
                         Press a key… (⌫ to clear)
                       </kbd>
                     ) : keybinds[action] ? (
-                      <kbd className="inline-flex h-8 items-center rounded border border-border bg-muted px-3 text-xs font-mono text-muted-foreground">
+                      <kbd className="inline-flex h-8 items-center rounded bg-field px-3 type-kbd text-muted-foreground">
                         {formatKeybindDisplay(keybinds[action])}
                       </kbd>
                     ) : (
-                      <span className="inline-flex h-8 items-center px-3 text-xs italic text-muted-foreground/70">
+                      <span className="inline-flex h-8 items-center px-3 type-meta italic text-muted-foreground/70">
                         Not set
                       </span>
                     )}
@@ -108,7 +108,7 @@ export default function KeybindSettings() {
                           onClick={() => handleStartEdit(action)}
                           title="Edit"
                         >
-                          <span className="text-xs">Edit</span>
+                          <span className="type-label">Edit</span>
                         </Button>
                         {isCustom && (
                           <Button
@@ -124,7 +124,7 @@ export default function KeybindSettings() {
                     )}
                     {isEditing && (
                       <Button variant="ghost" size="icon-sm" onClick={() => setEditingAction(null)}>
-                        <span className="text-xs">Cancel</span>
+                        <span className="type-label">Cancel</span>
                       </Button>
                     )}
                   </div>

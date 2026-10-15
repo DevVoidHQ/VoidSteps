@@ -7,12 +7,12 @@ export interface KeybindMap {
   quickCreateReminder: string;
   toggleSidebar: string;
   openCommandBar: string;
+  toggleShortcuts: string;
   navToday: string;
   navSteps: string;
   navPaths: string;
   navRoutines: string;
   navReminders: string;
-  navNotes: string;
   navAnalytics: string;
   navSettings: string;
 }
@@ -24,6 +24,7 @@ export const DEFAULT_KEYBINDS: KeybindMap = {
   quickCreateReminder: "m",
   toggleSidebar: "meta+b",
   openCommandBar: "meta+k",
+  toggleShortcuts: "meta+/",
   // Nav shortcuts are unbound by default, use the command bar (⌘K) or assign
   // your own keys in Settings.
   navToday: "",
@@ -31,7 +32,6 @@ export const DEFAULT_KEYBINDS: KeybindMap = {
   navPaths: "",
   navRoutines: "",
   navReminders: "",
-  navNotes: "",
   navAnalytics: "",
   navSettings: "",
 };
@@ -43,12 +43,12 @@ export const KEYBIND_LABELS: Record<keyof KeybindMap, string> = {
   quickCreateReminder: "New reminder",
   toggleSidebar: "Toggle sidebar",
   openCommandBar: "Open command bar",
+  toggleShortcuts: "Toggle shortcuts panel",
   navToday: "Go to Today",
   navSteps: "Go to Steps",
   navPaths: "Go to Paths",
   navRoutines: "Go to Routines",
   navReminders: "Go to Reminders",
-  navNotes: "Go to Notes",
   navAnalytics: "Go to Analytics",
   navSettings: "Go to Settings",
 };

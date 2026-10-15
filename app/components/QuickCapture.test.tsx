@@ -87,3 +87,23 @@ it("closes on Escape when focus is on a match button", async () => {
   fireEvent.keyDown(within(panel).getByRole("button", { name: "Merge" }), { key: "Escape" });
   expect(onOpenChange).toHaveBeenCalledWith(false);
 });
+
+it("closes the path list once a path is picked with Tab", async () => {
+  await db.paths.add({
+    _id: "p1",
+    title: "Ship VoidSteps v1",
+    createdAt: 1,
+    updatedAt: 1,
+  });
+  render(
+    <DataProvider>
+      <QuickCapture open onOpenChange={vi.fn()} />
+    </DataProvider>
+  );
+  const input = screen.getByPlaceholderText("What do you need to do?") as HTMLInputElement;
+  fireEvent.change(input, { target: { value: "test /Ship", selectionStart: 10 } });
+  await screen.findByRole("listbox");
+  fireEvent.keyDown(input, { key: "Tab" });
+  await waitFor(() => expect(input.value).toBe("test /Ship VoidSteps v1 "));
+  expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+});

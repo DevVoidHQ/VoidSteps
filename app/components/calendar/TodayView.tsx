@@ -1,9 +1,9 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useSearchHotkey } from "@/hooks/useSearchHotkey";
-import { useTodayClickAction } from "@/lib/preferences";
 
-// Shared with the Steps page so the path filter stays in sync across both.
-const TODAY_PATH_FILTER_KEY = "voidsteps-path-filter";
+// Sort for Today's list. "My order" is the drag order; the others are views
+// and leave that order alone.
+const TODAY_SORT_KEY = "voidsteps-today-sort";
 import type { Step } from "@/types/index";
 import {
   useUpdateStep,
@@ -13,23 +13,25 @@ import {
   useReorderSteps,
   useStartTimer,
   useStopTimer,
-  useSetTotalTime,
 } from "@/lib/local-mutations";
 import { useData } from "@/contexts/DataContext";
+import { useLensedData } from "@/contexts/LensContext";
+import { Select } from "@/components/ui/Select";
+import { sortSteps, STEP_SORTS, type StepSort } from "@/lib/step-sort";
 import { reportError } from "@/lib/error-store";
-import { getDescendantPathIds } from "@/lib/path-utils";
 import { useToast } from "@/contexts/ToastContext";
 import { Input } from "@/components/ui/Input";
-import { Star, Search, Calendar } from "lucide-react";
+import { Star, Search } from "lucide-react";
 import { StepCard } from "@/components/StepCard";
 import { filterSteps as applyStepFilters } from "@/lib/step-filters";
 import { DraggableStepList } from "@/components/DraggableStepList";
-import { HierarchicalPathSelector } from "@/components/HierarchicalPathSelector";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 export default function TodayView() {
   const toast = useToast();
-  const { activePaths, activeSteps, completedStepsToday, runningTimerStepIds } = useData();
+  // Steps come through the lens; paths stay whole so cards can show any path.
+  const { activePaths } = useData();
+  const { activeSteps, completedStepsToday, runningTimerStepIds } = useLensedData();
 
   const updateStepMutation = useUpdateStep();
   const deleteStepMutation = useDeleteStep();
@@ -38,88 +40,53 @@ export default function TodayView() {
   const reorderStepsMutation = useReorderSteps();
   const startTimerMutation = useStartTimer();
   const stopTimerMutation = useStopTimer();
-  const setTotalTimeMutation = useSetTotalTime();
 
   const [searchQueryToday, setSearchQueryToday] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
   useSearchHotkey(searchRef);
-  const todayClickAction = useTodayClickAction();
-  const [selectedPathFilterToday, setSelectedPathFilterToday] = useState<string>(() => {
+  const [sort, setSort] = useState<StepSort>(() => {
     try {
-      return localStorage.getItem(TODAY_PATH_FILTER_KEY) || "";
+      const v = localStorage.getItem(TODAY_SORT_KEY) as StepSort | null;
+      return v && STEP_SORTS.some((s) => s.value === v) ? v : "manual";
     } catch {
-      return "";
+      return "manual";
     }
   });
-
-  // Persist the path filter so it stays locked in until changed/cleared.
   useEffect(() => {
     try {
-      if (selectedPathFilterToday)
-        localStorage.setItem(TODAY_PATH_FILTER_KEY, selectedPathFilterToday);
-      else localStorage.removeItem(TODAY_PATH_FILTER_KEY);
+      localStorage.setItem(TODAY_SORT_KEY, sort);
     } catch {
       /* ignore */
     }
-  }, [selectedPathFilterToday]);
+  }, [sort]);
 
   const memoizedPaths = useMemo(() => activePaths || [], [activePaths]);
 
-  // Drop a stale filter if its path no longer exists (e.g. deleted).
-  useEffect(() => {
-    if (
-      selectedPathFilterToday &&
-      memoizedPaths.length > 0 &&
-      !memoizedPaths.some((p) => p._id === selectedPathFilterToday)
-    ) {
-      setSelectedPathFilterToday("");
-    }
-  }, [selectedPathFilterToday, memoizedPaths]);
-
-  const descendantPathIds = useMemo(
-    () => getDescendantPathIds(selectedPathFilterToday, memoizedPaths),
-    [selectedPathFilterToday, memoizedPaths]
-  );
-
-  const filterSteps = useCallback(
-    (steps: Step[], searchQuery: string, pathFilter: string) =>
-      applyStepFilters(steps, searchQuery, pathFilter, descendantPathIds),
-    [descendantPathIds]
-  );
-
-  const unfilteredDuePrioritySteps = useMemo(
+  // One list: every starred step, due or not. activeSteps arrive in drag order.
+  const todaySteps = useMemo(
     () =>
-      activeSteps
-        ?.filter((s: Step) => s.prioritizedToday && s.dueDate !== undefined)
-        .sort((a, b) => {
-          return (a.dueDate ?? 0) - (b.dueDate ?? 0);
-        }) || [],
-    [activeSteps]
-  );
-
-  const unfilteredTodayPrioritySteps = useMemo(
-    () => activeSteps?.filter((s: Step) => s.prioritizedToday && !s.dueDate) || [],
-    [activeSteps]
-  );
-
-  const unfilteredTodayCompletedSteps = useMemo(
-    () => completedStepsToday?.filter((s: Step) => s.prioritizedToday) || [],
-    [completedStepsToday]
-  );
-
-  const duePrioritySteps = useMemo(
-    () => filterSteps(unfilteredDuePrioritySteps, searchQueryToday, selectedPathFilterToday),
-    [filterSteps, unfilteredDuePrioritySteps, searchQueryToday, selectedPathFilterToday]
-  );
-
-  const todayPrioritySteps = useMemo(
-    () => filterSteps(unfilteredTodayPrioritySteps, searchQueryToday, selectedPathFilterToday),
-    [filterSteps, unfilteredTodayPrioritySteps, searchQueryToday, selectedPathFilterToday]
+      sortSteps(
+        applyStepFilters(
+          activeSteps?.filter((s: Step) => s.prioritizedToday) ?? [],
+          searchQueryToday,
+          "",
+          new Set()
+        ),
+        sort,
+        memoizedPaths
+      ),
+    [activeSteps, searchQueryToday, sort, memoizedPaths]
   );
 
   const todayCompletedSteps = useMemo(
-    () => filterSteps(unfilteredTodayCompletedSteps, searchQueryToday, selectedPathFilterToday),
-    [filterSteps, unfilteredTodayCompletedSteps, searchQueryToday, selectedPathFilterToday]
+    () =>
+      applyStepFilters(
+        completedStepsToday?.filter((s: Step) => s.prioritizedToday) ?? [],
+        searchQueryToday,
+        "",
+        new Set()
+      ),
+    [completedStepsToday, searchQueryToday]
   );
 
   const toggleStep = useCallback(
@@ -227,18 +194,6 @@ export default function TodayView() {
     [runningTimerStepIds, startTimerMutation, stopTimerMutation, toast]
   );
 
-  const setTotalTime = useCallback(
-    async (id: string, totalTimeMs: number) => {
-      try {
-        await setTotalTimeMutation({ id, totalTimeSpentMs: totalTimeMs });
-      } catch (error) {
-        reportError("mutation", error, { action: "setTotalTime", stepId: id });
-        toast.error("Failed to set time");
-      }
-    },
-    [setTotalTimeMutation, toast]
-  );
-
   return (
     <div className="space-y-6">
       {/* Search and Filter */}
@@ -253,47 +208,26 @@ export default function TodayView() {
             className="pl-9"
           />
         </div>
-        <HierarchicalPathSelector
-          paths={activePaths || []}
-          selectedPathId={selectedPathFilterToday || null}
-          onChange={(id) => setSelectedPathFilterToday(id || "")}
-          placeholder="All paths"
-          allowEmpty={true}
-          className="sm:w-48"
+        <Select
+          className="sm:w-44"
+          triggerClassName="h-11"
+          value={sort}
+          onValueChange={(v) => setSort(v as StepSort)}
+          options={STEP_SORTS}
         />
       </div>
 
-      {/* Due Priority Steps */}
-      {duePrioritySteps.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold flex items-center space-x-2 text-accent">
-            <Calendar className="w-5 h-5" />
-            <span>Due ({duePrioritySteps.length})</span>
-          </h2>
-          <div className="space-y-2">
-            {duePrioritySteps.map((step: Step) => (
-              <StepCard
-                key={step._id}
-                step={step}
-                paths={memoizedPaths}
-                onToggle={toggleStep}
-                onToggleFailed={toggleFailed}
-                onDelete={deleteStep}
-                onTogglePriority={togglePriority}
-                onSaveEdit={updateStep}
-                onToggleTimer={toggleTimer}
-                onSetTotalTime={setTotalTime}
-                clickAction={todayClickAction}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Priority Steps */}
-      {todayPrioritySteps.length > 0 ? (
+      {todaySteps.length === 0 ? (
+        <EmptyState
+          icon={searchQueryToday ? Search : Star}
+          message={
+            searchQueryToday ? "No steps match your search" : "No steps prioritized for today"
+          }
+          hint={!searchQueryToday ? "Star a step to add it here" : undefined}
+        />
+      ) : sort === "manual" ? (
         <DraggableStepList
-          steps={todayPrioritySteps}
+          steps={todaySteps}
           paths={memoizedPaths}
           onReorder={handleReorder}
           onToggle={toggleStep}
@@ -302,29 +236,30 @@ export default function TodayView() {
           onTogglePriority={togglePriority}
           onSaveEdit={updateStep}
           onToggleTimer={toggleTimer}
-          onSetTotalTime={setTotalTime}
-          clickAction={todayClickAction}
         />
-      ) : duePrioritySteps.length === 0 ? (
-        <EmptyState
-          icon={searchQueryToday || selectedPathFilterToday ? Search : Star}
-          message={
-            searchQueryToday || selectedPathFilterToday
-              ? "No steps match your search"
-              : "No steps prioritized for today"
-          }
-          hint={
-            !searchQueryToday && !selectedPathFilterToday
-              ? "Prioritize any step and it shows up here, your short list for today."
-              : undefined
-          }
-        />
-      ) : null}
+      ) : (
+        // A sorted view: dragging would fight the sort, so it is a plain list.
+        <div className="space-y-2">
+          {todaySteps.map((step: Step) => (
+            <StepCard
+              key={step._id}
+              step={step}
+              paths={memoizedPaths}
+              onToggle={toggleStep}
+              onToggleFailed={toggleFailed}
+              onDelete={deleteStep}
+              onTogglePriority={togglePriority}
+              onSaveEdit={updateStep}
+              onToggleTimer={toggleTimer}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Completed Today */}
       {todayCompletedSteps.length > 0 && (
-        <div className="space-y-3 pt-4 border-t border-border">
-          <h2 className="text-sm font-medium text-muted-foreground">
+        <div className="space-y-3 pt-6">
+          <h2 className="type-label text-muted-foreground">
             Completed Today ({todayCompletedSteps.length})
           </h2>
           <div className="space-y-2 opacity-60">

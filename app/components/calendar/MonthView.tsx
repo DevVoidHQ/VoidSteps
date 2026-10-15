@@ -28,7 +28,7 @@ export default function MonthView({ viewDate, calendarDays, onDayClick }: MonthV
       {/* Day-of-week header */}
       <div className="grid grid-cols-7 mb-1">
         {DAY_NAMES.map((name) => (
-          <div key={name} className="text-center text-xs font-medium text-muted-foreground py-2">
+          <div key={name} className="text-center type-label text-muted-foreground py-2">
             {name}
           </div>
         ))}
@@ -63,7 +63,7 @@ export default function MonthView({ viewDate, calendarDays, onDayClick }: MonthV
               {/* Day number */}
               <div className="flex items-center justify-between mb-1">
                 <span
-                  className={`text-xs font-medium leading-none ${
+                  className={`type-meta leading-none ${
                     isToday
                       ? "bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center"
                       : "text-foreground"
@@ -83,7 +83,7 @@ export default function MonthView({ viewDate, calendarDays, onDayClick }: MonthV
                     />
                   ))}
                   {overflow > 0 && (
-                    <span className="text-[9px] text-muted-foreground">+{overflow}</span>
+                    <span className="type-meta text-muted-foreground">+{overflow}</span>
                   )}
                 </div>
               )}
@@ -91,15 +91,12 @@ export default function MonthView({ viewDate, calendarDays, onDayClick }: MonthV
               {/* Compact event titles (desktop only, first 2) */}
               <div className="hidden md:block mt-1 space-y-0.5">
                 {events.slice(0, 2).map((event) => (
-                  <div
-                    key={event.id}
-                    className="text-[10px] leading-tight truncate text-muted-foreground"
-                  >
+                  <div key={event.id} className="type-meta truncate text-muted-foreground">
                     {event.title}
                   </div>
                 ))}
                 {events.length > 2 && (
-                  <div className="text-[10px] text-muted-foreground/60">
+                  <div className="type-meta text-muted-foreground/60">
                     +{events.length - 2} more
                   </div>
                 )}

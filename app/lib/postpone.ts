@@ -36,6 +36,15 @@ export function resolvePostponeDate(token: string): number | undefined {
   return iso ? parseDateInput(iso) : undefined;
 }
 
+/** "Mon 19 Oct" for a postpone target, for previews and toasts. */
+export function describePostponeDate(dueDate: number): string {
+  return new Date(dueDate).toLocaleDateString(undefined, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+}
+
 /**
  * Whether a due date falls on a later day than today, by the same logical day
  * (end-of-day turnover included) that Today uses. Compares day starts rather

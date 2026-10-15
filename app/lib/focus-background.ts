@@ -41,7 +41,7 @@ export const FOCUS_BACKGROUNDS: FocusBackground[] = [
     css: [
       "radial-gradient(ellipse 80% 60% at 15% 10%, hsl(var(--primary) / 0.28), transparent 65%)",
       "radial-gradient(ellipse 70% 55% at 85% 25%, hsl(var(--accent) / 0.24), transparent 65%)",
-      "radial-gradient(ellipse 90% 70% at 50% 100%, hsl(var(--primary-light) / 0.18), transparent 70%)",
+      "radial-gradient(ellipse 90% 70% at 50% 100%, color-mix(in oklab, var(--primary-tint) 18%, transparent), transparent 70%)",
     ].join(", "),
   },
   {
@@ -66,8 +66,8 @@ export const FOCUS_BACKGROUNDS: FocusBackground[] = [
     css: [
       "radial-gradient(circle at 20% 20%, hsl(var(--primary) / 0.22), transparent 45%)",
       "radial-gradient(circle at 80% 15%, hsl(var(--accent) / 0.20), transparent 45%)",
-      "radial-gradient(circle at 65% 85%, hsl(var(--primary-light) / 0.20), transparent 45%)",
-      "radial-gradient(circle at 10% 75%, hsl(var(--accent-light) / 0.18), transparent 45%)",
+      "radial-gradient(circle at 65% 85%, color-mix(in oklab, var(--primary-tint) 20%, transparent), transparent 45%)",
+      "radial-gradient(circle at 10% 75%, color-mix(in oklab, var(--accent-tint) 18%, transparent), transparent 45%)",
     ].join(", "),
   },
   {
@@ -103,8 +103,8 @@ export const FOCUS_BACKGROUNDS: FocusBackground[] = [
       "conic-gradient(from 210deg at 50% 50%,",
       "hsl(var(--primary) / 0.22),",
       "hsl(var(--accent) / 0.24),",
-      "hsl(var(--primary-light) / 0.20),",
-      "hsl(var(--accent-light) / 0.22),",
+      "color-mix(in oklab, var(--primary-tint) 20%, transparent),",
+      "color-mix(in oklab, var(--accent-tint) 22%, transparent),",
       "hsl(var(--primary) / 0.22))",
     ].join(" "),
   },

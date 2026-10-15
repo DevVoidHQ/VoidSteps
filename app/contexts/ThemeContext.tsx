@@ -103,9 +103,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       const parsed = JSON.parse(jsonString);
       // Validate that all required keys exist
-      const requiredKeys = Object.keys(DEFAULT_THEME).filter(
-        (k) => k !== "primaryLight" && k !== "accentLight"
-      );
+      const requiredKeys = Object.keys(DEFAULT_THEME);
       const hasAllKeys = requiredKeys.every((key) => key in parsed);
       if (hasAllKeys) {
         setTheme(parsed);

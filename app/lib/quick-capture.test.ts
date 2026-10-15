@@ -238,3 +238,18 @@ describe("parsePathCapture", () => {
     expect(result.parentId).toBeUndefined();
   });
 });
+
+describe("parseDateToken amounts", () => {
+  // NOW is Monday 2025-06-16.
+  it("reads days and weeks from today", () => {
+    expect(parseDateToken("3d")).toBe("2025-06-19");
+    expect(parseDateToken("+5d")).toBe("2025-06-21");
+    expect(parseDateToken("2w")).toBe("2025-06-30");
+  });
+  it("reads months as calendar months", () => {
+    expect(parseDateToken("1m")).toBe("2025-07-16");
+  });
+  it("still rejects things that are not dates", () => {
+    expect(parseDateToken("3x")).toBeUndefined();
+  });
+});

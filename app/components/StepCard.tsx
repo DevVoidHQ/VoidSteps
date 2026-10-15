@@ -1,5 +1,4 @@
 import { StepDialog, type StepDialogTab } from "@/components/StepDialog";
-import { TimeEditDialog } from "@/components/TimeEditDialog";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent } from "@/components/ui/Card";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -12,14 +11,9 @@ import {
   formatRelativePast,
   getDueDateStatus,
 } from "@/lib/date-utils";
-import { resolvePostponeDate } from "@/lib/postpone";
-import {
-  STEP_ACTION_ORDER,
-  useShowStepDates,
-  useStepActions,
-  type StepActionKey,
-  type StepClickAction,
-} from "@/lib/preferences";
+import { describePostponeDate, resolvePostponeDate } from "@/lib/postpone";
+import { PostponeInput } from "@/components/PostponeInput";
+import { useShowStepDates } from "@/lib/preferences";
 import type { Path, Step } from "@/types/index";
 import {
   Calendar,
@@ -27,7 +21,6 @@ import {
   Check,
   Clock,
   History,
-  MoreHorizontal,
   Pause,
   Pencil,
   Play,
@@ -39,8 +32,28 @@ import {
   X,
   XCircle,
 } from "lucide-react";
+import { clearReveal, closeStep, toggleStep, useStepExpansion } from "@/lib/expanded-step";
+import { cn } from "@/lib/cn";
 import type { ReactNode } from "react";
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Popover } from "radix-ui";
+
+// Card tags: the Badge look at regular weight, so the title leads.
+const TAG = "font-normal";
+
+type StepActionKey = "failed" | "timer" | "priority" | "postpone" | "open" | "edit" | "delete";
+// The same buttons on every card, no configuration. Everything else lives in
+// the open card's numbered strip.
+const QUICK_ACTIONS: StepActionKey[] = ["timer", "priority", "postpone", "failed"];
+const DETAIL_ACTIONS: StepActionKey[] = [
+  "timer",
+  "priority",
+  "postpone",
+  "failed",
+  "open",
+  "edit",
+  "delete",
+];
 
 export interface StepCardProps {
   step: Step;
@@ -55,9 +68,6 @@ export interface StepCardProps {
   showStartDateBadge?: boolean;
   // Timer props
   onToggleTimer?: (id: string) => void;
-  onSetTotalTime?: (id: string, totalTimeMs: number) => void;
-  // What clicking the step's title/body does (page-configurable). Undefined = no-op.
-  clickAction?: StepClickAction;
 }
 
 function StepCardComponent({
@@ -70,15 +80,19 @@ function StepCardComponent({
   onSaveEdit,
   showStartDateBadge = false,
   onToggleTimer,
-  onSetTotalTime,
-  clickAction,
 }: StepCardProps) {
   const { success } = useToast();
+
+  const [powerOpen, setPowerOpen] = useState<StepActionKey | null>(null);
+  const postponeTo = (dueDate: number | undefined) => {
+    if (dueDate === undefined) return;
+    onSaveEdit(step._id, { dueDate });
+    success(`Postponed to ${describePostponeDate(dueDate)}`);
+  };
   const showStepDates = useShowStepDates();
-  const actionCfg = useStepActions();
 
   // The step's detail dialog (Details edit form | Activity timeline).
-  const [dialog, setDialog] = useState<{ open: boolean; tab: StepDialogTab }>({
+  const [dialog, setDialog] = useState<{ open: boolean; tab: StepDialogTab; addTime?: boolean }>({
     open: false,
     tab: "details",
   });
@@ -86,12 +100,8 @@ function StepCardComponent({
   // Delete confirmation state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Time edit dialog state
-  const [showTimeEdit, setShowTimeEdit] = useState(false);
-
-  // "More" menu state for compact-mode actions
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  // The open card's "Postpone…" field.
+  const [postponing, setPostponing] = useState(false);
 
   // Two-click confirm for destructive-ish actions (marking a step failed), so a
   // single stray click can't fail a task. Auto-disarms after a few seconds.
@@ -116,20 +126,12 @@ function StepCardComponent({
     []
   );
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-        resetConfirm();
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [menuOpen, resetConfirm]);
-
   const handleStartEdit = useCallback(() => {
     setDialog({ open: true, tab: "details" });
+  }, []);
+
+  const handleOpenTimeEntry = useCallback(() => {
+    setDialog({ open: true, tab: "activity", addTime: true });
   }, []);
 
   const handleOpenActivity = useCallback(() => {
@@ -169,6 +171,9 @@ function StepCardComponent({
 
   // Per-action descriptors. Each action is placed inline ("open") or inside the
   // "more" menu ("compact") per the user's Settings, independently.
+  // Every action has a simple form on click. An action may also carry a power
+  // form, opened with Option-click, right-click or Option+Enter, shown in a
+  // popover anchored to the button.
   type ActionDesc = {
     key: StepActionKey;
     available: boolean;
@@ -176,6 +181,7 @@ function StepCardComponent({
     icon: ReactNode;
     onClick: () => void;
     confirm?: boolean;
+    power?: { hint: string; render: (close: () => void) => ReactNode };
   };
   const descriptors: ActionDesc[] = [
     {
@@ -186,7 +192,7 @@ function StepCardComponent({
       label: step.failed ? "Unmark failed" : "Mark failed",
       icon: (
         <XCircle
-          className={`w-4 h-4 ${step.failed === true ? "fill-destructive text-destructive" : "text-muted-foreground"}`}
+          className={`w-4 h-4 ${step.failed === true ? "fill-destructive text-destructive-ink" : "text-muted-foreground"}`}
         />
       ),
       onClick: () => onToggleFailed?.(step._id),
@@ -214,30 +220,28 @@ function StepCardComponent({
       onClick: () => onTogglePriority(step._id, step.prioritizedToday),
     },
     {
-      // The card offers the common case only. The full set of targets
-      // (weekend, in a week) lives in the command bar.
+      // Click postpones to tomorrow; the power form takes any amount or day.
       key: "postpone",
       available: !step.completed,
       label: "Postpone to tomorrow",
       icon: <CalendarClock className="w-4 h-4" />,
-      onClick: () => {
-        const dueDate = resolvePostponeDate("tomorrow");
-        if (dueDate === undefined) return;
-        onSaveEdit(step._id, { dueDate });
-        success("Postponed to tomorrow");
+      onClick: () => postponeTo(resolvePostponeDate("tomorrow")),
+      power: {
+        hint: "Postpone by…",
+        render: (close) => (
+          <PostponeInput
+            onApply={(dueDate) => {
+              close();
+              postponeTo(dueDate);
+            }}
+          />
+        ),
       },
-    },
-    {
-      key: "time",
-      available: !!onSetTotalTime && !step.completed,
-      label: "Edit time",
-      icon: <Clock className="w-4 h-4" />,
-      onClick: () => setShowTimeEdit(true),
     },
     {
       key: "open",
       available: true,
-      label: "Activity",
+      label: "Time & activity",
       icon: <History className="w-4 h-4" />,
       onClick: handleOpenActivity,
     },
@@ -256,243 +260,366 @@ function StepCardComponent({
       onClick: () => setShowDeleteConfirm(true),
     },
   ];
-  const ordered = STEP_ACTION_ORDER.map((k) => descriptors.find((d) => d.key === k)!).filter(
-    (d) => d.available
-  );
-  const inlineActions = ordered.filter((d) => actionCfg[d.key] === "open");
-  const menuActions = ordered.filter((d) => actionCfg[d.key] === "compact");
+  const byKey = (k: StepActionKey) => descriptors.find((d) => d.key === k)!;
+  const inlineActions = QUICK_ACTIONS.map(byKey).filter((d) => d.available);
+
+  // The open card's numbered strip: completing first, then every action.
+  // 1 to 9 run them while the card is open. Postpone here is the general
+  // form: any amount or day.
+  const strip: (Omit<ActionDesc, "key"> & { key: StepActionKey | "complete" })[] = [
+    {
+      key: "complete" as const,
+      available: true,
+      label: step.completed ? "Mark not done" : "Complete",
+      icon: <Check className="w-4 h-4" />,
+      onClick: () => onToggle(step._id),
+    },
+    ...DETAIL_ACTIONS.map(byKey)
+      .filter((d) => d.available)
+      .map((d) =>
+        d.key === "postpone"
+          ? { ...d, label: "Postpone…", onClick: () => setPostponing((v) => !v) }
+          : d
+      ),
+  ].slice(0, 9);
 
   // First click on a confirm action arms it; second click runs it. Other clicks
   // run immediately and disarm any pending confirm.
-  const runAction = (d: ActionDesc, fromMenu: boolean) => {
-    if (d.confirm && confirmAction !== d.key) {
+  const runAction = (
+    d: Pick<ActionDesc, "confirm" | "onClick"> & { key: StepActionKey | "complete" }
+  ) => {
+    if (d.confirm && d.key !== "complete" && confirmAction !== d.key) {
       armConfirm(d.key);
       return; // keep the menu open so the second click is reachable
     }
     resetConfirm();
-    if (fromMenu) setMenuOpen(false);
+
     d.onClick();
   };
 
-  // Clicking the step body runs the page-configured action.
-  const handleStepClick =
-    clickAction && clickAction !== "none"
-      ? () => {
-          if (clickAction === "prioritize") onTogglePriority(step._id, step.prioritizedToday);
-          else if (clickAction === "play") {
-            if (onToggleTimer && !step.completed) onToggleTimer(step._id);
-          } else if (clickAction === "complete") onToggle(step._id);
-          else if (clickAction === "open") handleOpenActivity();
-        }
-      : undefined;
+  // Open card: number keys run the strip, Esc closes. Refs keep the window
+  // listener on the latest closures without re-binding every render.
+  const { open, reveal } = useStepExpansion(step._id);
+  const keyTarget = useRef({ strip, runAction });
+  useLayoutEffect(() => {
+    keyTarget.current = { strip, runAction };
+  });
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+      // A dialog or menu on top owns the keyboard.
+      if (document.querySelector('[role="dialog"], [role="menu"], [role="listbox"]')) return;
+      if (e.key === "Escape") {
+        setPostponing(false);
+        closeStep();
+        return;
+      }
+      const n = Number(e.key);
+      const { strip, runAction } = keyTarget.current;
+      if (Number.isInteger(n) && n >= 1 && n <= strip.length) {
+        e.preventDefault();
+        runAction(strip[n - 1]);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  const toggle = () => {
+    setPostponing(false);
+    toggleStep(step._id);
+  };
+
+  // Opened from the command bar: bring the card into view and focus it.
+  const cardRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open || !reveal) return;
+    cardRef.current?.scrollIntoView({ block: "center" });
+    cardRef.current?.focus({ preventScroll: true });
+    clearReveal();
+  }, [open, reveal]);
+
+  const isOverdue = !step.completed && step.dueDate && dueDateStatus === "overdue";
+  const showTimer =
+    !step.completed && !!onToggleTimer && (isTimerActive || (step.totalTimeSpentMs ?? 0) > 0);
+  const dueText = !step.dueDate
+    ? null
+    : dueDateStatus === "overdue"
+      ? formatRelativeDate(step.dueDate)
+      : `Due ${formatRelativeDate(step.dueDate).toLowerCase()}`;
 
   return (
     <>
-      <Card className={cardClasses}>
-        <CardContent className="p-3">
-          <div className="flex items-center space-x-3">
-            {/* Checkbox - larger, vertically centered */}
-            <button onClick={() => onToggle(step._id)} className="flex-shrink-0">
-              <div
-                className={`w-6 h-6 rounded border-2 flex items-center justify-center ${
-                  step.completed
-                    ? "bg-accent border-accent"
-                    : step.failed === true
-                      ? "bg-destructive border-destructive"
-                      : "border-muted-foreground hover:border-accent"
-                }`}
+      <div
+        ref={cardRef}
+        data-step-id={step._id}
+        tabIndex={0}
+        aria-expanded={open}
+        onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            toggle();
+          }
+        }}
+        className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <Card className={cn(cardClasses, open && "shadow-elev-2")}>
+          <CardContent className="p-3">
+            <div className="flex items-center space-x-3">
+              {/* Checkbox - larger, vertically centered */}
+              <button
+                onClick={() => onToggle(step._id)}
+                aria-label={step.completed ? "Mark not done" : "Complete"}
+                className="flex-shrink-0 rounded"
               >
-                {step.completed && <Check className="w-4 h-4 text-accent-foreground" />}
-                {step.failed === true && <X className="w-4 h-4 text-destructive-foreground" />}
-              </div>
-            </button>
+                <div
+                  className={`w-6 h-6 rounded border-2 flex items-center justify-center ${
+                    step.completed
+                      ? "bg-accent border-accent"
+                      : step.failed === true
+                        ? "bg-destructive border-destructive"
+                        : "border-muted-foreground hover:border-accent"
+                  }`}
+                >
+                  {step.completed && <Check className="w-4 h-4 text-accent-foreground" />}
+                  {step.failed === true && <X className="w-4 h-4 text-destructive-foreground" />}
+                </div>
+              </button>
 
-            {/* Middle: Content area (title + description + path). Clicking it
-                runs the page-configured action (prioritize / play / complete). */}
-            <div
-              className={`flex-1 min-w-0 ${handleStepClick ? "cursor-pointer select-none" : ""}`}
-              onClick={handleStepClick}
-            >
-              {/* Row 1: Title */}
-              <div className="flex items-center space-x-2 min-w-0">
+              {/* Middle: title and one quiet meta line. Clicking opens the
+                card's details. */}
+              <div
+                // The reading area: at most 800px, the actions follow it.
+                className="flex-1 min-w-0 max-w-[50rem] cursor-pointer select-none"
+                onClick={toggle}
+              >
                 <span
-                  className={`font-medium min-w-0 [overflow-wrap:anywhere] ${
+                  className={`block type-step min-w-0 [overflow-wrap:anywhere] ${
                     step.completed
                       ? "line-through text-muted-foreground"
                       : step.failed === true
-                        ? "line-through text-destructive"
+                        ? "line-through text-destructive-ink"
                         : ""
                   }`}
                 >
                   {step.title}
                 </span>
-              </div>
 
-              {/* Row 2: Description (if any) */}
-              {step.description && (
-                <p className="text-sm text-muted-foreground mt-1 [overflow-wrap:anywhere]">
-                  {step.description}
-                </p>
-              )}
-
-              {/* Badges row - all metadata tags in one wrapping line */}
-              {(step.pathId ||
-                step.path ||
-                step.routineId ||
-                (!step.completed &&
-                  (step.dueDate ||
-                    (showStartDateBadge && step.startDate) ||
-                    (onToggleTimer &&
-                      (isTimerActive ||
-                        (step.totalTimeSpentMs && step.totalTimeSpentMs > 0)))))) && (
-                <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                  {/* Path badge */}
-                  {(step.pathId || step.path) && (
-                    <Badge variant="secondary" size="sm" icon={<Target className="w-3 h-3" />}>
-                      {step.path?.title ?? ""}
-                    </Badge>
-                  )}
-                  {/* Routine badge */}
-                  {step.routineId && (
-                    <Badge variant="secondary" size="sm" icon={<Repeat className="w-3 h-3" />}>
-                      Routine
-                    </Badge>
-                  )}
-                  {/* Due date badges (only when not completed) */}
-                  {!step.completed && step.dueDate && dueDateStatus === "overdue" && (
-                    <Badge variant="destructive" size="sm" icon={<Clock className="w-3 h-3" />}>
-                      {formatRelativeDate(step.dueDate)}
-                    </Badge>
-                  )}
-                  {!step.completed && step.dueDate && dueDateStatus === "due-soon" && (
-                    <Badge variant="warning" size="sm" icon={<Clock className="w-3 h-3" />}>
-                      Due {formatRelativeDate(step.dueDate).toLowerCase()}
-                    </Badge>
-                  )}
-                  {!step.completed && step.dueDate && dueDateStatus === "upcoming" && (
-                    <Badge variant="secondary" size="sm" icon={<Clock className="w-3 h-3" />}>
-                      Due {formatRelativeDate(step.dueDate).toLowerCase()}
-                    </Badge>
-                  )}
-                  {/* Start date badge */}
-                  {!step.completed && showStartDateBadge && step.startDate && (
-                    <Badge variant="secondary" size="sm" icon={<Calendar className="w-3 h-3" />}>
-                      {formatRelativeDate(step.startDate, true)}
-                    </Badge>
-                  )}
-                  {/* Timer badge - clickable to open time edit dialog */}
-                  {!step.completed &&
-                    onToggleTimer &&
-                    (isTimerActive || (step.totalTimeSpentMs && step.totalTimeSpentMs > 0)) &&
-                    (onSetTotalTime ? (
+                {(step.path ||
+                  step.routineId ||
+                  (!step.completed && step.dueDate) ||
+                  showTimer ||
+                  (!step.completed && showStartDateBadge && step.startDate)) && (
+                  // Tags at regular weight, so the title leads.
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    {step.path && (
+                      <Badge
+                        variant="secondary"
+                        size="sm"
+                        className={TAG}
+                        icon={<Target className="h-3 w-3" />}
+                      >
+                        {step.path.title}
+                      </Badge>
+                    )}
+                    {step.routineId && (
+                      <Badge
+                        variant="secondary"
+                        size="sm"
+                        className={TAG}
+                        icon={<Repeat className="h-3 w-3" />}
+                      >
+                        Routine
+                      </Badge>
+                    )}
+                    {!step.completed && dueText && (
+                      <Badge
+                        variant={dueDateStatus === "due-soon" ? "warning" : "secondary"}
+                        size="sm"
+                        className={cn(TAG, isOverdue && "bg-destructive/10 text-destructive-ink")}
+                        icon={<Clock className="h-3 w-3" />}
+                      >
+                        {dueText}
+                      </Badge>
+                    )}
+                    {!step.completed && showStartDateBadge && step.startDate && (
+                      <Badge
+                        variant="secondary"
+                        size="sm"
+                        className={TAG}
+                        icon={<Calendar className="h-3 w-3" />}
+                      >
+                        {formatRelativeDate(step.startDate, true)}
+                      </Badge>
+                    )}
+                    {showTimer && (
+                      // Opens the time log, where the sessions live.
                       <button
                         type="button"
+                        aria-label="Open time log"
                         onClick={(e) => {
                           e.stopPropagation();
-                          e.preventDefault();
-                          setShowTimeEdit(true);
+                          handleOpenTimeEntry();
                         }}
-                        className="cursor-pointer hover:opacity-80 transition-opacity"
+                        className="transition-opacity hover:opacity-80"
                       >
-                        <Badge variant="secondary" size="sm" icon={<Timer className="w-3 h-3" />}>
+                        <Badge
+                          variant="secondary"
+                          size="sm"
+                          className={cn(TAG, "tabular-nums")}
+                          icon={<Timer className="h-3 w-3" />}
+                        >
                           {isTimerActive ? elapsedTime : formatDuration(step.totalTimeSpentMs || 0)}
                         </Badge>
                       </button>
-                    ) : (
-                      <Badge variant="secondary" size="sm" icon={<Timer className="w-3 h-3" />}>
-                        {isTimerActive ? elapsedTime : formatDuration(step.totalTimeSpentMs || 0)}
-                      </Badge>
-                    ))}
-                </div>
-              )}
+                    )}
+                  </div>
+                )}
+              </div>
 
-              {/* Footer: created / last-updated metadata. Toggle in Settings. */}
-              {showStepDates &&
-                step.createdAt != null &&
-                (() => {
-                  const created = Number(step.createdAt);
-                  const updated = Number(step.updatedAt);
-                  // Only surface "Updated" when it's meaningfully after creation.
-                  const showUpdated = Number.isFinite(updated) && updated - created > 60_000;
-                  return (
-                    <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 text-[11px] leading-tight text-muted-foreground">
-                      <span title={formatAbsoluteDateTime(created)}>
-                        Created {formatRelativePast(created)}
-                      </span>
-                      {showUpdated && (
-                        <>
-                          <span aria-hidden="true">·</span>
-                          <span title={formatAbsoluteDateTime(updated)}>
-                            Updated {formatRelativePast(updated)}
-                          </span>
-                        </>
-                      )}
-                    </div>
+              {/* Right: the fixed quick buttons. */}
+              <div className="flex items-center space-x-1 flex-shrink-0">
+                {inlineActions.map((d) => {
+                  const armed = confirmAction === d.key;
+                  const power = d.power;
+                  const openPower = () => {
+                    resetConfirm();
+                    setPowerOpen(d.key);
+                  };
+                  const btn = (
+                    <IconButton
+                      icon={armed ? <Check className="w-4 h-4 text-destructive-ink" /> : d.icon}
+                      aria-label={armed ? "Click again to confirm" : d.label}
+                      aria-keyshortcuts={power ? "Alt+Enter" : undefined}
+                      title={
+                        armed
+                          ? "Click again to confirm"
+                          : power
+                            ? `${d.label} · ⌥-click: ${power.hint}`
+                            : undefined
+                      }
+                      variant="ghost"
+                      size="icon-sm"
+                      className={armed ? "ring-1 ring-destructive" : undefined}
+                      onClick={(e) => {
+                        if (power && e.altKey) openPower();
+                        else runAction(d);
+                      }}
+                      onContextMenu={
+                        power
+                          ? (e) => {
+                              e.preventDefault();
+                              openPower();
+                            }
+                          : undefined
+                      }
+                      onKeyDown={
+                        power
+                          ? (e) => {
+                              if (e.key === "Enter" && e.altKey) {
+                                e.preventDefault();
+                                openPower();
+                              }
+                            }
+                          : undefined
+                      }
+                    />
                   );
-                })()}
+                  if (!power) {
+                    return (
+                      <span key={d.key} className="inline-flex">
+                        {btn}
+                      </span>
+                    );
+                  }
+                  return (
+                    <Popover.Root
+                      key={d.key}
+                      open={powerOpen === d.key}
+                      onOpenChange={(open) => setPowerOpen(open ? d.key : null)}
+                    >
+                      <Popover.Anchor asChild>
+                        <span className="inline-flex">{btn}</span>
+                      </Popover.Anchor>
+                      <Popover.Portal>
+                        <Popover.Content
+                          align="end"
+                          sideOffset={4}
+                          // React bubbles events through portals to the card.
+                          onClick={(e) => e.stopPropagation()}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          className="z-50 rounded-lg bg-popover p-3 shadow-elev-3 animate-in fade-in-0 zoom-in-95 duration-150"
+                        >
+                          {power.render(() => setPowerOpen(null))}
+                        </Popover.Content>
+                      </Popover.Portal>
+                    </Popover.Root>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Right: Action buttons. Each action is inline or in the "more"
-                menu per Settings, independently. */}
-            <div className="flex items-center space-x-1 flex-shrink-0">
-              {inlineActions.map((d) => {
-                const armed = confirmAction === d.key;
-                const btn = (
-                  <IconButton
-                    icon={armed ? <Check className="w-4 h-4 text-destructive" /> : d.icon}
-                    aria-label={armed ? "Click again to confirm" : d.label}
-                    title={armed ? "Click again to confirm" : undefined}
-                    variant="ghost"
-                    size="icon-sm"
-                    className={armed ? "ring-1 ring-destructive" : undefined}
-                    onClick={() => runAction(d, false)}
-                  />
-                );
-                return (
-                  <span key={d.key} className="inline-flex">
-                    {btn}
-                  </span>
-                );
-              })}
+            {open && (
+              // Lines up with the title: checkbox (1.5rem) plus the gap (0.75rem).
+              <div className="mt-3 space-y-3 pl-9">
+                {step.description && <StepDescription text={step.description} />}
 
-              {menuActions.length > 0 && (
-                <div className="relative" ref={menuRef}>
-                  <IconButton
-                    icon={<MoreHorizontal className="w-4 h-4 text-muted-foreground" />}
-                    aria-label="More actions"
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => setMenuOpen((o) => !o)}
-                  />
-                  {menuOpen && (
-                    <div className="absolute right-0 top-full z-50 mt-1 min-w-[10rem] rounded-lg border border-border bg-card py-1 shadow-lg">
-                      {menuActions.map((d) => {
-                        const armed = confirmAction === d.key;
-                        return (
-                          <button
-                            key={d.key}
-                            onClick={() => runAction(d, true)}
-                            className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-sm outline-none transition-colors focus-visible:bg-muted ${
-                              armed
-                                ? "text-destructive hover:bg-destructive/10"
-                                : "text-foreground hover:bg-muted"
-                            }`}
-                          >
-                            <span className="flex h-4 w-4 items-center justify-center">
-                              {d.icon}
-                            </span>
-                            {armed ? "Click again to fail" : d.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+                {showStepDates && step.createdAt != null && (
+                  <StepDates created={Number(step.createdAt)} updated={Number(step.updatedAt)} />
+                )}
+
+                <div className="flex flex-wrap gap-1.5" role="toolbar" aria-label="Step actions">
+                  {strip.map((d, i) => {
+                    const armed = confirmAction === d.key;
+                    return (
+                      <button
+                        key={d.key}
+                        type="button"
+                        aria-keyshortcuts={String(i + 1)}
+                        onClick={() => runAction(d)}
+                        className={cn(
+                          "inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 type-label transition-colors",
+                          armed
+                            ? "bg-destructive/10 text-destructive-ink"
+                            : d.key === "postpone" && postponing
+                              ? "bg-primary-light text-primary"
+                              : "bg-field text-foreground hover:bg-muted"
+                        )}
+                      >
+                        <kbd className="type-kbd text-muted-foreground">{i + 1}</kbd>
+                        <span className="flex h-4 w-4 items-center justify-center">{d.icon}</span>
+                        {armed ? "Press again to fail" : d.label}
+                      </button>
+                    );
+                  })}
                 </div>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+
+                {postponing && (
+                  <div
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        e.stopPropagation();
+                        setPostponing(false);
+                      }
+                    }}
+                  >
+                    <PostponeInput
+                      onApply={(dueDate) => {
+                        setPostponing(false);
+                        postponeTo(dueDate);
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Detail dialog: Details (edit form) | Activity (timesheet + audit log) */}
       <StepDialog
@@ -500,20 +627,10 @@ function StepCardComponent({
         paths={paths}
         open={dialog.open}
         initialTab={dialog.tab}
+        addTime={dialog.addTime}
         onOpenChange={(open) => setDialog((prev) => ({ ...prev, open }))}
         onSaveEdit={handleSaveEdit}
       />
-
-      {/* Time Edit Dialog */}
-      {onSetTotalTime && (
-        <TimeEditDialog
-          open={showTimeEdit}
-          onOpenChange={setShowTimeEdit}
-          currentTimeMs={step.totalTimeSpentMs || 0}
-          isTimerRunning={isTimerActive}
-          onApply={(newTotalMs) => onSetTotalTime(step._id, newTotalMs)}
-        />
-      )}
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
@@ -527,6 +644,49 @@ function StepCardComponent({
         onConfirm={handleDelete}
       />
     </>
+  );
+}
+
+/** The description, clamped to four lines when long. */
+function StepDescription({ text }: { text: string }) {
+  const [full, setFull] = useState(false);
+  const long = text.length > 280 || text.split("\n").length > 4;
+  return (
+    <div>
+      <p
+        className={cn(
+          "type-body text-muted-foreground whitespace-pre-wrap [overflow-wrap:anywhere]",
+          long && !full && "line-clamp-4"
+        )}
+      >
+        {text}
+      </p>
+      {long && (
+        <button
+          type="button"
+          onClick={() => setFull((f) => !f)}
+          className="mt-1 type-meta text-primary hover:underline"
+        >
+          {full ? "Show less" : "Show more"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Created, and updated when it is meaningfully after creation. */
+function StepDates({ created, updated }: { created: number; updated: number }) {
+  const showUpdated = Number.isFinite(updated) && updated - created > 60_000;
+  return (
+    <div className="flex flex-wrap items-center gap-x-1.5 type-meta text-muted-foreground">
+      <span title={formatAbsoluteDateTime(created)}>Created {formatRelativePast(created)}</span>
+      {showUpdated && (
+        <>
+          <span aria-hidden="true">·</span>
+          <span title={formatAbsoluteDateTime(updated)}>Updated {formatRelativePast(updated)}</span>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -554,8 +714,6 @@ export const StepCard = memo(StepCardComponent, (prevProps, nextProps) => {
     prevProps.onSaveEdit === nextProps.onSaveEdit &&
     prevProps.showStartDateBadge === nextProps.showStartDateBadge &&
     // Timer props
-    prevProps.onToggleTimer === nextProps.onToggleTimer &&
-    prevProps.onSetTotalTime === nextProps.onSetTotalTime &&
-    prevProps.clickAction === nextProps.clickAction
+    prevProps.onToggleTimer === nextProps.onToggleTimer
   );
 });

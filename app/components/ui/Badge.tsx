@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
 const badgeVariants = cva(
   [
     "inline-flex items-center rounded-full px-2.5 py-0.5",
-    "text-xs font-semibold",
+    "type-meta font-semibold",
     "transition-colors duration-150",
   ],
   {
@@ -14,12 +14,12 @@ const badgeVariants = cva(
         default: "bg-primary text-primary-foreground",
         secondary: "bg-primary-light text-primary",
         destructive: "bg-destructive text-destructive-foreground",
-        outline: "border border-input text-foreground",
-        warning: "bg-accent-light text-accent border border-accent/20",
+        outline: "bg-field text-foreground",
+        warning: "bg-accent-light text-accent-ink",
       },
       size: {
-        sm: "px-2 py-0.5 text-[10px]",
-        md: "px-2.5 py-0.5 text-xs",
+        sm: "px-2 py-0.5 type-meta",
+        md: "px-2.5 py-0.5 type-meta",
       },
     },
     defaultVariants: {

@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import type { Routine } from "@/types/index";
 import { useDeleteRoutine } from "@/lib/local-mutations";
-import { useData } from "@/contexts/DataContext";
+import { useLensedData } from "@/contexts/LensContext";
 import { reportError } from "@/lib/error-store";
 import { useToast } from "@/contexts/ToastContext";
 import { Button } from "@/components/ui/Button";
@@ -94,7 +94,7 @@ function formatNextOccurrence(timestamp: number | string | null | undefined): st
 
 export default function Routines() {
   const toast = useToast();
-  const { routines } = useData();
+  const { routines } = useLensedData();
 
   const deleteRoutineMutation = useDeleteRoutine();
 
@@ -126,11 +126,11 @@ export default function Routines() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Routines</h1>
+        <h1 className="type-page">Routines</h1>
         <Button onClick={openCreate} size="sm">
           <Plus className="w-4 h-4 mr-2" />
           New Routine
-          <kbd className="ml-2 hidden sm:inline-flex h-5 items-center rounded border border-primary-foreground/30 bg-primary-foreground/10 px-1.5 font-mono text-[10px]">
+          <kbd className="ml-2 hidden sm:inline-flex h-5 items-center rounded bg-primary-foreground/10 px-1.5 type-kbd">
             {formatKeybindDisplay(getKeybinds().quickCreateRoutine)}
           </kbd>
         </Button>
@@ -140,23 +140,23 @@ export default function Routines() {
       {routines && routines.length > 0 ? (
         <div className="space-y-3">
           {routines.map((routine: Routine) => (
-            <Card key={routine._id} className="hover:border-primary/50 transition-colors">
+            <Card key={routine._id} className="hover:shadow-elev-2 transition-shadow">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <Repeat className="w-4 h-4 text-primary flex-shrink-0" />
-                      <h3 className="font-medium truncate">{routine.title}</h3>
+                      <h3 className="type-title truncate">{routine.title}</h3>
                       {routine.autoPrioritize && (
                         <Star className="w-4 h-4 fill-primary text-primary flex-shrink-0" />
                       )}
                     </div>
                     {routine.description && (
-                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                      <p className="type-body text-muted-foreground mt-1 line-clamp-2">
                         {routine.description}
                       </p>
                     )}
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 type-meta text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
                         {formatSchedule(routine)}

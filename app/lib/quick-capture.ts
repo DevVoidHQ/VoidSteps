@@ -142,8 +142,9 @@ function weekdayIndex(text: string): number {
 
 /**
  * Reads an @token into YYYY-MM-DD. Accepts today/tomorrow/yesterday, weekday
- * names, weekend, nextweek, compact digits (22092001, 2209) and anything
- * parseLooseDate handles (22/09/2001, 2026-08-30, 22sep).
+ * names, weekend, nextweek, amounts from today (3d, 2w, 1m, +5d), compact
+ * digits (22092001, 2209) and anything parseLooseDate handles (22/09/2001,
+ * 2026-08-30, 22sep).
  */
 export function parseDateToken(input: string): string | undefined {
   const text = input.trim().toLowerCase();
@@ -161,6 +162,18 @@ export function parseDateToken(input: string): string | undefined {
     weekend: () => nextWeekday(6),
   };
   if (relative[text]) return relative[text]();
+
+  // Amounts count from today: 3d, 2w, 1m, with an optional leading "+".
+  const amount = text.match(/^\+?(\d{1,3})\s*(d|w|m)$/);
+  if (amount) {
+    const n = Number(amount[1]);
+    if (amount[2] === "m") {
+      const d = new Date(today);
+      d.setMonth(d.getMonth() + n);
+      return formatDateForInput(d.getTime());
+    }
+    return formatDateForInput(addDays(today, amount[2] === "w" ? n * 7 : n).getTime());
+  }
 
   const weekday = weekdayIndex(text);
   if (weekday !== -1) return nextWeekday(weekday);

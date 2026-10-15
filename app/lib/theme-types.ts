@@ -1,11 +1,13 @@
 /**
- * DevVoid brand model - every theme is 6 colors.
+ * DevVoid brand model - every theme is 4 colors.
  *
  * Source of truth per theme:
- *   background, foreground, primary, accent, primaryLight, accentLight
+ *   background, foreground, primary, accent
  *
- * All other UI tokens (card, popover, muted, border, destructive, secondary,
- * ring, input) are derived from these 6 at the Tailwind layer.
+ * Every other colour is derived in index.css and tailwind.config.js: the
+ * primary and accent tints (soft fills behind selected and active things),
+ * surfaces, fields, borders, muted text and shadows. Older themes carrying
+ * primaryLight/accentLight still load; those two fields are ignored.
  * Foreground colors for primary/accent (text-on-brand) are auto-computed
  * from luminance in applyTheme.
  *
@@ -18,8 +20,6 @@ export interface ThemeTokens {
   foreground: string;
   primary: string;
   accent: string;
-  primaryLight: string;
-  accentLight: string;
 }
 
 export type ThemeTokenKey = keyof ThemeTokens;

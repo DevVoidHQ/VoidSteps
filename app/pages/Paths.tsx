@@ -1,10 +1,10 @@
 import GraphView from "@/components/graph/GraphView";
 import { PathDeleteDialog } from "@/components/PathDeleteDialog";
 import QuickCapture from "@/components/QuickCapture";
-import WelcomeCard from "@/components/WelcomeCard";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useData } from "@/contexts/DataContext";
+import { useLensedData } from "@/contexts/LensContext";
 import { useToast } from "@/contexts/ToastContext";
 import { reportError } from "@/lib/error-store";
 import { formatKeybindDisplay, getKeybinds } from "@/lib/keybind-config";
@@ -32,7 +32,10 @@ import { useCallback, useMemo, useState } from "react";
 
 export default function Paths() {
   const toast = useToast();
-  const { activePaths, archivedPaths, allSteps } = useData();
+  // The graph, list and counts show the lens; moving and deleting paths work
+  // against every path.
+  const { activePaths: allActivePaths } = useData();
+  const { activePaths, archivedPaths, allSteps } = useLensedData();
 
   const updatePathMutation = useUpdatePath();
   const archivePathMutation = useArchivePath();
@@ -103,8 +106,8 @@ export default function Paths() {
     async (childId: string, parentId: string | null) => {
       try {
         await updatePathMutation({ id: childId, parentId });
-        const child = activePaths?.find((p) => p._id === childId);
-        const parent = parentId ? activePaths?.find((p) => p._id === parentId) : null;
+        const child = allActivePaths?.find((p) => p._id === childId);
+        const parent = parentId ? allActivePaths?.find((p) => p._id === parentId) : null;
         toast.success(
           parent
             ? `Nested "${child?.title}" under "${parent.title}"`
@@ -115,7 +118,7 @@ export default function Paths() {
         toast.error("Couldn't move that path (would create a loop?)");
       }
     },
-    [updatePathMutation, activePaths, toast]
+    [updatePathMutation, allActivePaths, toast]
   );
 
   const startEditPath = (path: Path) => {
@@ -183,7 +186,7 @@ export default function Paths() {
   return (
     <div className="flex flex-col h-[calc(100vh-7rem)]">
       <div className="flex items-center justify-between mb-4 shrink-0">
-        <h1 className="text-2xl font-bold tracking-tight">Paths</h1>
+        <h1 className="type-page">Paths</h1>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -200,14 +203,12 @@ export default function Paths() {
           <Button onClick={() => setIsCreateDialogOpen(true)} size="sm">
             <Plus className="w-4 h-4 mr-2" />
             New Path
-            <kbd className="ml-2 hidden sm:inline-flex h-5 items-center rounded border border-primary-foreground/30 bg-primary-foreground/10 px-1.5 font-mono text-[10px]">
+            <kbd className="ml-2 hidden sm:inline-flex h-5 items-center rounded bg-primary-foreground/10 px-1.5 type-kbd">
               {formatKeybindDisplay(getKeybinds().quickCreatePath)}
             </kbd>
           </Button>
         </div>
       </div>
-
-      <WelcomeCard className="mb-4 shrink-0" />
 
       <div className="flex flex-col md:flex-row flex-1 min-h-0 gap-4">
         {/* Graph canvas - primary view. Top half on mobile, left on desktop. */}
@@ -222,15 +223,15 @@ export default function Paths() {
 
         {/* Paths list - bottom on mobile, right side on desktop. */}
         {showList && (
-          <aside className="w-full flex-1 min-h-0 md:w-80 md:flex-none flex flex-col border-t border-border pt-3 md:border-t-0 md:border-l md:pt-0 md:pl-4">
+          <aside className="w-full flex-1 min-h-0 md:w-80 md:flex-none flex flex-col pt-3 md:pt-0 md:pl-4">
             <div className="flex items-center justify-between mb-3 shrink-0">
-              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <h2 className="type-overline text-muted-foreground">
                 {showArchived ? "Archived Paths" : "All paths"}
               </h2>
               {archivedCount > 0 && (
                 <button
                   onClick={() => setShowArchived(!showArchived)}
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  className="type-meta text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showArchived ? "Hide archived" : `Archived (${archivedCount})`}
                 </button>
@@ -247,7 +248,7 @@ export default function Paths() {
                   return (
                     <div
                       key={path._id}
-                      className={`rounded-lg border p-3 transition-colors ${isArchived ? "opacity-60 border-border" : "border-border hover:border-primary/50"}`}
+                      className={`rounded-lg bg-card shadow-elev-1 p-3 transition-shadow ${isArchived ? "opacity-60" : "hover:shadow-elev-2"}`}
                       style={{ marginLeft: `${depth * 12}px` }}
                     >
                       {isEditing ? (
@@ -259,7 +260,7 @@ export default function Paths() {
                               setEditPathForm({ ...editPathForm, title: e.target.value })
                             }
                             maxLength={MAX_TITLE_LENGTH}
-                            className="h-9 text-sm"
+                            className="h-9 type-body"
                           />
                           <Input
                             placeholder="Description (optional)"
@@ -268,7 +269,7 @@ export default function Paths() {
                               setEditPathForm({ ...editPathForm, description: e.target.value })
                             }
                             maxLength={MAX_DESCRIPTION_LENGTH}
-                            className="h-9 text-sm"
+                            className="h-9 type-body"
                           />
                           <div className="flex gap-2">
                             <Button
@@ -290,15 +291,15 @@ export default function Paths() {
                           <div className="flex items-start gap-2">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1.5">
-                                <h3 className="font-medium text-sm truncate">{path.title}</h3>
+                                <h3 className="type-title truncate">{path.title}</h3>
                                 {isArchived && (
-                                  <span className="text-[10px] px-1 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
+                                  <span className="type-meta px-1 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
                                     Archived
                                   </span>
                                 )}
                               </div>
                               {path.description && (
-                                <p className="text-xs text-muted-foreground truncate mt-0.5">
+                                <p className="type-meta text-muted-foreground truncate mt-0.5">
                                   {path.description}
                                 </p>
                               )}
@@ -347,10 +348,10 @@ export default function Paths() {
                               )}
                             </div>
                           </div>
-                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-2 text-[11px] text-muted-foreground">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-2 type-meta text-muted-foreground">
                             <span>{stats.completed} done</span>
                             <span>•</span>
-                            <span className="text-destructive">{stats.failed} failed</span>
+                            <span className="text-destructive-ink">{stats.failed} failed</span>
                             <span>•</span>
                             <span>{stats.incomplete} active</span>
                             {childCount > 0 && (
@@ -366,10 +367,8 @@ export default function Paths() {
                   );
                 })
               ) : (
-                <div className="text-xs text-muted-foreground text-center py-8">
-                  {showArchived
-                    ? "No archived paths"
-                    : "No paths yet. A path is a goal; its steps are what get it done. Create one above."}
+                <div className="type-meta text-muted-foreground text-center py-8">
+                  {showArchived ? "No archived paths" : "No paths yet. Create one above."}
                 </div>
               )}
             </div>
@@ -386,7 +385,7 @@ export default function Paths() {
           path={deleteDialogPath}
           stepsInPath={getStepsInPath(deleteDialogPath._id)}
           childPaths={getChildPaths(deleteDialogPath._id)}
-          allPaths={activePaths || []}
+          allPaths={allActivePaths || []}
           onConfirm={handleDeleteConfirm}
         />
       )}
